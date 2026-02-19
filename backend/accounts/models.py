@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 
 
 def normalize_email(email):
@@ -8,12 +8,30 @@ def normalize_email(email):
     return email.strip().lower()
 
 
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **kwargs):
+        if not email:
+            raise ValueError("Email é obrigatório.")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **kwargs)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **kwargs):
+        kwargs.setdefault("is_staff", True)
+        kwargs.setdefault("is_superuser", True)
+        return self.create_user(email, password, **kwargs)
+
+
 class User(AbstractUser):
     """User with email as main identifier (login)."""
     username = None
     email = models.EmailField("email", unique=True)
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
+
+    objects = UserManager()
 
     def save(self, *args, **kwargs):
         self.email = normalize_email(self.email)

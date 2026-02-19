@@ -1,0 +1,15 @@
+{
+  "name": "WorkSafety",
+  "short_name": "WorkSafety",
+  "start_url": "/app/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1329",
+  "icons": [
+    {
+      "src": "/static/webapp/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

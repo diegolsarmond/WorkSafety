@@ -23,6 +23,11 @@ class LogoutRequestSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True, write_only=True)
 
 
+class TokenRefreshResponseSerializer(serializers.Serializer):
+    """Resposta do endpoint de renovação de access token."""
+    access = serializers.CharField(read_only=True)
+
+
 # F17.1 — Gestão de usuários (admin)
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -73,6 +78,11 @@ class UserPatchSerializer(serializers.ModelSerializer):
 
 
 # F17.4 — Reset de senha (respostas genéricas para evitar enumeração)
+
+class DetailMessageSerializer(serializers.Serializer):
+    """Resposta genérica com mensagem (ex.: reset de senha)."""
+    detail = serializers.CharField(read_only=True)
+
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True, write_only=True)

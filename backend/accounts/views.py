@@ -5,6 +5,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAdminUser
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from django.conf import settings
@@ -18,9 +19,11 @@ from .serializers import (
     LoginRequestSerializer,
     LoginResponseSerializer,
     LogoutRequestSerializer,
+    TokenRefreshResponseSerializer,
     UserListSerializer,
     UserCreateSerializer,
     UserPatchSerializer,
+    DetailMessageSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
 )
@@ -32,6 +35,16 @@ MSG_LOCKED = "Muitas tentativas. Tente novamente mais tarde."
 MSG_INVALID_REQUEST = "Dados inválidos."
 
 
+@extend_schema(
+    tags=["auth"],
+    request=LoginRequestSerializer,
+    responses={
+        200: LoginResponseSerializer,
+        400: {"description": "Corpo inválido (email/senha ausentes ou inválidos)."},
+        401: {"description": "Credenciais inválidas."},
+        429: {"description": "Muitas tentativas. Tente novamente mais tarde."},
+    },
+)
 class LoginView(APIView):
     """POST /auth/login — email + password, returns JWT and user or 401/429."""
     authentication_classes = []
@@ -63,6 +76,15 @@ class LoginView(APIView):
         )
 
 
+@extend_schema(
+    tags=["auth"],
+    request=LogoutRequestSerializer,
+    responses={
+        204: {"description": "Refresh token invalidado com sucesso."},
+        400: {"description": "Corpo inválido (campo refresh ausente ou inválido)."},
+        401: {"description": "Token inválido ou já revogado."},
+    },
+)
 class LogoutView(APIView):
     """POST /auth/logout — body { \"refresh\": \"<token>\" }, blacklists refresh token. Returns 204."""
     authentication_classes = []
@@ -87,13 +109,58 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    tags=["auth"],
+    request=LogoutRequestSerializer,
+    responses={
+        200: TokenRefreshResponseSerializer,
+        401: {"description": "Refresh token inválido ou expirado."},
+        400: {"description": "Corpo inválido (campo refresh ausente)."},
+    },
+)
+class TokenRefreshView(SimpleJWTTokenRefreshView):
+    """POST /auth/token/refresh/ — body { \"refresh\": \"<token>\" }. Retorna novo access token."""
+
+
 # F17.1 — CRUD de usuários (apenas admin)
 
 @extend_schema_view(
-    list=extend_schema(description="Listar usuários (apenas admin)."),
-    retrieve=extend_schema(description="Detalhe do usuário (apenas admin)."),
-    create=extend_schema(description="Cadastrar usuário (apenas admin)."),
-    partial_update=extend_schema(description="Atualizar usuário (ex.: desativar com is_active=false). Apenas admin."),
+    list=extend_schema(
+        tags=["users"],
+        description="Listar usuários (apenas admin).",
+        responses={403: {"description": "Apenas administradores."}},
+    ),
+    retrieve=extend_schema(
+        tags=["users"],
+        description="Detalhe do usuário (apenas admin).",
+        responses={200: UserListSerializer, 403: {"description": "Apenas administradores."}, 404: {"description": "Usuário não encontrado."}},
+    ),
+    create=extend_schema(
+        tags=["users"],
+        description="Cadastrar usuário (apenas admin).",
+        request=UserCreateSerializer,
+        responses={
+            201: UserListSerializer,
+            400: {"description": "Dados inválidos (ex.: email já existe)."},
+            403: {"description": "Apenas administradores."},
+        },
+    ),
+    partial_update=extend_schema(
+        tags=["users"],
+        description="Atualizar usuário (ex.: desativar com is_active=false). Apenas admin.",
+        request=UserPatchSerializer,
+        responses={
+            200: UserListSerializer,
+            400: {"description": "Dados inválidos."},
+            403: {"description": "Apenas administradores."},
+            404: {"description": "Usuário não encontrado."},
+        },
+    ),
+    destroy=extend_schema(
+        tags=["users"],
+        description="Exclusão física desabilitada. Use PATCH com is_active=false para desativar.",
+        responses={405: {"description": "Use PATCH com is_active=false para desativar o usuário."}},
+    ),
 )
 class UserViewSet(ModelViewSet):
     """Listar, criar, ver detalhe e atualizar (PATCH) usuários. Apenas is_staff."""
@@ -135,8 +202,13 @@ def _normalize_email(email):
 
 
 @extend_schema(
+    tags=["auth"],
+    request=PasswordResetRequestSerializer,
     description="Solicitar redefinição de senha. Resposta sempre genérica (evita enumeração).",
-    responses={200: {"description": "Mensagem genérica"}},
+    responses={
+        200: DetailMessageSerializer,
+        400: {"description": "Corpo inválido (email ausente ou inválido)."},
+    },
 )
 class PasswordResetRequestView(APIView):
     """POST /auth/password-reset/ — envia link por email; resposta genérica sempre 200."""
@@ -171,8 +243,13 @@ class PasswordResetRequestView(APIView):
 
 
 @extend_schema(
+    tags=["auth"],
+    request=PasswordResetConfirmSerializer,
     description="Confirmar nova senha com token. Resposta genérica em sucesso ou falha.",
-    responses={200: {"description": "Senha alterada"}, 400: {"description": "Link inválido ou expirado"}},
+    responses={
+        200: DetailMessageSerializer,
+        400: {"description": "Link inválido ou expirado."},
+    },
 )
 class PasswordResetConfirmView(APIView):
     """POST /auth/password-reset/confirm/ — uidb64 + token + new_password; resposta genérica."""
