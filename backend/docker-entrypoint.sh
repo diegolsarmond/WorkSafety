@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 python manage.py migrate --noinput
+
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
+
 if [ "$DEBUG" = "True" ] || [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ]; then
     echo "Running in DEVELOPMENT mode (Django runserver)"
     exec python manage.py runserver 0.0.0.0:8000
