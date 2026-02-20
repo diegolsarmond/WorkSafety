@@ -166,7 +166,7 @@ export default function LoginPage() {
             SECURE ENVIRONMENT
           </div>
           <p className="text-[#9CA3AF] text-[11px] font-medium">
-            WorkSafety v2.1 • Official Gov Release
+            WorkSafety v1.0 • Official Gov Release
           </p>
         </div>
       </div>

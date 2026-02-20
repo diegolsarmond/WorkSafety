@@ -21,8 +21,10 @@ export class SecureStorage {
     const encryptedValue = this.encrypt(value);
     if (keepSignedIn) {
       localStorage.setItem(key, encryptedValue);
+      sessionStorage.removeItem(key);
     } else {
       sessionStorage.setItem(key, encryptedValue);
+      localStorage.removeItem(key);
     }
   }
 
