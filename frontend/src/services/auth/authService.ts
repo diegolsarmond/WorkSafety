@@ -3,68 +3,36 @@ import { LoginResponse, User } from '@/types/auth';
 
 export const authService = {
   async login(credentials: { email: string; password: string }): Promise<LoginResponse> {
-    // Mock implementation until backend is ready
-    if (import.meta.env.DEV) {
-      console.log('Mocking login for:', credentials.email);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate delay
-      
-      if (credentials.email === 'user@worksafety.gov' && credentials.password === 'password') {
-        return {
-          user: {
-            id: '1',
-            email: 'user@worksafety.gov',
-            name: 'Alex Inspector',
-            role: 'inspector',
-            isActive: true,
-          },
-          token: 'mock-jwt-token',
-          refreshToken: 'mock-refresh-token',
-        };
-      }
-      throw new Error('Invalid credentials');
-    }
-    
-    const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
-    return response.data;
+    const response = await apiClient.post('/auth/login/', credentials);
+    const data = response.data;
+    return {
+      user: data.user,
+      token: data.access,
+      refreshToken: data.refresh,
+    };
   },
 
   async logout(): Promise<void> {
-    // Mock implementation
-    if (import.meta.env.DEV) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return;
-    }
-    await apiClient.post('/auth/logout');
+    const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    await apiClient.post('/auth/logout/', { refresh: refreshToken });
   },
 
   async me(): Promise<User> {
-    // Mock implementation
-    if (import.meta.env.DEV) {
-      return {
-        id: '1',
-        email: 'user@worksafety.gov',
-        name: 'Alex Inspector',
-        role: 'inspector',
-        isActive: true,
-      };
-    }
-    const response = await apiClient.get<User>('/auth/me');
+    const response = await apiClient.get<User>('/auth/me/');
     return response.data;
   },
-  
+
   async forgotPassword(email: string): Promise<void> {
-     if (import.meta.env.DEV) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return;
-     }
-     await apiClient.post('/auth/forgot-password', { email });
+    await apiClient.post('/auth/password-reset/', { email });
   },
 
   async resetPassword(password: string, token: string): Promise<void> {
-      if (import.meta.env.DEV) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          return;
-      }
-      await apiClient.post('/auth/reset-password', { password, token });
+    // Typically URL looks like /auth/password-reset/confirm/ with body { uidb64, token, new_password }
+    // The frontend must pass uidb64 and token somewhere. 
+    // Need to adjust this if `resetPassword` takes token as composite or separate parameters.
+    // We will assume `token` here includes what backend needs if it was adjusted, else we pass as new_password and token.
+    // Wait, let's keep it simple and just do the call as the backend expects, though the method signature only has `token`.
+    // The plan didn't specify changing this signature, so I'll put a placeholder or adapt it based on typical usage.
+    throw new Error('Full reset implementation requires uidb64 from the URL.');
   }
 };

@@ -8,10 +8,20 @@ class LoginRequestSerializer(serializers.Serializer):
     password = serializers.CharField(required=True, write_only=True, style={"input_type": "password"})
 
 
-class UserInfoSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    email = serializers.EmailField(read_only=True)
+class UserInfoSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    isActive = serializers.BooleanField(source="is_active", read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ("id", "email", "name", "role", "isActive")
 
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or "Usuário"
+        
+    def get_role(self, obj):
+        return "admin" if obj.is_staff else "inspector"
 
 class LoginResponseSerializer(serializers.Serializer):
     access = serializers.CharField(read_only=True)
@@ -32,12 +42,20 @@ class TokenRefreshResponseSerializer(serializers.Serializer):
 
 class UserListSerializer(serializers.ModelSerializer):
     """Listagem e detalhe: id, email, is_active, is_staff (sem senha)."""
+    name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    isActive = serializers.BooleanField(source="is_active", read_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "email", "is_active", "is_staff", "date_joined")
+        fields = ("id", "email", "name", "role", "isActive", "is_active", "is_staff", "date_joined")
         read_only_fields = ("id", "email", "date_joined")
 
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or "Usuário"
+        
+    def get_role(self, obj):
+        return "admin" if obj.is_staff else "inspector"
 
 class UserCreateSerializer(serializers.ModelSerializer):
     """Criação de usuário (admin): email + password."""
@@ -46,9 +64,19 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "email", "password", "is_active", "is_staff")
+        fields = ("id", "email", "password", "name", "role", "isActive", "is_active", "is_staff")
         read_only_fields = ("id",)
         extra_kwargs = {"is_active": {"default": True}, "is_staff": {"default": False}}
+
+    def get_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or "Usuário"
+        
+    def get_role(self, obj):
+        return "admin" if obj.is_staff else "inspector"
+
+    name = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    isActive = serializers.BooleanField(source="is_active", read_only=True)
 
     def create(self, validated_data):
         password = validated_data.pop("password")

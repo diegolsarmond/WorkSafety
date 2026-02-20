@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
@@ -20,6 +20,7 @@ from .serializers import (
     LoginResponseSerializer,
     LogoutRequestSerializer,
     TokenRefreshResponseSerializer,
+    UserInfoSerializer,
     UserListSerializer,
     UserCreateSerializer,
     UserPatchSerializer,
@@ -121,6 +122,20 @@ class LogoutView(APIView):
 class TokenRefreshView(SimpleJWTTokenRefreshView):
     """POST /auth/token/refresh/ — body { \"refresh\": \"<token>\" }. Retorna novo access token."""
 
+@extend_schema(
+    tags=["auth"],
+    responses={
+        200: UserInfoSerializer,
+        401: {"description": "Não autorizado."},
+    },
+)
+class MeView(APIView):
+    """GET /auth/me/ — retorna os dados do usuário atualizado."""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        serializer = UserInfoSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # F17.1 — CRUD de usuários (apenas admin)
 
