@@ -98,7 +98,7 @@ def login(email: str, password: str) -> dict:
     data = {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
-        "user": {"id": user.id, "email": user.email},
+        "user": user,
     }
     return {
         "success": True,

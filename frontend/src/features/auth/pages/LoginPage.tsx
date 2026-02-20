@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/ui/components/Button';
 import { Input } from '@/ui/components/Input';
@@ -8,13 +8,13 @@ import { Eye, EyeOff, Mail, Lock, ShieldCheck } from 'lucide-react';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading } = useAuthStore();
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     keepSignedIn: false,
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,22 +23,41 @@ export default function LoginPage() {
     setError(null);
 
     if (!formData.email || !formData.password) {
-      setError('Please fill in all fields');
+      setError('Por favor, preencha todos os campos.');
       return;
     }
 
     try {
       await login({ email: formData.email, password: formData.password }, formData.keepSignedIn);
       navigate('/home');
-    } catch (err) {
-      setError('Invalid credentials. Please try again.');
+    } catch (err: any) {
+      const data = err.response?.data;
+      if (data) {
+        if (data.detail) {
+          setError(data.detail);
+        } else if (data.non_field_errors && data.non_field_errors.length > 0) {
+          setError(data.non_field_errors[0]);
+        } else if (typeof data === 'string') {
+          setError(data);
+        } else {
+          // If the error is an object with field-specific errors
+          const firstKey = Object.keys(data)[0];
+          if (firstKey && Array.isArray(data[firstKey])) {
+            setError(`${firstKey}: ${data[firstKey][0]}`);
+          } else {
+            setError('Credenciais inválidas. Por favor, tente novamente.');
+          }
+        }
+      } else {
+        setError('Credenciais inválidas. Por favor, tente novamente.');
+      }
     }
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-[#FAFAFA]">
       <div className="w-full max-w-md flex flex-col items-center min-h-[calc(100vh-48px)]">
-        
+
         {/* Logo */}
         <div className="flex flex-col items-center mt-12 mb-10">
           <div className="w-20 h-20 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-[24px] flex items-center justify-center shadow-lg shadow-[#0B7A90]/20 mb-6">
@@ -53,7 +72,7 @@ export default function LoginPage() {
           <div className="text-center space-y-2">
             <h2 className="text-[28px] font-bold text-[#111827]">Welcome Back</h2>
             <p className="text-[#6B7280] text-[15px] px-8 leading-relaxed">
-              Secure access for authorized<br/>inspectors & managers
+              Secure access for authorized<br />inspectors & managers
             </p>
           </div>
 
