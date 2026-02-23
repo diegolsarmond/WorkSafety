@@ -30,11 +30,11 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          {/* <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
             <CloudOff className="w-3.5 h-3.5" />
             OFFLINE
-          </button>
-          <button 
+          </button> */}
+          <button
             onClick={handleLogout}
             className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
           >
@@ -49,14 +49,14 @@ export default function HomePage() {
           {/* Background Pattern */}
           <div className="absolute right-0 top-0 opacity-20 pointer-events-none">
             <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M140 40H160V60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M160 140V160H140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M60 160H40V140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M40 60V40H60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M120 80C120 80 110 100 100 100C90 100 80 80 80 80" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="85" cy="70" r="4" fill="white"/>
-              <circle cx="115" cy="70" r="4" fill="white"/>
-              <path d="M170 30L175 25M175 25L180 30M175 25V35" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M140 40H160V60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M160 140V160H140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M60 160H40V140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M40 60V40H60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M120 80C120 80 110 100 100 100C90 100 80 80 80 80" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="85" cy="70" r="4" fill="white" />
+              <circle cx="115" cy="70" r="4" fill="white" />
+              <path d="M170 30L175 25M175 25L180 30M175 25V35" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
 
@@ -65,7 +65,7 @@ export default function HomePage() {
               <Plus className="w-6 h-6 text-white" />
             </button>
             <h2 className="text-[32px] leading-tight font-bold mb-3">
-              New<br/>Analysis
+              New<br />Analysis
             </h2>
             <p className="text-[#85D1DF] text-[15px] mb-8 max-w-[200px] leading-relaxed">
               Start an AI risk analysis in seconds.
@@ -75,7 +75,7 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
-        
+
         {/* Pending Analysis */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
@@ -84,7 +84,7 @@ export default function HomePage() {
               3 PENDING
             </span>
           </div>
-          
+
           <div className="space-y-4">
             {/* Card 1 */}
             <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between">
