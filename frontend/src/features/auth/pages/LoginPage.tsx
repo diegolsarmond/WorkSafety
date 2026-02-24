@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError(null);
 
     if (!formData.email || !formData.password) {
-      setError('Por favor, preencha todos os campos.');
+      setError('Please fill in all fields.');
       return;
     }
 
@@ -45,11 +45,11 @@ export default function LoginPage() {
           if (firstKey && Array.isArray(data[firstKey])) {
             setError(`${firstKey}: ${data[firstKey][0]}`);
           } else {
-            setError('Credenciais inválidas. Por favor, tente novamente.');
+            setError('Invalid credentials. Please try again.');
           }
         }
       } else {
-        setError('Credenciais inválidas. Por favor, tente novamente.');
+        setError('Invalid credentials. Please try again.');
       }
     }
   };
