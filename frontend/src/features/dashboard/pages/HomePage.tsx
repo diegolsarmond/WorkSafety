@@ -2,10 +2,29 @@ import { Button } from '@/ui/components/Button';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { apiClient } from '@/services/api/apiClient';
 
 export default function HomePage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [pendingAssessments, setPendingAssessments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        const response = await apiClient.get('/assessments/');
+        const drafts = response.data.filter((a: any) => a.status === 'draft');
+        setPendingAssessments(drafts);
+      } catch (error) {
+        console.error("Failed to fetch assessments:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAssessments();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -30,10 +49,6 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-            <CloudOff className="w-3.5 h-3.5" />
-            OFFLINE
-          </button> */}
           <button
             onClick={handleLogout}
             className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
@@ -46,7 +61,6 @@ export default function HomePage() {
       <main className="px-4 py-6 max-w-md mx-auto">
         {/* Hero Card */}
         <div className="relative overflow-hidden rounded-[32px] bg-[#0B7A90] p-8 text-white shadow-xl shadow-[#0B7A90]/20 mb-8">
-          {/* Background Pattern */}
           <div className="absolute right-0 top-0 opacity-20 pointer-events-none">
             <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M140 40H160V60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
@@ -87,91 +101,73 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-[19px] font-bold text-[#111827]">Pending Analysis</h3>
             <span className="px-3 py-1 bg-gray-100 text-[#4B5563] text-[11px] font-bold rounded-full tracking-wider">
-              3 PENDING
+              {loading ? "..." : `${pendingAssessments.length} PENDING`}
             </span>
           </div>
 
           <div className="space-y-4">
-            {/* Card 1 */}
-            <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-[52px] h-[52px] rounded-2xl bg-[#FFF3E0] flex items-center justify-center text-[#F57C00]">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-[#111827] text-[16px]">North Sector</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      10/01
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                    <span className="text-[13px] font-semibold text-gray-500">Not synced</span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-[#F5A623]">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-            </div>
+            {loading ? (
+              <p className="text-gray-500 text-sm text-center py-8">Carregando análises...</p>
+            ) : pendingAssessments.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8">Nenhuma análise pendente.</p>
+            ) : (
+              pendingAssessments.map((assessment) => {
+                // Parse 'Inspection - Environment - Category'
+                const parts = assessment.title.split(' - ');
+                const environment = parts[1] || 'Unknown';
 
-            {/* Card 2 */}
-            <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-[52px] h-[52px] rounded-2xl bg-[#E3F2FD] flex items-center justify-center text-[#1976D2]">
-                  <Factory className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-[#111827] text-[16px]">Assembly</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      09/01
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                    <span className="text-[13px] font-semibold text-gray-500">Not synced</span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-[#F5A623]">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-            </div>
+                const dateObj = new Date(assessment.created_at);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const formattedDate = `${day}/${month}`;
 
-            {/* Card 3 */}
-            <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-[52px] h-[52px] rounded-2xl bg-[#F3F4F6] flex items-center justify-center text-[#4B5563]">
-                  <Box className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-[#111827] text-[16px]">External</h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      08/01
-                    </span>
+                let Icon = Building2;
+                let bgClass = "bg-[#FFF3E0]";
+                let textClass = "text-[#F57C00]";
+
+                if (environment.toLowerCase().includes('construction') || environment.toLowerCase().includes('obra')) {
+                  Icon = Building2;
+                  bgClass = "bg-[#FFF3E0]";
+                  textClass = "text-[#F57C00]";
+                } else if (environment.toLowerCase().includes('industry') || environment.toLowerCase().includes('indústria')) {
+                  Icon = Factory;
+                  bgClass = "bg-[#E3F2FD]";
+                  textClass = "text-[#1976D2]";
+                } else {
+                  Icon = Box;
+                  bgClass = "bg-[#F3F4F6]";
+                  textClass = "text-[#4B5563]";
+                }
+
+                return (
+                  <div key={assessment.id} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between transition-transform active:scale-95 cursor-pointer">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-[52px] h-[52px] rounded-2xl ${bgClass} flex items-center justify-center ${textClass}`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-[#111827] text-[16px] capitalize">{environment}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {formattedDate}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                          <span className="text-[13px] font-semibold text-gray-500">Not synced</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-[#F5A623]">
+                      <AlertTriangle className="w-6 h-6" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                    <span className="text-[13px] font-semibold text-gray-500">Not synced</span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-[#F5A623]">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-            </div>
+                );
+              })
+            )}
           </div>
         </div>
       </main>
