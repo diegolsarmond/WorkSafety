@@ -13,7 +13,7 @@ import { apiClient } from '@/services/api/apiClient';
 
 export function Syncing() {
   const navigate = useNavigate();
-  const { photos, setStatus } = useInspectionStore();
+  const { photos, setStatus, environment, category } = useInspectionStore();
   const [step, setStep] = useState(0);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -42,8 +42,16 @@ export function Syncing() {
       setStep(0);
 
       try {
-        // Step 1: Upload photos
+        // Step 1: Create Assessment and Upload photos
         if (photos.length > 0) {
+          // First create the assessment
+          const createResponse = await apiClient.post('/assessments/', {
+            title: `Inspection - ${environment} - ${category}`,
+            description: `Automated inspection for ${environment} concerning ${category}.`,
+            status: 'draft'
+          });
+          const assessmentId = createResponse.data.id;
+
           const formData = new FormData();
           photos.forEach((photo, index) => {
             const file = dataURLtoFile(photo.dataUrl, `evidence_${photo.id}.jpg`);
@@ -51,8 +59,8 @@ export function Syncing() {
             formData.append('timestamps', photo.timestamp);
           });
 
-          // Hardcoded assessment ID 1 for now, assuming creation happens beforehand
-          await apiClient.post('/assessments/1/evidences/', formData, {
+          // Upload evidences to the new assessment
+          await apiClient.post(`/assessments/${assessmentId}/evidences/`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
         }

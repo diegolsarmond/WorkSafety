@@ -8,6 +8,9 @@ import ProtectedRoute from '@/features/auth/components/ProtectedRoute';
 import { NewInspection } from '@/features/inspection/NewInspection';
 import { CameraCapture } from '@/features/inspection/CameraCapture';
 import { ReviewPhotos } from '@/features/inspection/ReviewPhotos';
+import { Syncing } from '@/features/inspection/Syncing';
+import { RisksDetected } from '@/features/inspection/RisksDetected';
+import { ReviewValidation } from '@/features/inspection/ReviewValidation';
 
 export default function AppRouter() {
   return (
@@ -49,6 +52,33 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <ReviewPhotos />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inspection/syncing"
+          element={
+            <ProtectedRoute>
+              <Syncing />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inspection/risks"
+          element={
+            <ProtectedRoute>
+              <RisksDetected />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/inspection/validation"
+          element={
+            <ProtectedRoute>
+              <ReviewValidation />
             </ProtectedRoute>
           }
         />

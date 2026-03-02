@@ -1,0 +1,12 @@
+src/features/auth/pages/ForgotPasswordPage.tsx(14,34): error TS2503: Cannot find namespace 'React'.
+src/features/auth/pages/ResetPasswordPage.tsx(22,34): error TS2503: Cannot find namespace 'React'.
+src/features/inspection/CameraCapture.tsx(5,30): error TS2307: Cannot find module 'uuid' or its corresponding type declarations.
+src/features/inspection/NewInspection.tsx(4,24): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/features/inspection/NewInspection.tsx(6,20): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/features/inspection/ReviewPhotos.tsx(4,24): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/features/inspection/ReviewValidation.tsx(4,24): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/features/inspection/RisksDetected.tsx(4,24): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/features/inspection/Syncing.tsx(11,24): error TS2307: Cannot find module '../../ui/Button' or its corresponding type declarations.
+src/ui/components/Button.tsx(2,10): error TS2440: Import declaration conflicts with local declaration of 'cn'.
+src/ui/components/Button.tsx(12,14): error TS2451: Cannot redeclare block-scoped variable 'Button'.
+src/ui/components/Button.tsx(59,14): error TS2451: Cannot redeclare block-scoped variable 'Button'.

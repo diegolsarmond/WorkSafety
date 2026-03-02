@@ -5,10 +5,27 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import RiskAssessment, Evidence
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from .serializers import EvidenceUploadSerializer, EvidenceSerializer
+from rest_framework.generics import ListCreateAPIView
+from rest_framework.permissions import IsAuthenticated
+
+from .serializers import EvidenceUploadSerializer, EvidenceSerializer, RiskAssessmentSerializer
+
+@extend_schema(tags=["Assessments"])
+class RiskAssessmentListCreateView(ListCreateAPIView):
+    """
+    List or create Risk Assessments.
+    """
+    queryset = RiskAssessment.objects.all()
+    serializer_class = RiskAssessmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 @extend_schema_view(
     post=extend_schema(
+        tags=["Assessments"],
         summary="Upload Images (Evidences)",
         description="Uploads up to 10 images with an optional ISO 8601 timestamp for a RiskAssessment. Ensures idempotency based on standard hashing (SHA-256) of each image.",
         request=EvidenceUploadSerializer,

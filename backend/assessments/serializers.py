@@ -1,6 +1,13 @@
 from rest_framework import serializers
 from .models import Evidence, RiskAssessment
 
+class RiskAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskAssessment
+        fields = ['id', 'created_by', 'status', 'title', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+
 class EvidenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evidence
