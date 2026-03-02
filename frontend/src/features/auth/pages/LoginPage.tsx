@@ -115,7 +115,7 @@ export default function LoginPage() {
                   rightElement={
                     <button
                       type="button"
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none p-1"
+                      className="text-gray-500 hover:text-gray-700 focus:outline-none h-11 w-11 flex items-center justify-center"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? <EyeOff className="w-[22px] h-[22px]" /> : <Eye className="w-[22px] h-[22px]" />}
@@ -125,7 +125,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center pt-2 pb-2">
+            <div className="flex items-center pt-3 pb-3">
               <div className="relative flex items-center justify-center w-5 h-5">
                 <input
                   id="remember-me"
@@ -165,7 +165,7 @@ export default function LoginPage() {
             <ShieldCheck className="w-[14px] h-[14px] mr-1.5" />
             SECURE ENVIRONMENT
           </div>
-          <p className="text-[#9CA3AF] text-[11px] font-medium">
+          <p className="text-[#6B7280] text-[11px] font-medium">
             WorkSafety v1.0 • Official Gov Release
           </p>
         </div>

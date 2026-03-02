@@ -105,7 +105,7 @@ export default function ResetPasswordPage() {
               rightElement={
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none p-1"
+                  className="text-gray-500 hover:text-gray-700 focus:outline-none h-11 w-11 flex items-center justify-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="w-[22px] h-[22px]" /> : <Eye className="w-[22px] h-[22px]" />}
@@ -127,7 +127,7 @@ export default function ResetPasswordPage() {
               rightElement={
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none p-1"
+                  className="text-gray-500 hover:text-gray-700 focus:outline-none h-11 w-11 flex items-center justify-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? <EyeOff className="w-[22px] h-[22px]" /> : <Eye className="w-[22px] h-[22px]" />}

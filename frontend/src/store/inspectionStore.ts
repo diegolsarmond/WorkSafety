@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+import { get, set, del } from 'idb-keyval';
 
 export interface Photo {
   id: string;
@@ -20,6 +21,19 @@ export interface InspectionState {
   reset: () => void;
 }
 
+// Custom storage object for idb-keyval
+const idbStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    return (await get(name)) || null;
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await set(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await del(name);
+  },
+};
+
 export const useInspectionStore = create<InspectionState>()(
   persist(
     (set) => ({
@@ -36,7 +50,7 @@ export const useInspectionStore = create<InspectionState>()(
     }),
     {
       name: 'inspection-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => idbStorage),
     }
   )
 );

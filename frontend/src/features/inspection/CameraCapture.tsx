@@ -1,34 +1,96 @@
-import React, { useRef, useCallback, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Webcam from "react-webcam";
-import { ArrowLeft, Shield, Eye, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera } from "lucide-react";
 
 import { useInspectionStore } from "../../store/inspectionStore";
 
-const WebcamComponent = Webcam as any;
-
 export function CameraCapture() {
   const navigate = useNavigate();
-  const webcamRef = useRef<Webcam>(null);
   const { photos, addPhoto } = useInspectionStore();
   const [privacyMode, setPrivacyMode] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
-  const capture = useCallback(() => {
-    if (photos.length >= 10) {
-      alert("Maximum 10 photos allowed per inspection.");
-      return;
-    }
+  const processAndSaveImage = (file: File) => {
+    setProcessing(true);
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
 
-    const imageSrc = webcamRef.current?.getScreenshot();
-    if (imageSrc) {
-      addPhoto({
-        id: crypto.randomUUID(),
-        dataUrl: imageSrc,
-        timestamp: new Date().toISOString(),
-      });
-      navigate("/inspection/review");
+    img.onload = () => {
+      // Resolution minimum: 1280x720
+      const minWidth = 1280;
+      const minHeight = 720;
+
+      let width = img.width;
+      let height = img.height;
+
+      // Ensure minimum resolution boundaries (scaling up if needed)
+      if (width < minWidth || height < minHeight) {
+        const scaleX = minWidth / width;
+        const scaleY = minHeight / height;
+        const scale = Math.max(scaleX, scaleY);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      // To prevent extremely huge base64 strings and memory issues, we cap max resolution
+      // maintaining aspect ratio, but ensuring it stays above 1280x720.
+      const MAX_SIZE = 1920;
+      if (width > MAX_SIZE || height > MAX_SIZE) {
+        const scale = Math.min(MAX_SIZE / width, MAX_SIZE / height);
+        // Only scale down if the scaled down version still meets minimum requirements
+        if (width * scale >= minWidth && height * scale >= minHeight) {
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        // Compress JPEG slightly to save storage space
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+        addPhoto({
+          id: crypto.randomUUID(),
+          dataUrl: dataUrl,
+          timestamp: new Date().toISOString(),
+        });
+
+        URL.revokeObjectURL(objectUrl);
+        setProcessing(false);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000); // Visual confirmation hides after 2s
+      } else {
+        URL.revokeObjectURL(objectUrl);
+        setProcessing(false);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      setProcessing(false);
+    };
+
+    img.src = objectUrl;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (photos.length >= 10) {
+        alert("Maximum 10 photos allowed per inspection.");
+        return;
+      }
+      processAndSaveImage(file);
     }
-  }, [webcamRef, addPhoto, navigate, photos.length]);
+    // reset value so the same file can be selected again if needed
+    e.target.value = '';
+  };
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col">
@@ -43,41 +105,53 @@ export function CameraCapture() {
         <div className="flex flex-col items-end gap-2">
           <button
             onClick={() => setPrivacyMode(!privacyMode)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold ${privacyMode ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/10 text-white"}`}
+            className={`flex items-center min-h-[44px] gap-2 px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold ${privacyMode ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/10 text-white"}`}
           >
             <Shield className="w-4 h-4" />
             PRIVACY MODE {privacyMode ? "ON" : "OFF"}
           </button>
           {privacyMode && (
-            <p className="text-xs text-white/70 text-right max-w-[200px]">
+            <p className="text-xs text-white/90 text-right max-w-[200px]">
               Identified faces will be automatically blurred (GDPR).
             </p>
           )}
         </div>
       </div>
 
-      <div className="flex-1 relative overflow-hidden">
-        <WebcamComponent
-          audio={false}
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          videoConstraints={{ facingMode: "environment" }}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+      <div className="flex-1 relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
+        {showSuccess && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-teal-500/95 text-white p-6 rounded-3xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 z-50 shadow-2xl">
+            <CheckCircle className="w-16 h-16" />
+            <p className="font-bold text-xl">Foto Capturada!</p>
+          </div>
+        )}
+
+        <Camera className="w-24 h-24 text-white/20 mb-6" />
+        <h2 className="text-2xl text-white font-bold mb-2">Câmera Nativa</h2>
+        <p className="text-white/60 mb-12 max-w-xs">
+          Toque no botão de captura abaixo para abrir a câmera do seu dispositivo.
+        </p>
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-6">
-        <div className="flex items-center justify-between w-full max-w-xs">
-          <button className="p-4 rounded-full bg-white/10 text-white">
+        <div className="flex items-center justify-between w-full max-w-xs z-20">
+          <button className="p-4 rounded-full bg-white/10 text-white opacity-50 cursor-not-allowed">
             <Eye className="w-6 h-6" />
           </button>
 
-          <button
-            onClick={capture}
-            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center"
-          >
-            <div className="w-16 h-16 rounded-full bg-white"></div>
-          </button>
+          <label className="relative cursor-pointer transition-transform active:scale-95">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              disabled={processing || photos.length >= 10}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              onChange={handleFileChange}
+            />
+            <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-colors ${processing ? 'border-teal-500/50' : 'border-white'}`}>
+              <div className={`w-16 h-16 rounded-full transition-all ${processing ? 'bg-teal-500 animate-pulse' : 'bg-white'}`}></div>
+            </div>
+          </label>
 
           <button
             onClick={() => navigate("/inspection/review")}
@@ -92,8 +166,8 @@ export function CameraCapture() {
           </button>
         </div>
 
-        <p className="text-sm text-white/50 font-medium">
-          AI: Object Detection (Perseu) Enabled
+        <p className="text-sm text-white/80 font-medium z-20">
+          {processing ? 'Processando imagem...' : 'AI: Object Detection (Perseu) Enabled'}
         </p>
       </div>
     </div>

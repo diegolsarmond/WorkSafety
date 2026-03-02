@@ -16,7 +16,10 @@ export function Syncing() {
   const { photos, setStatus, environment, category } = useInspectionStore();
   const [step, setStep] = useState(0);
   const [error, setError] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+
+  const assessmentName = `Inspection - ${environment} - ${category}`;
 
   // Helper function to convert dataUrl to File
   const dataURLtoFile = (dataurl: string, filename: string) => {
@@ -39,6 +42,7 @@ export function Syncing() {
       if (!isMounted) return;
       setStatus("SYNCING");
       setError(false);
+      setSyncSuccess(false);
       setStep(0);
 
       try {
@@ -46,7 +50,7 @@ export function Syncing() {
         if (photos.length > 0) {
           // First create the assessment
           const createResponse = await apiClient.post('/assessments/', {
-            title: `Inspection - ${environment} - ${category}`,
+            title: assessmentName,
             description: `Automated inspection for ${environment} concerning ${category}.`,
             status: 'draft'
           });
@@ -77,7 +81,15 @@ export function Syncing() {
         if (!isMounted) return;
 
         setStatus("AI_REVIEWED");
-        navigate("/inspection/risks");
+        setSyncSuccess(true);
+        setStep(3); // Finished all steps
+
+        // Wait to show the success notification before navigating
+        setTimeout(() => {
+          if (isMounted) {
+            navigate("/inspection/risks");
+          }
+        }, 3000);
 
       } catch (err) {
         console.error("Sync error:", err);
@@ -92,7 +104,7 @@ export function Syncing() {
     return () => {
       isMounted = false;
     };
-  }, [navigate, setStatus, retryCount, photos]);
+  }, [navigate, setStatus, retryCount, photos, assessmentName, environment, category]);
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
@@ -106,20 +118,51 @@ export function Syncing() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 relative">
+
+      {/* ERROR NOTIFICATION (F21.2) */}
+      {error && (
+        <div className="fixed top-4 left-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-bold">Erro de Sincronização</h3>
+            <p className="text-sm mt-1">
+              Falha ao sincronizar a avaliação <strong>{assessmentName}</strong>.
+              Por favor, verifique sua conexão e clique em <em>Tentar Novamente</em>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS NOTIFICATION (F21.1) */}
+      {syncSuccess && (
+        <div className="fixed top-4 left-4 right-4 bg-emerald-100 border-l-4 border-emerald-500 text-emerald-800 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-bold">Sincronização Concluída</h3>
+            <p className="text-sm mt-1">
+              <strong>1</strong> avaliação sincronizada com sucesso.
+              Redirecionando...
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="w-32 h-32 bg-white rounded-full shadow-sm flex items-center justify-center mb-12 relative">
-        {!error && (
+        {!error && !syncSuccess && (
           <>
             <div className="absolute inset-0 border-4 border-teal-100 rounded-full animate-pulse"></div>
             <div className="absolute inset-0 border-4 border-teal-500 rounded-full border-t-transparent animate-spin"></div>
           </>
         )}
-        {error && (
-          <div className="absolute inset-0 border-4 border-red-500 rounded-full"></div>
+        {(error || syncSuccess) && (
+          <div className={`absolute inset-0 border-4 rounded-full ${syncSuccess ? 'border-emerald-500' : 'border-red-500'}`}></div>
         )}
-        <ImageIcon
-          className={`w-12 h-12 ${error ? "text-red-500" : "text-gray-300"}`}
-        />
+        {syncSuccess ? (
+          <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+        ) : (
+          <ImageIcon className={`w-12 h-12 ${error ? "text-red-500" : "text-gray-300"}`} />
+        )}
       </div>
 
       <div className="w-full max-w-sm space-y-6">
@@ -162,9 +205,16 @@ export function Syncing() {
         {error ? (
           <Button
             onClick={handleRetry}
-            className="w-full h-14 text-lg rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
+            className="w-full h-14 text-lg rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2 transition-all active:scale-95"
           >
-            <RefreshCw className="w-5 h-5" /> Retry Sync
+            <RefreshCw className="w-5 h-5" /> Tentar Novamente
+          </Button>
+        ) : syncSuccess ? (
+          <Button
+            onClick={() => navigate("/inspection/risks")}
+            className="w-full h-14 text-lg rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/30"
+          >
+            Continuar
           </Button>
         ) : (
           <div className="w-full bg-gray-200 rounded-xl h-14 flex items-center justify-center font-bold text-gray-500">

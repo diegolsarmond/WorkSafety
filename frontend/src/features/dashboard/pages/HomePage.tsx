@@ -17,7 +17,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white px-4 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button className="p-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button className="h-11 w-11 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center gap-2">
@@ -36,7 +36,7 @@ export default function HomePage() {
           </button> */}
           <button
             onClick={handleLogout}
-            className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
+            className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -101,7 +101,7 @@ export default function HomePage() {
                 <div>
                   <h4 className="font-bold text-[#111827] text-[16px]">North Sector</h4>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-400 flex items-center gap-1.5">
+                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -128,7 +128,7 @@ export default function HomePage() {
                 <div>
                   <h4 className="font-bold text-[#111827] text-[16px]">Assembly</h4>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-400 flex items-center gap-1.5">
+                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -155,7 +155,7 @@ export default function HomePage() {
                 <div>
                   <h4 className="font-bold text-[#111827] text-[16px]">External</h4>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[13px] text-gray-400 flex items-center gap-1.5">
+                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
