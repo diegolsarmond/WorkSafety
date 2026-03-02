@@ -1,0 +1,72 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Button } from '../../ui/Button';
+import { useInspectionStore } from '../../store/inspectionStore';
+
+export function ReviewValidation() {
+  const navigate = useNavigate();
+  const { photos, setStatus } = useInspectionStore();
+
+  const handleSave = () => {
+    setStatus('HUMAN_VALIDATED');
+    navigate('/home');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="flex items-center justify-between p-4 bg-white shadow-sm">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-gray-100">
+          <ArrowLeft className="w-6 h-6 text-gray-600" />
+        </button>
+        <h1 className="text-xl font-bold text-gray-900 mr-8">Review</h1>
+      </header>
+
+      <main className="flex-1 p-4 overflow-y-auto pb-24">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-[#0b6b82]">Case</h2>
+          <span className="text-2xl font-black text-gray-900">#12345</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {photos.slice(0, 2).map((photo, index) => (
+            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+              <img src={photo.dataUrl} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
+              <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-md">
+                #{index + 1}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-4">
+          <h2 className="text-sm font-bold text-gray-500 tracking-wider mb-4">ANALYSIS RESULT</h2>
+          
+          <button 
+            onClick={() => navigate('/inspection/risks')}
+            className="w-full bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">View Risks</span>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+              <ChevronRight className="w-6 h-6 text-gray-400" />
+            </div>
+          </button>
+        </div>
+      </main>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
+        <Button 
+          onClick={handleSave}
+          className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b]"
+        >
+          Save Validation
+        </Button>
+      </div>
+    </div>
+  );
+}
