@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, AlertTriangle, ShieldCheck, FileText, MapPin, XCircle, CheckCircle2, Send } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { Button } from '@/ui/components/Button';
 
 export function RisksDetected() {
   const navigate = useNavigate();
@@ -73,11 +73,10 @@ export function RisksDetected() {
                   <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
                     <MapPin className="w-4 h-4" /> {risk.location}
                   </div>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
-                    risk.severity === 'CRITICAL' ? 'bg-red-50 text-red-600' :
-                    risk.severity === 'HIGH' ? 'bg-orange-50 text-orange-600' :
-                    'bg-slate-100 text-slate-600'
-                  }`}>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider ${risk.severity === 'CRITICAL' ? 'bg-red-50 text-red-600' :
+                      risk.severity === 'HIGH' ? 'bg-orange-50 text-orange-600' :
+                        'bg-slate-100 text-slate-600'
+                    }`}>
                     {risk.severity}
                   </span>
                   <p className="mt-3 text-gray-700 font-medium">{risk.action}</p>
@@ -89,13 +88,13 @@ export function RisksDetected() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex gap-4">
-        <Button 
+        <Button
           variant="ghost"
           className="flex-1 h-14 text-lg text-red-500 hover:bg-red-50 font-bold"
         >
           <XCircle className="w-6 h-6 mr-2" /> Reject
         </Button>
-        <Button 
+        <Button
           onClick={handleConfirm}
           className="flex-1 h-14 text-lg bg-gray-100 text-gray-400 hover:bg-gray-200 font-bold border-none"
         >

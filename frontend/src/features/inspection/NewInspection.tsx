@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, Factory, HardHat, Check } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { Button } from '@/ui/components/Button';
 import { useInspectionStore } from '../../store/inspectionStore';
-import { cn } from '../../ui/Button';
+import { cn } from '@/utils/cn';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ export function NewInspection() {
             <h2 className="text-sm font-bold text-gray-500 tracking-wider">STEP 1: ENVIRONMENT</h2>
             <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-md">Mandatory</span>
           </div>
-          
+
           <div className="flex flex-col gap-3">
             {environments.map((env) => {
               const Icon = env.icon;
@@ -74,9 +74,9 @@ export function NewInspection() {
             <h2 className="text-sm font-bold text-gray-500 tracking-wider">STEP 2: CATEGORY</h2>
             <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">Standard</span>
           </div>
-          
+
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-            <select 
+            <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full bg-transparent text-lg font-bold text-gray-900 focus:outline-none appearance-none"
@@ -96,7 +96,7 @@ export function NewInspection() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-        <Button 
+        <Button
           onClick={handleContinue}
           disabled={!environment}
           className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b]"

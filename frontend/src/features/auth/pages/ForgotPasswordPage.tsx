@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/ui/components/Button';
 import { Input } from '@/ui/components/Input';
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
               Work<span className="text-[#0B7A90]">Safety</span>
             </h1>
           </div>
-          
+
           <div className="w-full space-y-8 text-center">
             <h2 className="text-[28px] font-bold text-[#111827]">Check your email</h2>
             <p className="text-[#6B7280] text-[15px] px-8 leading-relaxed">

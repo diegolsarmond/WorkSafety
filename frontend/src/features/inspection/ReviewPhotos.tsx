@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Eye, CheckCircle2 } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { Button } from '@/ui/components/Button';
 import { useInspectionStore } from '../../store/inspectionStore';
 
 export function ReviewPhotos() {
@@ -20,7 +20,7 @@ export function ReviewPhotos() {
           <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
         <h1 className="text-xl font-bold text-gray-900">Review Photos ({photos.length})</h1>
-        <button 
+        <button
           onClick={() => navigate('/inspection/camera')}
           className="flex items-center gap-1 text-[#0b6b82] font-bold"
         >
@@ -33,16 +33,16 @@ export function ReviewPhotos() {
           {photos.map((photo, index) => (
             <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm group">
               <img src={photo.dataUrl} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
-              
+
               <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-md">
                 #{index + 1}
               </div>
-              
+
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                 <button className="p-3 bg-white/20 rounded-full backdrop-blur-sm hover:bg-white/30 transition-colors">
                   <Eye className="w-6 h-6 text-white" />
                 </button>
-                <button 
+                <button
                   onClick={() => removePhoto(photo.id)}
                   className="p-3 bg-red-500/80 rounded-full backdrop-blur-sm hover:bg-red-500 transition-colors"
                 >
@@ -51,9 +51,9 @@ export function ReviewPhotos() {
               </div>
             </div>
           ))}
-          
+
           {photos.length < 10 && (
-            <button 
+            <button
               onClick={() => navigate('/inspection/camera')}
               className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 hover:border-[#0b6b82] hover:text-[#0b6b82] transition-colors"
             >
@@ -65,7 +65,7 @@ export function ReviewPhotos() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-        <Button 
+        <Button
           onClick={handleSubmit}
           disabled={photos.length === 0}
           className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b] flex items-center justify-center gap-2"

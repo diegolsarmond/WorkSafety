@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ChevronRight } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { Button } from '@/ui/components/Button';
 import { useInspectionStore } from '../../store/inspectionStore';
 
 export function ReviewValidation() {
@@ -41,8 +41,8 @@ export function ReviewValidation() {
 
         <div className="mb-4">
           <h2 className="text-sm font-bold text-gray-500 tracking-wider mb-4">ANALYSIS RESULT</h2>
-          
-          <button 
+
+          <button
             onClick={() => navigate('/inspection/risks')}
             className="w-full bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
@@ -60,7 +60,7 @@ export function ReviewValidation() {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-        <Button 
+        <Button
           onClick={handleSave}
           className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b]"
         >

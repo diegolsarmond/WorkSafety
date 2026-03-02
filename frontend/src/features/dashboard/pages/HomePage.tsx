@@ -61,7 +61,10 @@ export default function HomePage() {
           </div>
 
           <div className="relative z-10">
-            <button className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 hover:bg-white/30 transition-colors">
+            <button
+              onClick={() => navigate('/inspection/new')}
+              className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 hover:bg-white/30 transition-colors"
+            >
               <Plus className="w-6 h-6 text-white" />
             </button>
             <h2 className="text-[32px] leading-tight font-bold mb-3">
@@ -70,7 +73,10 @@ export default function HomePage() {
             <p className="text-[#85D1DF] text-[15px] mb-8 max-w-[200px] leading-relaxed">
               Start an AI risk analysis in seconds.
             </p>
-            <Button className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-none rounded-2xl px-6 py-3 h-auto font-semibold">
+            <Button
+              onClick={() => navigate('/inspection/new')}
+              className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-none rounded-2xl px-6 py-3 h-auto font-semibold"
+            >
               Start Now <span className="ml-2">›</span>
             </Button>
           </div>

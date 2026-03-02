@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Webcam from "react-webcam";
 import { ArrowLeft, Shield, Eye, Image as ImageIcon } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
+
 import { useInspectionStore } from "../../store/inspectionStore";
 
 const WebcamComponent = Webcam as any;
@@ -22,7 +22,7 @@ export function CameraCapture() {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
       addPhoto({
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         dataUrl: imageSrc,
         timestamp: new Date().toISOString(),
       });

@@ -8,45 +8,83 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useInspectionStore } from "../../store/inspectionStore";
-import { Button } from "../../ui/Button";
+import { Button } from '@/ui/components/Button';
+import { apiClient } from '@/services/api/apiClient';
 
 export function Syncing() {
   const navigate = useNavigate();
-  const { setStatus } = useInspectionStore();
+  const { photos, setStatus } = useInspectionStore();
   const [step, setStep] = useState(0);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Helper function to convert dataUrl to File
+  const dataURLtoFile = (dataurl: string, filename: string) => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
+
   useEffect(() => {
-    setStatus("SYNCING");
-    setError(false);
+    let isMounted = true;
 
-    const timer1 = setTimeout(() => setStep(1), 2000);
+    const syncPhotos = async () => {
+      if (!isMounted) return;
+      setStatus("SYNCING");
+      setError(false);
+      setStep(0);
 
-    // Simulate network error on first try
-    const timer2 = setTimeout(() => {
-      if (retryCount === 0) {
-        setError(true);
-        setStatus("ERROR");
-      } else {
+      try {
+        // Step 1: Upload photos
+        if (photos.length > 0) {
+          const formData = new FormData();
+          photos.forEach((photo, index) => {
+            const file = dataURLtoFile(photo.dataUrl, `evidence_${photo.id}.jpg`);
+            formData.append('images', file);
+            formData.append('timestamps', photo.timestamp);
+          });
+
+          // Hardcoded assessment ID 1 for now, assuming creation happens beforehand
+          await apiClient.post('/assessments/1/evidences/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        }
+
+        if (!isMounted) return;
+        setStep(1);
+
+        // Step 2 & 3: Mock AI analysis (since backend AI parts are not fully implemented yet)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!isMounted) return;
         setStep(2);
-      }
-    }, 4000);
 
-    let timer3: NodeJS.Timeout;
-    if (retryCount > 0) {
-      timer3 = setTimeout(() => {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!isMounted) return;
+
         setStatus("AI_REVIEWED");
         navigate("/inspection/risks");
-      }, 6000);
-    }
+
+      } catch (err) {
+        console.error("Sync error:", err);
+        if (!isMounted) return;
+        setError(true);
+        setStatus("ERROR");
+      }
+    };
+
+    syncPhotos();
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      if (timer3) clearTimeout(timer3);
+      isMounted = false;
     };
-  }, [navigate, setStatus, retryCount]);
+  }, [navigate, setStatus, retryCount, photos]);
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
