@@ -122,14 +122,14 @@ export function CameraCapture() {
         {showSuccess && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-teal-500/95 text-white p-6 rounded-3xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 z-50 shadow-2xl">
             <CheckCircle className="w-16 h-16" />
-            <p className="font-bold text-xl">Foto Capturada!</p>
+            <p className="font-bold text-xl">Photo Captured!</p>
           </div>
         )}
 
         <Camera className="w-24 h-24 text-white/20 mb-6" />
-        <h2 className="text-2xl text-white font-bold mb-2">Câmera Nativa</h2>
+        <h2 className="text-2xl text-white font-bold mb-2">Native Camera</h2>
         <p className="text-white/60 mb-12 max-w-xs">
-          Toque no botão de captura abaixo para abrir a câmera do seu dispositivo.
+          Tap the capture button below to open your device camera.
         </p>
       </div>
 
@@ -167,7 +167,7 @@ export function CameraCapture() {
         </div>
 
         <p className="text-sm text-white/80 font-medium z-20">
-          {processing ? 'Processando imagem...' : 'AI: Object Detection (Perseu) Enabled'}
+          {processing ? 'Processing image...' : 'AI: Object Detection (Perseu) Enabled'}
         </p>
       </div>
     </div>

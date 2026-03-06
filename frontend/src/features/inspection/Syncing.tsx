@@ -125,10 +125,10 @@ export function Syncing() {
         <div className="fixed top-4 left-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-bold">Erro de Sincronização</h3>
+            <h3 className="font-bold">Sync Error</h3>
             <p className="text-sm mt-1">
-              Falha ao sincronizar a avaliação <strong>{assessmentName}</strong>.
-              Por favor, verifique sua conexão e clique em <em>Tentar Novamente</em>.
+              Failed to sync assessment <strong>{assessmentName}</strong>.
+              Please check your connection and click <em>Try Again</em>.
             </p>
           </div>
         </div>
@@ -139,10 +139,10 @@ export function Syncing() {
         <div className="fixed top-4 left-4 right-4 bg-emerald-100 border-l-4 border-emerald-500 text-emerald-800 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
           <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-bold">Sincronização Concluída</h3>
+            <h3 className="font-bold">Sync Completed</h3>
             <p className="text-sm mt-1">
-              <strong>1</strong> avaliação sincronizada com sucesso.
-              Redirecionando...
+              <strong>1</strong> assessment successfully synced.
+              Redirecting...
             </p>
           </div>
         </div>
@@ -207,18 +207,18 @@ export function Syncing() {
             onClick={handleRetry}
             className="w-full h-14 text-lg rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2 transition-all active:scale-95"
           >
-            <RefreshCw className="w-5 h-5" /> Tentar Novamente
+            <RefreshCw className="w-5 h-5" /> Try Again
           </Button>
         ) : syncSuccess ? (
           <Button
             onClick={() => navigate("/inspection/risks")}
             className="w-full h-14 text-lg rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/30"
           >
-            Continuar
+            Continue
           </Button>
         ) : (
           <div className="w-full bg-gray-200 rounded-xl h-14 flex items-center justify-center font-bold text-gray-500">
-            Processando...
+            Processing...
           </div>
         )}
       </div>
