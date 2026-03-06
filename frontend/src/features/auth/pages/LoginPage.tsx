@@ -72,7 +72,7 @@ export default function LoginPage() {
           <div className="text-center space-y-2">
             <h2 className="text-[28px] font-bold text-[#111827]">Welcome Back</h2>
             <p className="text-[#6B7280] text-[15px] px-8 leading-relaxed">
-              Secure access for authorized<br />inspectors & managers
+              Secure access
             </p>
           </div>
 
@@ -98,7 +98,7 @@ export default function LoginPage() {
                     Password
                   </label>
                   <Link to="/forgot-password" className="text-sm font-semibold text-[#0B7A90] hover:text-[#096375]">
-                    Forgot password?
+                    Forgot your password?
                   </Link>
                 </div>
                 <Input
@@ -166,7 +166,7 @@ export default function LoginPage() {
             SECURE ENVIRONMENT
           </div>
           <p className="text-[#6B7280] text-[11px] font-medium">
-            WorkSafety v1.0 • Official Gov Release
+            WorkSafety v1.0
           </p>
         </div>
       </div>

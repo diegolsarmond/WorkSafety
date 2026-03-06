@@ -85,7 +85,7 @@ export default function HomePage() {
               New<br />Analysis
             </h2>
             <p className="text-[#85D1DF] text-[15px] mb-8 max-w-[200px] leading-relaxed">
-              Start an AI risk analysis in seconds.
+              Start an AI risk analysis.
             </p>
             <Button
               onClick={() => navigate('/inspection/new')}
@@ -107,9 +107,9 @@ export default function HomePage() {
 
           <div className="space-y-4">
             {loading ? (
-              <p className="text-gray-500 text-sm text-center py-8">Carregando análises...</p>
+              <p className="text-gray-500 text-sm text-center py-8">Loading assessments...</p>
             ) : pendingAssessments.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-8">Nenhuma análise pendente.</p>
+              <p className="text-gray-500 text-sm text-center py-8">No pending assessments.</p>
             ) : (
               pendingAssessments.map((assessment) => {
                 // Parse 'Inspection - Environment - Category'

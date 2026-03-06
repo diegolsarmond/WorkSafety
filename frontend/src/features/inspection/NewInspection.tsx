@@ -27,7 +27,7 @@ export function NewInspection() {
         <button onClick={() => navigate(-1)} className="p-2.5 -ml-2 rounded-full hover:bg-gray-100 flex items-center justify-center min-w-[44px] min-h-[44px]">
           <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-gray-900 mr-8">New Inspection</h1>
+        <h1 className="flex-1 text-center text-xl font-bold text-gray-900 mr-8">New Analysis</h1>
       </header>
 
       <main className="flex-1 p-4 flex flex-col gap-8 overflow-y-auto pb-24">
