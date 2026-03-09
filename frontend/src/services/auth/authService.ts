@@ -4,7 +4,7 @@ import { LoginResponse, User } from '@/types/auth';
 
 export const authService = {
   async login(credentials: { email: string; password: string }): Promise<LoginResponse> {
-    const response = await apiClient.post('/auth/login/', credentials);
+    const response = await apiClient.post('auth/login/', credentials);
     const data = response.data;
     return {
       user: data.user,
@@ -16,17 +16,17 @@ export const authService = {
   async logout(): Promise<void> {
     const refreshToken = SecureStorage.getItem('refresh_token');
     if (refreshToken) {
-      await apiClient.post('/auth/logout/', { refresh: refreshToken });
+      await apiClient.post('auth/logout/', { refresh: refreshToken });
     }
   },
 
   async me(): Promise<User> {
-    const response = await apiClient.get<User>('/auth/me/');
+    const response = await apiClient.get<User>('auth/me/');
     return response.data;
   },
 
   async forgotPassword(email: string): Promise<void> {
-    await apiClient.post('/auth/password-reset/', { email });
+    await apiClient.post('auth/password-reset/', { email });
   },
 
   async resetPassword(password: string, token: string): Promise<void> {

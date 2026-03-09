@@ -15,7 +15,7 @@ export interface UpdateUserDto {
 
 export const userService = {
   async getUsers(query?: string): Promise<User[]> {
-    const response = await apiClient.get<User[]>('/users/', { params: { search: query } });
+    const response = await apiClient.get<User[]>('users/', { params: { search: query } });
     return response.data;
   },
 
@@ -27,7 +27,7 @@ export const userService = {
       role: data.role,
       is_staff: data.role === 'admin'
     };
-    const response = await apiClient.post<User>('/users/', requestData);
+    const response = await apiClient.post<User>('users/', requestData);
     return response.data;
   },
 
@@ -37,12 +37,12 @@ export const userService = {
     if (data.role !== undefined) requestData.is_staff = data.role === 'admin';
     if (data.isActive !== undefined) requestData.is_active = data.isActive;
 
-    const response = await apiClient.patch<User>(`/users/${id}/`, requestData);
+    const response = await apiClient.patch<User>(`users/${id}/`, requestData);
     return response.data;
   },
 
   async deleteUser(id: string): Promise<void> {
     // Delete physical is disabled in API, so we patch is_active = false
-    await apiClient.patch(`/users/${id}/`, { is_active: false });
+    await apiClient.patch(`users/${id}/`, { is_active: false });
   }
 };

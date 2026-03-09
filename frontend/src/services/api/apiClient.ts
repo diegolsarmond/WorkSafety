@@ -40,7 +40,8 @@ apiClient.interceptors.response.use(
         const refreshToken = SecureStorage.getItem('refresh_token');
         if (refreshToken) {
           // Attempt to refresh token
-          const refreshResponse = await axios.post(`${env.API_URL}/auth/token/refresh/`, { refresh: refreshToken });
+          const refreshUrl = env.API_URL.endsWith('/') ? `${env.API_URL}auth/token/refresh/` : `${env.API_URL}/auth/token/refresh/`;
+          const refreshResponse = await axios.post(refreshUrl, { refresh: refreshToken });
 
           if (refreshResponse.data && refreshResponse.data.access) {
             const newAccessToken = refreshResponse.data.access;
