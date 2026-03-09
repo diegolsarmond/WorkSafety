@@ -46,6 +46,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://inovacao.dataprev.gov.br",
     "https://inovacao.dataprev.gov.br",
+    "http://200.152.38.136:3000", # Desenvolvimento via IP
     "http://localhost:5173", # Desenvolvimento local
 ]
 CORS_ALLOW_CREDENTIALS = True
