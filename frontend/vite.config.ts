@@ -12,24 +12,95 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images-cache',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+              },
+            },
+            {
+              urlPattern: /^https:\/\/.*\/api\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'api-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                },
+              },
+            },
+          ],
+        },
         manifest: {
-          name: 'Work Safety App',
+          name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
-          description: 'Work Safety Application',
-          theme_color: '#ffffff',
+          description: 'Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos',
+          start_url: '/',
+          display: 'standalone',
+          background_color: '#0F1729',
+          theme_color: '#0F1729',
+          orientation: 'portrait',
+          scope: '/',
+          lang: 'pt-BR',
+          categories: ['business', 'productivity', 'utilities'],
           icons: [
             {
               src: '/pwa-192x192.png',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any maskable'
             },
             {
               src: '/pwa-512x512.png',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ],
+          screenshots: [
+            {
+              src: '/screenshot-narrow.png',
+              sizes: '750x1334',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Tela de login do WorkSafety'
+            },
+            {
+              src: '/screenshot-wide.png',
+              sizes: '1280x800',
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'Dashboard do WorkSafety'
+            }
+          ],
+          shortcuts: [
+            {
+              name: 'Nova Inspeção',
+              short_name: 'Inspeção',
+              description: 'Iniciar uma nova inspeção de segurança',
+              url: '/inspection/new',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+            },
+            {
+              name: 'Dashboard',
+              short_name: 'Dashboard',
+              description: 'Ver dashboard principal',
+              url: '/home',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
             }
           ]
-        }
+        },
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       })
     ],
     define: {
