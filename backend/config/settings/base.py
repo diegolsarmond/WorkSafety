@@ -43,12 +43,7 @@ MIDDLEWARE = [
 ]
 
 # CORS
-CORS_ALLOWED_ORIGINS = [
-    "http://inovacao.dataprev.gov.br",
-    "https://inovacao.dataprev.gov.br",
-    "http://200.152.38.136:3000", # Desenvolvimento via IP
-    "http://localhost:5173", # Desenvolvimento local
-]
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "config.urls"
