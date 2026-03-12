@@ -214,7 +214,9 @@ CELERY_ENABLE_UTC = True
 # AI Service Configuration
 AI_SERVICE_ENABLED = os.environ.get("AI_SERVICE_ENABLED", "true").lower() in ("1", "true", "yes")
 AI_SERVICE_TIMEOUT = int(os.environ.get("AI_SERVICE_TIMEOUT", "30"))
-AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "false").lower() in ("1", "true", "yes")
+AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "true").lower() in ("1", "true", "yes")
+AI_SERVICE_BASE_URL = os.environ.get("AI_SERVICE_BASE_URL", "")
+AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY", "")
 
 # Logging: invalid login attempts
 LOGGING = {
