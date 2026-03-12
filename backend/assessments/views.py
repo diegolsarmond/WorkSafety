@@ -25,9 +25,13 @@ from .services import AssessmentLifecycleService, InvalidTransitionError
 class RiskAssessmentListCreateView(ListCreateAPIView):
     """
     List or create Risk Assessments.
+    Users can only see and modify their own RiskAssessments.
     """
-    queryset = RiskAssessment.objects.all()
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter assessments by the current authenticated user."""
+        return RiskAssessment.objects.filter(created_by=self.request.user)
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -42,13 +46,19 @@ class RiskAssessmentListCreateView(ListCreateAPIView):
 class RiskAssessmentDetailView(RetrieveAPIView):
     """
     Retrieve detailed Risk Assessment with risks, evidences and inferences.
+    Users can only access their own RiskAssessments.
     """
-    queryset = RiskAssessment.objects.prefetch_related(
-        'findings', 'evidences', 'inferences', 'inferences__decisions'
-    )
     serializer_class = RiskAssessmentDetailSerializer
     permission_classes = [IsAuthenticated]
     lookup_url_kwarg = 'assessment_id'
+
+    def get_queryset(self):
+        """Filter assessments by the current authenticated user with prefetch."""
+        return RiskAssessment.objects.filter(
+            created_by=self.request.user
+        ).prefetch_related(
+            'findings', 'evidences', 'inferences', 'inferences__decisions'
+        )
 
 
 @extend_schema_view(
@@ -59,7 +69,8 @@ class RiskAssessmentDetailView(RetrieveAPIView):
             "Uploads up to 10 images with optional ISO 8601 timestamps for a RiskAssessment. "
             "If timestamps are provided, they must match the number of images. "
             "Each timestamp is stored in the evidence's captured_at field. "
-            "Ensures idempotency based on standard hashing (SHA-256) of each image."
+            "Ensures idempotency based on standard hashing (SHA-256) of each image. "
+            "Users can only upload evidences to their own RiskAssessments."
         ),
         request=EvidenceUploadSerializer,
         responses={201: EvidenceSerializer(many=True)},
@@ -70,7 +81,12 @@ class EvidenceUploadView(views.APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request, assessment_id, *args, **kwargs):
-        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment, 
+            id=assessment_id,
+            created_by=request.user
+        )
         
         serializer = EvidenceUploadSerializer(data=request.data)
         if not serializer.is_valid():
@@ -112,7 +128,10 @@ class EvidenceUploadView(views.APIView):
 # =============================================================================
 
 class AssessmentTransitionBaseView(views.APIView):
-    """Base class para views de transição de status."""
+    """Base class para views de transição de status.
+    
+    Users can only transition their own RiskAssessments.
+    """
     permission_classes = [IsAuthenticated]
     transition_method = None
     success_message = "Transição realizada com sucesso"
@@ -132,7 +151,12 @@ class AssessmentTransitionBaseView(views.APIView):
         }
     )
     def post(self, request, assessment_id, *args, **kwargs):
-        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment, 
+            id=assessment_id,
+            created_by=request.user
+        )
         reason = request.data.get('reason', None)
         
         try:
@@ -162,6 +186,7 @@ class AssessmentCaptureView(AssessmentTransitionBaseView):
     Transiciona a avaliação para o estado CAPTURED.
     
     Pré-requisito: status deve ser DRAFT.
+    Users can only transition their own RiskAssessments.
     """
     transition_method = 'capture'
     success_message = "Avaliação capturada com sucesso"
@@ -173,6 +198,7 @@ class AssessmentSyncView(AssessmentTransitionBaseView):
     Transiciona a avaliação para o estado SYNCED.
     
     Pré-requisito: status deve ser CAPTURED.
+    Users can only transition their own RiskAssessments.
     """
     transition_method = 'sync'
     success_message = "Avaliação sincronizada com sucesso"
@@ -184,6 +210,7 @@ class AssessmentMarkAIReviewedView(AssessmentTransitionBaseView):
     Transiciona a avaliação para o estado AI_REVIEWED.
     
     Pré-requisito: status deve ser SYNCED.
+    Users can only transition their own RiskAssessments.
     """
     transition_method = 'mark_ai_reviewed'
     success_message = "Avaliação revisada por IA com sucesso"
@@ -195,6 +222,7 @@ class AssessmentHumanValidateView(AssessmentTransitionBaseView):
     Transiciona a avaliação para o estado HUMAN_VALIDATED.
     
     Pré-requisito: status deve ser AI_REVIEWED.
+    Users can only transition their own RiskAssessments.
     """
     transition_method = 'human_validate'
     success_message = "Avaliação validada por humano com sucesso"
@@ -206,6 +234,7 @@ class AssessmentFinalizeView(AssessmentTransitionBaseView):
     Transiciona a avaliação para o estado FINALIZED.
     
     Pré-requisito: status deve ser HUMAN_VALIDATED.
+    Users can only transition their own RiskAssessments.
     """
     transition_method = 'finalize'
     success_message = "Avaliação finalizada com sucesso"
@@ -215,6 +244,7 @@ class AssessmentFinalizeView(AssessmentTransitionBaseView):
 class AssessmentStatusHistoryView(views.APIView):
     """
     Retorna o histórico de status/marcos de uma avaliação.
+    Users can only access history of their own RiskAssessments.
     """
     permission_classes = [IsAuthenticated]
 
@@ -223,7 +253,12 @@ class AssessmentStatusHistoryView(views.APIView):
         responses={200: {'type': 'object'}}
     )
     def get(self, request, assessment_id, *args, **kwargs):
-        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment, 
+            id=assessment_id,
+            created_by=request.user
+        )
         history = AssessmentLifecycleService.get_status_history(assessment)
         return Response(history, status=status.HTTP_200_OK)
 
@@ -232,6 +267,7 @@ class AssessmentStatusHistoryView(views.APIView):
 class AssessmentValidTransitionsView(views.APIView):
     """
     Retorna as transições válidas a partir do status atual.
+    Users can only access transitions of their own RiskAssessments.
     """
     permission_classes = [IsAuthenticated]
 
@@ -240,7 +276,12 @@ class AssessmentValidTransitionsView(views.APIView):
         responses={200: {'type': 'object'}}
     )
     def get(self, request, assessment_id, *args, **kwargs):
-        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment, 
+            id=assessment_id,
+            created_by=request.user
+        )
         valid_transitions = AssessmentLifecycleService.get_valid_transitions(assessment.status)
         
         transitions_with_labels = [
