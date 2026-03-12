@@ -134,6 +134,13 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "WorkSafety API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PUBLIC": True,
+    "COMPONENT_SPLIT_REQUEST": False,
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "SCHEMA_PATH_PREFIX_TRIM": True,
+    # Desabilitar validação estrita para evitar erros 500
+    "PREPROCESSING_HOOKS": [],
+    "POSTPROCESSING_HOOKS": [],
 }
 
 # Default primary key
