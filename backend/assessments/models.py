@@ -71,6 +71,13 @@ class Evidence(models.Model):
     file_hash = models.CharField("hash do arquivo", max_length=64, blank=True)
     file_size = models.BigIntegerField("tamanho em bytes", null=True, blank=True)
     mime_type = models.CharField("tipo MIME", max_length=255, blank=True)
+    captured_at = models.DateTimeField(
+        "timestamp de captura",
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Timestamp informado pelo cliente (quando a foto foi tirada). Se não informado, permanece null.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

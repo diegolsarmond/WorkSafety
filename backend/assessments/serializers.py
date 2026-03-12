@@ -11,8 +11,8 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
 class EvidenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evidence
-        fields = ['id', 'file', 'file_hash', 'file_size', 'mime_type', 'created_at']
-        read_only_fields = ['file_hash', 'file_size', 'mime_type', 'created_at']
+        fields = ['id', 'file', 'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
+        read_only_fields = ['file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
 
 class EvidenceUploadSerializer(serializers.Serializer):
     images = serializers.ListField(
@@ -30,5 +30,5 @@ class EvidenceUploadSerializer(serializers.Serializer):
         images = data.get('images', [])
         timestamps = data.get('timestamps', [])
         if timestamps and len(timestamps) != len(images):
-            raise serializers.ValidationError({"timestamps": "A quantidade de timestamps deve corresponder à quantidade de imagens, se enviados."})
+            raise serializers.ValidationError({"timestamps": "A quantidade de timestamps deve corresponder à quantidade de imagens."})
         return data

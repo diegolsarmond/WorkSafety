@@ -3,6 +3,7 @@ import json
 from rest_framework import views, status, parsers
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from .models import RiskAssessment, Evidence
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView
@@ -27,7 +28,12 @@ class RiskAssessmentListCreateView(ListCreateAPIView):
     post=extend_schema(
         tags=["Assessments"],
         summary="Upload Images (Evidences)",
-        description="Uploads up to 10 images with an optional ISO 8601 timestamp for a RiskAssessment. Ensures idempotency based on standard hashing (SHA-256) of each image.",
+        description=(
+            "Uploads up to 10 images with optional ISO 8601 timestamps for a RiskAssessment. "
+            "If timestamps are provided, they must match the number of images. "
+            "Each timestamp is stored in the evidence's captured_at field. "
+            "Ensures idempotency based on standard hashing (SHA-256) of each image."
+        ),
         request=EvidenceUploadSerializer,
         responses={201: EvidenceSerializer(many=True)},
     )
@@ -63,12 +69,10 @@ class EvidenceUploadView(views.APIView):
             # Create new evidence
             new_evidence = Evidence(
                 assessment=assessment,
-                file=image
+                file=image,
+                captured_at=timestamp,  # Timestamp informado pelo cliente (ou None)
             )
-            # If we need to save the timestamp we extracted, we'll wait for a model update.
-            # Currently the model Evidence doesn't have a place for extracted timestamp,
-            # but we can validate it as per requirements.
-            new_evidence.save() # This triggers _compute_file_metadata and saves the hash
+            new_evidence.save()  # This triggers _compute_file_metadata and saves the hash
             created_evidences.append(new_evidence)
             
         result_serializer = EvidenceSerializer(created_evidences, many=True)
