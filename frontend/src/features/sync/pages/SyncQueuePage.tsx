@@ -10,7 +10,7 @@ export function SyncQueuePage() {
 
   return (
     <SyncQueueDashboard 
-      onClose={() => navigate(-1)} 
+      onClose={() => navigate('/home')} 
       showBackButton={true}
     />
   );
