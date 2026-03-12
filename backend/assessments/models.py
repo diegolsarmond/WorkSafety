@@ -11,13 +11,25 @@ from django.conf import settings
 
 
 class RiskAssessment(models.Model):
-    """F12.1 — Avaliação de risco."""
+    """F12.1 — Avaliação de risco com ciclo de vida completo (Sprint 3)."""
+
+    # Estados do ciclo de vida
+    STATUS_DRAFT = "draft"
+    STATUS_CAPTURED = "captured"
+    STATUS_SYNCED = "synced"
+    STATUS_AI_REVIEWED = "ai_reviewed"
+    STATUS_HUMAN_VALIDATED = "human_validated"
+    STATUS_FINALIZED = "finalized"
+    STATUS_ERROR = "error"
 
     STATUS_CHOICES = [
-        ("draft", "Rascunho"),
-        ("submitted", "Enviada"),
-        ("in_review", "Em revisão"),
-        ("closed", "Encerrada"),
+        (STATUS_DRAFT, "Rascunho"),
+        (STATUS_CAPTURED, "Capturado"),
+        (STATUS_SYNCED, "Sincronizado"),
+        (STATUS_AI_REVIEWED, "Revisado por IA"),
+        (STATUS_HUMAN_VALIDATED, "Validado por Humano"),
+        (STATUS_FINALIZED, "Finalizado"),
+        (STATUS_ERROR, "Erro"),
     ]
 
     created_by = models.ForeignKey(
@@ -29,10 +41,29 @@ class RiskAssessment(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="draft",
+        default=STATUS_DRAFT,
     )
     title = models.CharField("título", max_length=255, blank=True)
     description = models.TextField("descrição", blank=True)
+    
+    # Timestamps de cada marco do ciclo de vida
+    captured_at = models.DateTimeField("capturado em", null=True, blank=True)
+    synced_at = models.DateTimeField("sincronizado em", null=True, blank=True)
+    ai_reviewed_at = models.DateTimeField("revisado por IA em", null=True, blank=True)
+    human_validated_at = models.DateTimeField("validado por humano em", null=True, blank=True)
+    finalized_at = models.DateTimeField("finalizado em", null=True, blank=True)
+    
+    # Metadados de transição
+    status_changed_at = models.DateTimeField("última mudança de status em", null=True, blank=True)
+    status_changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="status_changes",
+    )
+    status_change_reason = models.TextField("motivo da mudança", blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -4,8 +4,28 @@ from .models import Evidence, RiskAssessment
 class RiskAssessmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiskAssessment
-        fields = ['id', 'created_by', 'status', 'title', 'description', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+        fields = [
+            'id', 'created_by', 'status', 'title', 'description',
+            'captured_at', 'synced_at', 'ai_reviewed_at', 
+            'human_validated_at', 'finalized_at',
+            'status_changed_at', 'status_change_reason',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'created_by', 'status',
+            'captured_at', 'synced_at', 'ai_reviewed_at',
+            'human_validated_at', 'finalized_at',
+            'status_changed_at', 'status_changed_by',
+            'created_at', 'updated_at'
+        ]
+
+
+class RiskAssessmentStatusSerializer(serializers.Serializer):
+    """Serializer para respostas de transição de status."""
+    status = serializers.CharField()
+    previous_status = serializers.CharField(required=False)
+    message = serializers.CharField(required=False)
+    timestamp = serializers.DateTimeField(required=False)
 
 
 class EvidenceSerializer(serializers.ModelSerializer):

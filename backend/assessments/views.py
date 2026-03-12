@@ -2,14 +2,22 @@ import hashlib
 import json
 from rest_framework import views, status, parsers
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import RiskAssessment, Evidence
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
 
-from .serializers import EvidenceUploadSerializer, EvidenceSerializer, RiskAssessmentSerializer
+from .models import RiskAssessment, Evidence
+from .serializers import (
+    EvidenceUploadSerializer, 
+    EvidenceSerializer, 
+    RiskAssessmentSerializer,
+    RiskAssessmentStatusSerializer,
+)
+from .services import AssessmentLifecycleService, InvalidTransitionError
+
 
 @extend_schema(tags=["Assessments"])
 class RiskAssessmentListCreateView(ListCreateAPIView):
@@ -40,6 +48,7 @@ class RiskAssessmentListCreateView(ListCreateAPIView):
 )
 class EvidenceUploadView(views.APIView):
     parser_classes = (parsers.MultiPartParser, parsers.FormParser)
+    permission_classes = [IsAuthenticated]
     
     def post(self, request, assessment_id, *args, **kwargs):
         assessment = get_object_or_404(RiskAssessment, id=assessment_id)
@@ -58,7 +67,7 @@ class EvidenceUploadView(views.APIView):
             # Read image content for hash to check idempotency
             image_content = image.read()
             file_hash = hashlib.sha256(image_content).hexdigest()
-            image.seek(0) # Reset file pointer after reading
+            image.seek(0)  # Reset file pointer after reading
             
             # Idempotency check: if evidence with this hash already exists for this assessment, return it instead of duplicating
             existing_evidence = Evidence.objects.filter(assessment=assessment, file_hash=file_hash).first()
@@ -77,3 +86,153 @@ class EvidenceUploadView(views.APIView):
             
         result_serializer = EvidenceSerializer(created_evidences, many=True)
         return Response(result_serializer.data, status=status.HTTP_201_CREATED)
+
+
+# =============================================================================
+# Endpoints de Transição de Ciclo de Vida
+# =============================================================================
+
+class AssessmentTransitionBaseView(views.APIView):
+    """Base class para views de transição de status."""
+    permission_classes = [IsAuthenticated]
+    transition_method = None
+    success_message = "Transição realizada com sucesso"
+
+    @extend_schema(
+        tags=["Assessment Lifecycle"],
+        request={
+            'type': 'object',
+            'properties': {
+                'reason': {'type': 'string', 'description': 'Motivo opcional da transição'},
+            }
+        },
+        responses={
+            200: RiskAssessmentStatusSerializer,
+            400: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        }
+    )
+    def post(self, request, assessment_id, *args, **kwargs):
+        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        reason = request.data.get('reason', None)
+        
+        try:
+            previous_status = assessment.status
+            
+            # Executar transição via service
+            method = getattr(AssessmentLifecycleService, self.transition_method)
+            updated_assessment = method(assessment, request.user, reason)
+            
+            return Response({
+                'status': updated_assessment.status,
+                'previous_status': previous_status,
+                'message': self.success_message,
+                'timestamp': updated_assessment.status_changed_at,
+            }, status=status.HTTP_200_OK)
+            
+        except InvalidTransitionError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentCaptureView(AssessmentTransitionBaseView):
+    """
+    Transiciona a avaliação para o estado CAPTURED.
+    
+    Pré-requisito: status deve ser DRAFT.
+    """
+    transition_method = 'capture'
+    success_message = "Avaliação capturada com sucesso"
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentSyncView(AssessmentTransitionBaseView):
+    """
+    Transiciona a avaliação para o estado SYNCED.
+    
+    Pré-requisito: status deve ser CAPTURED.
+    """
+    transition_method = 'sync'
+    success_message = "Avaliação sincronizada com sucesso"
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentMarkAIReviewedView(AssessmentTransitionBaseView):
+    """
+    Transiciona a avaliação para o estado AI_REVIEWED.
+    
+    Pré-requisito: status deve ser SYNCED.
+    """
+    transition_method = 'mark_ai_reviewed'
+    success_message = "Avaliação revisada por IA com sucesso"
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentHumanValidateView(AssessmentTransitionBaseView):
+    """
+    Transiciona a avaliação para o estado HUMAN_VALIDATED.
+    
+    Pré-requisito: status deve ser AI_REVIEWED.
+    """
+    transition_method = 'human_validate'
+    success_message = "Avaliação validada por humano com sucesso"
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentFinalizeView(AssessmentTransitionBaseView):
+    """
+    Transiciona a avaliação para o estado FINALIZED.
+    
+    Pré-requisito: status deve ser HUMAN_VALIDATED.
+    """
+    transition_method = 'finalize'
+    success_message = "Avaliação finalizada com sucesso"
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentStatusHistoryView(views.APIView):
+    """
+    Retorna o histórico de status/marcos de uma avaliação.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["Assessment Lifecycle"],
+        responses={200: {'type': 'object'}}
+    )
+    def get(self, request, assessment_id, *args, **kwargs):
+        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        history = AssessmentLifecycleService.get_status_history(assessment)
+        return Response(history, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentValidTransitionsView(views.APIView):
+    """
+    Retorna as transições válidas a partir do status atual.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["Assessment Lifecycle"],
+        responses={200: {'type': 'object'}}
+    )
+    def get(self, request, assessment_id, *args, **kwargs):
+        assessment = get_object_or_404(RiskAssessment, id=assessment_id)
+        valid_transitions = AssessmentLifecycleService.get_valid_transitions(assessment.status)
+        
+        transitions_with_labels = [
+            {'value': t, 'label': dict(RiskAssessment.STATUS_CHOICES).get(t, t)}
+            for t in valid_transitions
+        ]
+        
+        return Response({
+            'current_status': {
+                'value': assessment.status,
+                'label': assessment.get_status_display(),
+            },
+            'valid_transitions': transitions_with_labels,
+        }, status=status.HTTP_200_OK)
