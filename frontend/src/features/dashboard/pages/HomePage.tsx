@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
+import { SyncStatusBadge } from '@/features/sync';
 
 export default function HomePage() {
   const { user, logout } = useAuthStore();
@@ -49,6 +50,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <SyncStatusBadge onClick={() => navigate('/sync-queue')} />
           <button
             onClick={handleLogout}
             className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"

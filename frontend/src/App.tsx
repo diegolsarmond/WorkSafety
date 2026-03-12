@@ -6,16 +6,23 @@
 import { useEffect } from 'react';
 import AppRouter from '@/app/router';
 import { useAuthStore } from '@/store/authStore';
+import { useSyncStore } from '@/store/syncStore';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { SplashScreen } from '@/features/splash';
 
 export default function App() {
   const { checkAuth, isInitializing } = useAuthStore();
+  const { initialize: initializeSync } = useSyncStore();
   const { showSplash, isReady, handleSplashComplete } = useSplashScreen();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Inicializa o sistema de sincronização
+  useEffect(() => {
+    initializeSync();
+  }, [initializeSync]);
 
   // Show splash screen first
   if (showSplash) {

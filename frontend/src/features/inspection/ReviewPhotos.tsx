@@ -1,16 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Plus, Eye, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Eye, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
 import { useInspectionStore } from '../../store/inspectionStore';
+import { useSyncStore } from '@/store/syncStore';
 
 export function ReviewPhotos() {
   const navigate = useNavigate();
-  const { photos, removePhoto } = useInspectionStore();
+  const { photos, removePhoto, environment, category, reset } = useInspectionStore();
+  const { addJob } = useSyncStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (photos.length === 0) return;
-    navigate('/inspection/syncing');
+
+    setIsSubmitting(true);
+
+    try {
+      // Adiciona à fila de sincronização
+      await addJob(
+        {
+          title: `Inspection - ${environment} - ${category}`,
+          description: `Automated inspection for ${environment} concerning ${category}.`,
+          environment,
+          category,
+          status: 'draft',
+        },
+        photos
+      );
+
+      // Limpa o estado atual (fotos já estão salvas no job)
+      reset();
+
+      // Navega para a página de sincronização
+      navigate('/inspection/syncing');
+    } catch (error) {
+      console.error('Error submitting inspection:', error);
+      alert('Erro ao enviar inspeção. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -67,10 +96,18 @@ export function ReviewPhotos() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
         <Button
           onClick={handleSubmit}
-          disabled={photos.length === 0}
+          disabled={photos.length === 0 || isSubmitting}
           className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b] flex items-center justify-center gap-2"
         >
-          Submit for Analysis <CheckCircle2 className="w-5 h-5" />
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" /> Enviando...
+            </>
+          ) : (
+            <>
+              Submit for Analysis <CheckCircle2 className="w-5 h-5" />
+            </>
+          )}
         </Button>
       </div>
     </div>
