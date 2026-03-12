@@ -115,15 +115,17 @@ function EvidenceThumbnail({
 }
 
 /** Card de risco individual */
+interface RiskCardProps {
+  risk: RiskItem;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
 function RiskCard({
   risk,
   isExpanded,
   onToggle,
-}: {
-  risk: RiskItem;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
+}: RiskCardProps) {
   return (
     <div className="p-4 hover:bg-gray-50/50 transition-colors">
       <div className="flex gap-4">
@@ -540,12 +542,13 @@ export function RisksDetected() {
               </div>
             ) : (
               filteredRisks.map((risk) => (
-                <RiskCard
-                  key={risk.id}
-                  risk={risk}
-                  isExpanded={expandedRisks.has(risk.id)}
-                  onToggle={() => toggleRiskExpanded(risk.id)}
-                />
+                <div key={risk.id}>
+                  <RiskCard
+                    risk={risk}
+                    isExpanded={expandedRisks.has(risk.id)}
+                    onToggle={() => toggleRiskExpanded(risk.id)}
+                  />
+                </div>
               ))
             )}
           </div>
