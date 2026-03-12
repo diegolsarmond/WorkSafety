@@ -10,6 +10,9 @@ from .views import (
     AssessmentFinalizeView,
     AssessmentStatusHistoryView,
     AssessmentValidTransitionsView,
+    AssessmentProcessAIView,
+    AssessmentReprocessView,
+    AssessmentAIStatusView,
 )
 
 urlpatterns = [
@@ -28,4 +31,9 @@ urlpatterns = [
     # Lifecycle info endpoints
     path("<int:assessment_id>/status-history/", AssessmentStatusHistoryView.as_view(), name="assessment-status-history"),
     path("<int:assessment_id>/valid-transitions/", AssessmentValidTransitionsView.as_view(), name="assessment-valid-transitions"),
+    
+    # AI Processing endpoints
+    path("<int:assessment_id>/process-ai/", AssessmentProcessAIView.as_view(), name="assessment-process-ai"),
+    path("<int:assessment_id>/reprocess/", AssessmentReprocessView.as_view(), name="assessment-reprocess"),
+    path("<int:assessment_id>/ai-status/", AssessmentAIStatusView.as_view(), name="assessment-ai-status"),
 ]

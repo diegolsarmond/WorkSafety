@@ -181,13 +181,36 @@ class RiskFinding(models.Model):
 class AIInferenceResult(models.Model):
     """F12.4 — Resultado das inferências da IA por avaliação."""
 
+    # Status choices
+    STATUS_PENDING = "pending"
+    STATUS_RUNNING = "running"
+    STATUS_SUCCEEDED = "succeeded"
+    STATUS_FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pendente"),
+        (STATUS_RUNNING, "Em execução"),
+        (STATUS_SUCCEEDED, "Sucesso"),
+        (STATUS_FAILED, "Falha"),
+    ]
+
     assessment = models.ForeignKey(
         RiskAssessment,
         on_delete=models.CASCADE,
         related_name="inferences",
     )
-    raw_result = models.JSONField("resultado bruto", default=dict, blank=True)
+    status = models.CharField(
+        "status",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    result_json = models.JSONField("resultado bruto", default=dict, blank=True)
     confidence = models.CharField("confiança", max_length=50, blank=True)
+    error_message = models.TextField("mensagem de erro", blank=True)
+    model_version = models.CharField("versão do modelo", max_length=100, blank=True)
+    started_at = models.DateTimeField("iniciado em", null=True, blank=True)
+    finished_at = models.DateTimeField("finalizado em", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -196,7 +219,7 @@ class AIInferenceResult(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Inferência #{self.pk} (avaliação {self.assessment_id})"
+        return f"Inferência #{self.pk} (avaliação {self.assessment_id}) - {self.get_status_display()}"
 
 
 class HumanValidationDecision(models.Model):

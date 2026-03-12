@@ -202,6 +202,20 @@ if _SECURE_HTTPS:
     SESSION_COOKIE_SECURE = True
     SECURE_SSL_REDIRECT = True
 
+# Celery Configuration
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# AI Service Configuration
+AI_SERVICE_ENABLED = os.environ.get("AI_SERVICE_ENABLED", "true").lower() in ("1", "true", "yes")
+AI_SERVICE_TIMEOUT = int(os.environ.get("AI_SERVICE_TIMEOUT", "30"))
+AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "false").lower() in ("1", "true", "yes")
+
 # Logging: invalid login attempts
 LOGGING = {
     "version": 1,
@@ -219,6 +233,10 @@ LOGGING = {
     },
     "loggers": {
         "accounts": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+        "assessments": {
             "handlers": ["console"],
             "level": "INFO",
         },

@@ -9,7 +9,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 
-from .models import RiskAssessment, Evidence
+from .models import RiskAssessment, Evidence, AIInferenceResult
 from .serializers import (
     EvidenceUploadSerializer, 
     EvidenceSerializer, 
@@ -17,8 +17,10 @@ from .serializers import (
     RiskAssessmentStatusSerializer,
     RiskAssessmentListSerializer,
     RiskAssessmentDetailSerializer,
+    AIInferenceDetailSerializer,
 )
 from .services import AssessmentLifecycleService, InvalidTransitionError
+from .tasks import process_assessment, reprocess_assessment
 
 
 @extend_schema(tags=["Assessments"])
@@ -296,3 +298,169 @@ class AssessmentValidTransitionsView(views.APIView):
             },
             'valid_transitions': transitions_with_labels,
         }, status=status.HTTP_200_OK)
+
+
+# =============================================================================
+# AI Processing Endpoints
+# =============================================================================
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["AI Processing"],
+        summary="Force AI Processing",
+        description=(
+            "Força o reprocessamento da avaliação pelo serviço de IA. "
+            "Disponível para avaliações com status SYNCED ou ERROR. "
+            "Users can only process their own RiskAssessments."
+        ),
+        responses={
+            202: {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'task_id': {'type': 'string'},
+                    'status': {'type': 'string'},
+                }
+            },
+            400: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        }
+    )
+)
+class AssessmentProcessAIView(views.APIView):
+    """
+    Endpoint para forçar o processamento de IA de uma avaliação.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, assessment_id, *args, **kwargs):
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment,
+            id=assessment_id,
+            created_by=request.user
+        )
+        
+        # Verificar se a avaliação pode ser processada
+        if assessment.status not in [
+            RiskAssessment.STATUS_SYNCED,
+            RiskAssessment.STATUS_ERROR,
+        ]:
+            return Response(
+                {
+                    'error': f"Cannot process assessment with status '{assessment.status}'. "
+                            f"Expected 'synced' or 'error'."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Enfileirar task
+        task = process_assessment.delay(assessment.id)
+        
+        return Response({
+            'message': 'AI processing queued successfully',
+            'task_id': task.id,
+            'status': 'queued',
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["AI Processing"],
+        summary="Reprocess Assessment",
+        description=(
+            "Reprocessa uma avaliação que falhou anteriormente (status=error). "
+            "Reseta o status para SYNCED e enfileira novo processamento. "
+            "Users can only reprocess their own RiskAssessments."
+        ),
+        responses={
+            202: {
+                'type': 'object',
+                'properties': {
+                    'message': {'type': 'string'},
+                    'task_id': {'type': 'string'},
+                    'status': {'type': 'string'},
+                }
+            },
+            400: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        }
+    )
+)
+class AssessmentReprocessView(views.APIView):
+    """
+    Endpoint para reprocessar uma avaliação em estado de erro.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, assessment_id, *args, **kwargs):
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment,
+            id=assessment_id,
+            created_by=request.user
+        )
+        
+        # Verificar se está em estado de erro
+        if assessment.status != RiskAssessment.STATUS_ERROR:
+            return Response(
+                {
+                    'error': f"Cannot reprocess assessment with status '{assessment.status}'. "
+                            f"Only assessments with 'error' status can be reprocessed."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Enfileirar reprocessamento
+        task = reprocess_assessment.delay(assessment.id)
+        
+        return Response({
+            'message': 'Assessment reprocessing queued successfully',
+            'task_id': task.id,
+            'status': 'queued',
+        }, status=status.HTTP_202_ACCEPTED)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["AI Processing"],
+        summary="Get AI Processing Status",
+        description=(
+            "Retorna o status do processamento de IA de uma avaliação, "
+            "incluindo resultado bruto, confiança e mensagens de erro. "
+            "Users can only access their own RiskAssessments."
+        ),
+        responses={
+            200: AIInferenceDetailSerializer,
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        }
+    )
+)
+class AssessmentAIStatusView(views.APIView):
+    """
+    Endpoint para consultar status do processamento de IA.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, assessment_id, *args, **kwargs):
+        # Filter by created_by to ensure user can only access own assessments
+        assessment = get_object_or_404(
+            RiskAssessment,
+            id=assessment_id,
+            created_by=request.user
+        )
+        
+        # Buscar inferência mais recente
+        inference = AIInferenceResult.objects.filter(
+            assessment=assessment
+        ).first()
+        
+        if not inference:
+            return Response({
+                'assessment_id': assessment_id,
+                'status': 'not_started',
+                'message': 'No AI processing has been started for this assessment',
+            }, status=status.HTTP_200_OK)
+        
+        serializer = AIInferenceDetailSerializer(inference, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

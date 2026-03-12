@@ -117,10 +117,15 @@ class RiskItemSerializer(serializers.ModelSerializer):
 class AIInferenceDetailSerializer(serializers.ModelSerializer):
     """Serializer para resultados de inferência da IA."""
     decisions = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
     
     class Meta:
         model = AIInferenceResult
-        fields = ['id', 'raw_result', 'confidence', 'decisions', 'created_at']
+        fields = [
+            'id', 'status', 'status_display', 'result_json', 'confidence',
+            'error_message', 'model_version', 'started_at', 'finished_at',
+            'decisions', 'created_at'
+        ]
     
     def get_decisions(self, obj: AIInferenceResult) -> list:
         """Retorna as decisões de validação humana."""

@@ -2,11 +2,14 @@
 Camada de serviço para gerenciamento do ciclo de vida de RiskAssessment.
 Implementa state machine para validação de transições de status.
 """
+import logging
 from typing import Optional
 from django.utils import timezone
 from django.db import transaction
 
 from .models import RiskAssessment
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidTransitionError(Exception):
@@ -156,9 +159,29 @@ class AssessmentLifecycleService:
 
     @classmethod
     @transaction.atomic
-    def sync(cls, assessment: RiskAssessment, actor, reason: Optional[str] = None) -> RiskAssessment:
-        """Transiciona para SYNCED."""
-        return cls.transition(assessment, RiskAssessment.STATUS_SYNCED, actor, reason)
+    def sync(cls, assessment: RiskAssessment, actor, reason: Optional[str] = None, queue_ai_processing: bool = True) -> RiskAssessment:
+        """
+        Transiciona para SYNCED.
+        
+        Args:
+            assessment: Avaliação a ser sincronizada
+            actor: Usuário que executou a ação
+            reason: Motivo opcional da transição
+            queue_ai_processing: Se True, enfileira processamento de IA automaticamente
+        """
+        result = cls.transition(assessment, RiskAssessment.STATUS_SYNCED, actor, reason)
+        
+        # Enfileirar processamento de IA
+        if queue_ai_processing:
+            try:
+                # Importar aqui para evitar circular imports
+                from .tasks import process_assessment
+                task = process_assessment.delay(assessment.id)
+                logger.info(f"Queued AI processing for assessment {assessment.id}, task_id={task.id}")
+            except Exception as e:
+                logger.error(f"Failed to queue AI processing for assessment {assessment.id}: {e}")
+        
+        return result
 
     @classmethod
     @transaction.atomic
