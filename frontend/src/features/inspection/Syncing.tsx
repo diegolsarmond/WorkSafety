@@ -48,7 +48,12 @@ export function Syncing() {
   useEffect(() => {
     if (currentJob?.status === 'COMPLETED') {
       const timer = setTimeout(() => {
-        navigate("/inspection/risks");
+        // Passa o assessmentId para a tela de riscos
+        navigate("/inspection/risks", {
+          state: { 
+            assessmentId: currentJob.assessmentId || currentJob.id 
+          }
+        });
       }, 2000);
       return () => clearTimeout(timer);
     }
@@ -233,7 +238,11 @@ export function Syncing() {
 
         {isCompleted && (
           <Button
-            onClick={() => navigate("/inspection/risks")}
+            onClick={() => navigate("/inspection/risks", {
+              state: { 
+                assessmentId: currentJob?.assessmentId || currentJob?.id 
+              }
+            })}
             className="w-full h-14 text-lg rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/30"
           >
             Continue

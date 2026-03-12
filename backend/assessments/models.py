@@ -157,6 +157,15 @@ class RiskFinding(models.Model):
     )
     description = models.TextField("descrição")
     severity = models.CharField("severidade", max_length=50, blank=True)
+    location = models.CharField("localização", max_length=255, blank=True)
+    evidence = models.ForeignKey(
+        'Evidence',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="findings",
+        verbose_name="evidência",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

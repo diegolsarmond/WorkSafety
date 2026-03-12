@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework.generics import ListCreateAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 
 from .models import RiskAssessment, Evidence
@@ -15,6 +15,8 @@ from .serializers import (
     EvidenceSerializer, 
     RiskAssessmentSerializer,
     RiskAssessmentStatusSerializer,
+    RiskAssessmentListSerializer,
+    RiskAssessmentDetailSerializer,
 )
 from .services import AssessmentLifecycleService, InvalidTransitionError
 
@@ -25,11 +27,28 @@ class RiskAssessmentListCreateView(ListCreateAPIView):
     List or create Risk Assessments.
     """
     queryset = RiskAssessment.objects.all()
-    serializer_class = RiskAssessmentSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return RiskAssessmentListSerializer
+        return RiskAssessmentSerializer
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+@extend_schema(tags=["Assessments"])
+class RiskAssessmentDetailView(RetrieveAPIView):
+    """
+    Retrieve detailed Risk Assessment with risks, evidences and inferences.
+    """
+    queryset = RiskAssessment.objects.prefetch_related(
+        'findings', 'evidences', 'inferences', 'inferences__decisions'
+    )
+    serializer_class = RiskAssessmentDetailSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_url_kwarg = 'assessment_id'
 
 
 @extend_schema_view(

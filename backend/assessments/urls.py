@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     EvidenceUploadView, 
     RiskAssessmentListCreateView,
+    RiskAssessmentDetailView,
     AssessmentCaptureView,
     AssessmentSyncView,
     AssessmentMarkAIReviewedView,
@@ -14,6 +15,7 @@ from .views import (
 urlpatterns = [
     # CRUD endpoints
     path("", RiskAssessmentListCreateView.as_view(), name="assessment-list-create"),
+    path("<int:assessment_id>/", RiskAssessmentDetailView.as_view(), name="assessment-detail"),
     path("<int:assessment_id>/evidences/", EvidenceUploadView.as_view(), name="evidence-upload"),
     
     # Lifecycle transition endpoints
