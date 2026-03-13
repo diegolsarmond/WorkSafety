@@ -56,7 +56,7 @@ class RecommendationSerializer(serializers.Serializer):
 
 class RiskItemSerializer(serializers.ModelSerializer):
     """Serializer para itens de risco detectados."""
-    evidence_ref = EvidenceRefSerializer(source='evidence', read_only=True)
+    evidence = EvidenceRefSerializer(source='evidence', read_only=True)
     recommendations = serializers.SerializerMethodField()
     ai_confidence = serializers.SerializerMethodField()
     risk_status = serializers.SerializerMethodField()
@@ -65,7 +65,7 @@ class RiskItemSerializer(serializers.ModelSerializer):
         model = RiskFinding
         fields = [
             'id', 'description', 'severity', 'location',
-            'evidence_ref', 'recommendations', 'ai_confidence', 'risk_status',
+            'evidence', 'recommendations', 'ai_confidence', 'risk_status',
             'created_at', 'updated_at'
         ]
     
