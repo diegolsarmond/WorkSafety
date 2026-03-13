@@ -61,7 +61,7 @@ export function useAIQueue(): UseAIQueueReturn {
       setError(null);
 
       const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_BASE_URL}/api/assessments/ai-queue/`, {
+      const response = await axios.get(`${API_BASE_URL}/assessments/ai-queue/`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
