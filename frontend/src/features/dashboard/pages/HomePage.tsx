@@ -1,11 +1,12 @@
 import { Button } from '@/ui/components/Button';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box } from 'lucide-react';
+import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box, Brain, Loader2, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
 import { SyncStatusBadge } from '@/features/sync';
 import { environmentService, assessmentService, EnvironmentType, AssessmentType } from '@/services/environment/environmentService';
+import { AIQueueCounts } from '@/features/ai-queue/hooks/useAIQueue';
 export default function HomePage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ export default function HomePage() {
   const [environments, setEnvironments] = useState<EnvironmentType[]>([]);
   const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aiQueueCounts, setAiQueueCounts] = useState<AIQueueCounts | null>(null);
+  const [loadingAIQueue, setLoadingAIQueue] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,6 +36,25 @@ export default function HomePage() {
       }
     };
     fetchData();
+  }, []);
+
+  // Fetch AI Queue counts
+  useEffect(() => {
+    const fetchAIQueue = async () => {
+      try {
+        const response = await apiClient.get('/assessments/ai-queue/');
+        setAiQueueCounts(response.data.counts);
+      } catch (error) {
+        console.error("Failed to fetch AI queue:", error);
+      } finally {
+        setLoadingAIQueue(false);
+      }
+    };
+    fetchAIQueue();
+    
+    // Poll every 10 seconds
+    const interval = setInterval(fetchAIQueue, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -105,6 +127,45 @@ export default function HomePage() {
             </Button>
           </div>
         </div>
+
+        {/* AI Processing Queue Card */}
+        {!loadingAIQueue && aiQueueCounts && aiQueueCounts.total > 0 && (
+          <div 
+            onClick={() => navigate('/queue')}
+            className="mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white shadow-lg shadow-indigo/20 cursor-pointer transition-transform active:scale-95"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Brain className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-[16px]">Fila de Processamento IA</h3>
+                  <p className="text-white/80 text-[13px]">
+                    {aiQueueCounts.processing > 0 ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        {aiQueueCounts.processing} processando
+                      </span>
+                    ) : aiQueueCounts.pending > 0 ? (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {aiQueueCounts.pending} pendente{aiQueueCounts.pending > 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span>{aiQueueCounts.total} na fila</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-white/60">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pending Analysis */}
         <div>

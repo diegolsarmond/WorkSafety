@@ -12,6 +12,7 @@ import { Syncing } from '@/features/inspection/Syncing';
 import { RisksDetected } from '@/features/inspection/RisksDetected';
 import { ReviewValidation } from '@/features/inspection/ReviewValidation';
 import { SyncQueuePage } from '@/features/sync';
+import { AIQueuePage } from '@/features/ai-queue';
 
 export default function AppRouter() {
   return (
@@ -98,6 +99,15 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <SyncQueuePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/queue"
+          element={
+            <ProtectedRoute>
+              <AIQueuePage />
             </ProtectedRoute>
           }
         />

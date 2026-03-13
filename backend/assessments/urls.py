@@ -13,6 +13,7 @@ from .views import (
     AssessmentProcessAIView,
     AssessmentReprocessAIView,
     AssessmentAIStatusView,
+    AIProcessingQueueView,
 )
 
 urlpatterns = [
@@ -36,4 +37,7 @@ urlpatterns = [
     path("<int:assessment_id>/process-ai/", AssessmentProcessAIView.as_view(), name="assessment-process-ai"),
     path("<int:assessment_id>/reprocess-ai/", AssessmentReprocessAIView.as_view(), name="assessment-reprocess-ai"),
     path("<int:assessment_id>/ai-status/", AssessmentAIStatusView.as_view(), name="assessment-ai-status"),
+    
+    # AI Queue endpoint
+    path("ai-queue/", AIProcessingQueueView.as_view(), name="ai-processing-queue"),
 ]

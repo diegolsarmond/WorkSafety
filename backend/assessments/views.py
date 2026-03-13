@@ -19,6 +19,7 @@ from .serializers import (
     RiskAssessmentDetailSerializer,
     AIInferenceDetailSerializer,
     AssessmentStatusHistorySerializer,
+    AIQueueItemSerializer,
 )
 from .services import AssessmentLifecycleService, InvalidTransitionError
 from .tasks import process_assessment, reprocess_assessment
@@ -511,3 +512,141 @@ class AssessmentAIStatusView(views.APIView):
 
         serializer = AIInferenceDetailSerializer(inference, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["AI Processing"],
+        summary="Get AI Processing Queue",
+        description=(
+            "Retorna a fila de processamento de IA do usuário atual. "
+            "Inclui avaliações aguardando processamento (synced), "
+            "em processamento (ai_reviewed com inferência running/pending), "
+            "e com erro (error_ai)."
+        ),
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'queue': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'assessment_id': {'type': 'integer'},
+                                'title': {'type': 'string'},
+                                'status': {'type': 'string'},
+                                'status_display': {'type': 'string'},
+                                'ai_status': {'type': 'string'},
+                                'ai_status_display': {'type': 'string'},
+                                'confidence': {'type': 'string'},
+                                'error_message': {'type': 'string'},
+                                'created_at': {'type': 'string', 'format': 'date-time'},
+                                'started_at': {'type': 'string', 'format': 'date-time'},
+                                'finished_at': {'type': 'string', 'format': 'date-time'},
+                                'evidence_count': {'type': 'integer'},
+                                'thumbnail_url': {'type': 'string'},
+                            },
+                        },
+                    },
+                    'counts': {
+                        'type': 'object',
+                        'properties': {
+                            'pending': {'type': 'integer'},
+                            'processing': {'type': 'integer'},
+                            'completed': {'type': 'integer'},
+                            'error': {'type': 'integer'},
+                            'total': {'type': 'integer'},
+                        },
+                    },
+                },
+            },
+        }
+    )
+)
+class AIProcessingQueueView(views.APIView):
+    """Endpoint para consultar a fila de processamento de IA."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Buscar avaliações relevantes para o usuário
+        assessments = RiskAssessment.objects.filter(
+            created_by=request.user,
+            status__in=[
+                RiskAssessment.STATUS_SYNCED,
+                RiskAssessment.STATUS_AI_REVIEWED,
+                RiskAssessment.STATUS_ERROR_AI,
+            ]
+        ).prefetch_related('evidences', 'inferences')
+
+        queue = []
+        counts = {
+            'pending': 0,
+            'processing': 0,
+            'completed': 0,
+            'error': 0,
+            'total': 0,
+        }
+
+        for assessment in assessments:
+            # Buscar inferência mais recente
+            inference = assessment.inferences.first()
+            
+            # Determinar status da IA
+            if inference:
+                ai_status = inference.status
+                ai_status_display = inference.get_status_display()
+            else:
+                # Avaliação synced mas sem inferência ainda = pendente
+                ai_status = AIInferenceResult.STATUS_PENDING
+                ai_status_display = "Pendente"
+
+            # Categorizar para contadores
+            if assessment.status == RiskAssessment.STATUS_ERROR_AI:
+                counts['error'] += 1
+            elif ai_status == AIInferenceResult.STATUS_PENDING:
+                counts['pending'] += 1
+            elif ai_status == AIInferenceResult.STATUS_RUNNING:
+                counts['processing'] += 1
+            elif ai_status == AIInferenceResult.STATUS_SUCCEEDED:
+                counts['completed'] += 1
+            elif ai_status == AIInferenceResult.STATUS_FAILED:
+                counts['error'] += 1
+
+            # Thumbnail da primeira evidência
+            thumbnail_url = ""
+            first_evidence = assessment.evidences.first()
+            if first_evidence and first_evidence.file:
+                thumbnail_url = request.build_absolute_uri(first_evidence.file.url)
+
+            queue.append({
+                'assessment_id': assessment.id,
+                'title': assessment.title or f"Avaliação #{assessment.id}",
+                'status': assessment.status,
+                'status_display': assessment.get_status_display(),
+                'ai_status': ai_status,
+                'ai_status_display': ai_status_display,
+                'confidence': inference.confidence if inference else "",
+                'error_message': inference.error_message if inference else "",
+                'created_at': assessment.created_at,
+                'started_at': inference.started_at if inference else None,
+                'finished_at': inference.finished_at if inference else None,
+                'evidence_count': assessment.evidences.count(),
+                'thumbnail_url': thumbnail_url,
+            })
+            counts['total'] += 1
+
+        # Ordenar: processando primeiro, depois pendentes, depois erros, depois completados
+        status_order = {
+            AIInferenceResult.STATUS_RUNNING: 0,
+            AIInferenceResult.STATUS_PENDING: 1,
+            RiskAssessment.STATUS_ERROR_AI: 2,
+            AIInferenceResult.STATUS_FAILED: 2,
+            AIInferenceResult.STATUS_SUCCEEDED: 3,
+        }
+        queue.sort(key=lambda x: (status_order.get(x['ai_status'], 99), x['created_at']), reverse=False)
+
+        return Response({
+            'queue': queue,
+            'counts': counts,
+        }, status=status.HTTP_200_OK)

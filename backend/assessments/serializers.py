@@ -304,3 +304,20 @@ class EvidenceUploadSerializer(serializers.Serializer):
         if timestamps and len(timestamps) != len(images):
             raise serializers.ValidationError({"timestamps": "A quantidade de timestamps deve corresponder à quantidade de imagens."})
         return data
+
+
+class AIQueueItemSerializer(serializers.Serializer):
+    """Serializer para itens da fila de processamento IA."""
+    assessment_id = serializers.IntegerField()
+    title = serializers.CharField()
+    status = serializers.CharField()
+    status_display = serializers.CharField()
+    ai_status = serializers.CharField()
+    ai_status_display = serializers.CharField()
+    confidence = serializers.CharField(required=False, allow_blank=True)
+    error_message = serializers.CharField(required=False, allow_blank=True)
+    created_at = serializers.DateTimeField()
+    started_at = serializers.DateTimeField(required=False, allow_null=True)
+    finished_at = serializers.DateTimeField(required=False, allow_null=True)
+    evidence_count = serializers.IntegerField()
+    thumbnail_url = serializers.CharField(required=False, allow_blank=True)
