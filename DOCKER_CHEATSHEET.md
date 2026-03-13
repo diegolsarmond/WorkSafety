@@ -61,6 +61,7 @@ docker-compose logs -f worker
   . assessments.tasks.process_assessment
   . assessments.tasks.reprocess_assessment
   . assessments.tasks.cleanup_stalled_processes
+  . reports.tasks.generate_report
   
 [INFO] Connected to redis://redis:6379/0
 [INFO] worker ready
@@ -124,6 +125,46 @@ npm run dev
    [INFO] Starting AI processing for assessment 123
    [INFO] Assessment 123 processed successfully. Found 2 risks.
    ```
+
+---
+
+## 📄 Geração de Relatórios PDF (BE-03)
+
+### Verificar se a task está carregada
+```bash
+cd infra
+docker-compose logs worker | grep "reports.tasks.generate_report"
+# Deve mostrar: . reports.tasks.generate_report
+```
+
+### Gerar relatório via API
+```bash
+# Requer autenticação admin
+curl -X POST http://localhost:8000/api/admin/assessments/1/generate-report/ \
+  -H "Authorization: Bearer <seu_token>"
+
+# Resposta:
+# {"message": "Report generation queued successfully", "report_id": 1, "task_id": "...", "status": "generating"}
+```
+
+### Ver logs da geração de relatório
+```bash
+cd infra
+docker-compose logs -f worker | grep "PDF\|report"
+```
+
+**Log esperado:**
+```
+[INFO] Starting PDF generation for report 1
+[INFO] Report 1 generated successfully in 3.45s (2 evidences)
+[INFO] PDF Generation Performance: 3.45s for 2 images (target: 15s for 10 images)
+```
+
+### Listar relatórios
+```bash
+curl http://localhost:8000/api/admin/reports/ \
+  -H "Authorization: Bearer <seu_token>"
+```
 
 ---
 

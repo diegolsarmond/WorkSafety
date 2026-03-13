@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "accounts",
     "assessments",
     "configurations",
+    "reports",
 ]
 
 MIDDLEWARE = [
