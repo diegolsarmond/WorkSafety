@@ -218,10 +218,29 @@ function RiskCard({
 
 /** Estado de Loading */
 function LoadingState({ message }: { message: string }) {
+  const isProcessingAI = message.includes('AI');
+  
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <Loader2 className="w-12 h-12 animate-spin text-teal-600 mb-4" />
-      <p className="text-gray-600 text-center">{message}</p>
+      {isProcessingAI ? (
+        <>
+          <div className="relative w-20 h-20 mb-6">
+            <div className="absolute inset-0 border-4 border-teal-100 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-teal-500 rounded-full border-t-transparent animate-spin"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🤖</span>
+            </div>
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">AI Analysis in Progress</h3>
+          <p className="text-gray-600 text-center max-w-sm">{message}</p>
+          <p className="text-sm text-gray-400 mt-4">This may take a few moments...</p>
+        </>
+      ) : (
+        <>
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mb-4" />
+          <p className="text-gray-600 text-center">{message}</p>
+        </>
+      )}
     </div>
   );
 }
@@ -284,6 +303,7 @@ function LifecycleStatusBadge({ status }: { status: AssessmentStatus }) {
     human_validated: 'bg-green-50 text-green-600',
     finalized: 'bg-gray-800 text-white',
     error: 'bg-red-50 text-red-600',
+    error_ai: 'bg-red-50 text-red-600',
   };
 
   const labels: Record<AssessmentStatus, string> = {
@@ -294,6 +314,7 @@ function LifecycleStatusBadge({ status }: { status: AssessmentStatus }) {
     human_validated: 'Validated',
     finalized: 'Finalized',
     error: 'Error',
+    error_ai: 'AI Error',
   };
 
   return (

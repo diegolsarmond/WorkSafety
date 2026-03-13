@@ -220,6 +220,18 @@ class SyncWorker {
         });
       }
 
+      // Passo 3: Transicionar para CAPTURED (fotos foram capturadas)
+      console.log(`[SyncWorker] Transitioning assessment ${assessmentId} to CAPTURED`);
+      await apiClient.post(`/assessments/${assessmentId}/capture/`, {}, {
+        signal: this.abortController?.signal,
+      });
+
+      // Passo 4: Transicionar para SYNCED (dispara processamento de IA)
+      console.log(`[SyncWorker] Transitioning assessment ${assessmentId} to SYNCED`);
+      await apiClient.post(`/assessments/${assessmentId}/sync/`, {}, {
+        signal: this.abortController?.signal,
+      });
+
       // Sucesso! Marca como completado
       await this.markJobCompleted(job.id);
 

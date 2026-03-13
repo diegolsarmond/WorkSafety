@@ -75,7 +75,8 @@ export type AssessmentStatus =
   | 'ai_reviewed'
   | 'human_validated'
   | 'finalized'
-  | 'error';
+  | 'error'
+  | 'error_ai';
 
 /** Resposta detalhada da avaliação com riscos */
 export interface RiskAssessmentDetail {

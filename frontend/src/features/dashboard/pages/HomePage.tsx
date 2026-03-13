@@ -5,26 +5,34 @@ import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Fa
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
 import { SyncStatusBadge } from '@/features/sync';
-
+import { environmentService, assessmentService, EnvironmentType, AssessmentType } from '@/services/environment/environmentService';
 export default function HomePage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [pendingAssessments, setPendingAssessments] = useState<any[]>([]);
+  const [environments, setEnvironments] = useState<EnvironmentType[]>([]);
+  const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAssessments = async () => {
+    const fetchData = async () => {
       try {
-        const response = await apiClient.get('/assessments/');
-        const drafts = response.data.filter((a: any) => a.status === 'draft');
+        const [assessmentsRes, envs, types] = await Promise.all([
+          apiClient.get('/assessments/'),
+          environmentService.getAll(),
+          assessmentService.getAll()
+        ]);
+        const drafts = assessmentsRes.data.filter((a: any) => a.status === 'draft');
         setPendingAssessments(drafts);
+        setEnvironments(envs);
+        setAssessmentTypes(types);
       } catch (error) {
-        console.error("Failed to fetch assessments:", error);
+        console.error("Failed to fetch assessments or types:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchAssessments();
+    fetchData();
   }, []);
 
   const handleLogout = () => {
@@ -116,7 +124,14 @@ export default function HomePage() {
               pendingAssessments.map((assessment) => {
                 // Parse 'Inspection - Environment - Category'
                 const parts = assessment.title.split(' - ');
-                const environment = parts[1] || 'Unknown';
+                const environmentId = parts[1] || 'Unknown';
+                const categoryRaw = parts[2] || 'Unknown';
+
+                const envObj = environments.find(e => e.id.toString() === environmentId);
+                const environmentName = envObj ? envObj.name : environmentId;
+
+                const typeObj = assessmentTypes.find(t => t.id.toString() === categoryRaw);
+                const categoryName = typeObj ? typeObj.name : categoryRaw;
 
                 const dateObj = new Date(assessment.created_at);
                 const day = String(dateObj.getDate()).padStart(2, '0');
@@ -127,11 +142,11 @@ export default function HomePage() {
                 let bgClass = "bg-[#FFF3E0]";
                 let textClass = "text-[#F57C00]";
 
-                if (environment.toLowerCase().includes('construction') || environment.toLowerCase().includes('obra')) {
+                if (environmentName.toLowerCase().includes('construction') || environmentName.toLowerCase().includes('obra')) {
                   Icon = Building2;
                   bgClass = "bg-[#FFF3E0]";
                   textClass = "text-[#F57C00]";
-                } else if (environment.toLowerCase().includes('industry') || environment.toLowerCase().includes('indústria')) {
+                } else if (environmentName.toLowerCase().includes('industry') || environmentName.toLowerCase().includes('indústria')) {
                   Icon = Factory;
                   bgClass = "bg-[#E3F2FD]";
                   textClass = "text-[#1976D2]";
@@ -148,7 +163,8 @@ export default function HomePage() {
                         <Icon className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#111827] text-[16px] capitalize">{environment}</h4>
+                        <h4 className="font-bold text-[#111827] text-[16px] capitalize">{environmentName}</h4>
+                        <p className="text-[13px] text-[#4B5563] font-medium">{categoryName}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

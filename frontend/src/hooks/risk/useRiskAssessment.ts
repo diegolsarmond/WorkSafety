@@ -83,13 +83,43 @@ export function useRiskAssessment(
       return;
     }
     
-    setScreenState({
+    // Só mostra loading na primeira carga (não durante polling)
+    setScreenState((prev) => ({
       type: 'loading',
-      message: 'Loading assessment...',
-    });
+      message: prev.type === 'loading' && prev.message?.includes('AI') 
+        ? prev.message 
+        : 'Loading assessment...',
+    }));
     
     try {
       const data = await getAssessmentById(assessmentId);
+      
+      // Verificar se está em processamento de IA (synced ou error_ai)
+      if (data.status === 'synced') {
+        setScreenState({
+          type: 'loading',
+          message: 'AI is analyzing the images...',
+        });
+        return;
+      }
+      
+      if (data.status === 'error' || data.status === 'error_ai') {
+        setScreenState({
+          type: 'error',
+          message: 'AI processing failed. Please try again or contact support.',
+          canRetry: true,
+        });
+        return;
+      }
+      
+      // Status draft ou captured (ainda não processado)
+      if (data.status === 'draft' || data.status === 'captured') {
+        setScreenState({
+          type: 'loading',
+          message: 'Waiting for image synchronization...',
+        });
+        return;
+      }
       
       if (data.risks.length === 0) {
         setScreenState({
@@ -157,15 +187,20 @@ export function useRiskAssessment(
   useEffect(() => {
     if (!refreshInterval || !assessmentId) return;
     
+    // Intervalo mais curto quando está processando IA
+    const isProcessing = screenState.type === 'loading' && 
+      screenState.message?.includes('AI');
+    const effectiveInterval = isProcessing ? 5000 : refreshInterval; // 5s quando processando
+    
     const interval = setInterval(() => {
-      // Só faz refresh se estiver em estado de dados (não durante loading/error)
-      if (screenState.type === 'data') {
+      // Faz refresh em qualquer estado exceto erro permanente
+      if (screenState.type !== 'error' || screenState.canRetry) {
         refresh();
       }
-    }, refreshInterval);
+    }, effectiveInterval);
     
     return () => clearInterval(interval);
-  }, [refreshInterval, assessmentId, refresh, screenState.type]);
+  }, [refreshInterval, assessmentId, refresh, screenState]);
   
   // Computar dados derivados
   const assessment = useMemo(() => {
