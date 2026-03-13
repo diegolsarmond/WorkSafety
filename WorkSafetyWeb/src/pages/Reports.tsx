@@ -18,9 +18,11 @@ export default function Reports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithToken('/api/admin/reports/');
-      const data = await res.json();
-      setReports(data);
+      // TODO: Endpoint não implementado no backend
+      // const res = await fetchWithToken('/api/admin/reports/');
+      // const data = await res.json();
+      // setReports(data);
+      setReports([]); // Temporário até backend implementar
     } catch (error) {
       console.error('Failed to fetch', error);
     } finally {

@@ -78,7 +78,7 @@ class MockAIClient(AIClientInterface):
         self._call_count = 0
 
     def analyze_assessment(self, request: AIInferenceRequest) -> AIInferenceResult:
-        """Simula análise de avaliação."""
+        """Simula análise de avaliação usando risk types do banco de dados."""
         import random
         import time
 
@@ -98,36 +98,20 @@ class MockAIClient(AIClientInterface):
                 raw_response=None,
             )
 
+        # Buscar risk types do banco de dados
+        risk_types = self._get_risk_types_from_db()
+        
         # Simular detecção de riscos baseada no número de evidências
         findings = []
-        if request.evidence_urls:
-            # Simular 1-3 riscos por evidência
+        if request.evidence_urls and risk_types:
             for i, url in enumerate(request.evidence_urls):
-                risk_types = [
-                    {
-                        "description": "EPI não utilizado corretamente - capacete ausente",
-                        "severity": "HIGH",
-                        "location": f"Área de trabalho {i+1}",
-                    },
-                    {
-                        "description": "Equipamento elétrico sem aterramento visível",
-                        "severity": "CRITICAL",
-                        "location": f"Posto {i+1}",
-                    },
-                    {
-                        "description": "Sinalização de segurança desatualizada",
-                        "severity": "MEDIUM",
-                        "location": f"Corredor {i+1}",
-                    },
-                    {
-                        "description": "Extintor de incêndio em local de difícil acesso",
-                        "severity": "LOW",
-                        "location": f"Setor {i+1}",
-                    },
-                ]
-                # Selecionar risco baseado no índice
-                risk = risk_types[i % len(risk_types)]
-                findings.append(risk)
+                # Selecionar risk type baseado no índice (ciclico)
+                risk_type = risk_types[i % len(risk_types)]
+                findings.append({
+                    "description": risk_type["description"],
+                    "severity": risk_type["severity"],
+                    "location": f"Area {i+1}",
+                })
 
         # Calcular confiança baseada na quantidade de evidências
         confidence_levels = ["LOW", "MEDIUM", "HIGH"]
@@ -143,8 +127,30 @@ class MockAIClient(AIClientInterface):
                 "processed_images": len(request.evidence_urls),
                 "analysis_duration_ms": 1500,
                 "model_confidence": confidence,
+                "risk_types_used": len(risk_types),
             },
         )
+
+    def _get_risk_types_from_db(self) -> list:
+        """Busca risk types ativos do banco de dados."""
+        try:
+            # Importação lazy para evitar circular imports
+            from configurations.models import RiskType
+            
+            risk_types = RiskType.objects.filter(active=True)
+            if risk_types.exists():
+                return [
+                    {
+                        "description": rt.description or rt.name,
+                        "severity": "HIGH",  # Default - pode ser customizado no modelo futuramente
+                    }
+                    for rt in risk_types
+                ]
+        except Exception as e:
+            logger.warning(f"Failed to fetch risk types from DB: {e}")
+        
+        # Fallback: risk types padrão se não houver no banco
+        return []
 
     def health_check(self) -> bool:
         """Sempre retorna saudável no mock."""

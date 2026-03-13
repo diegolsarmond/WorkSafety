@@ -20,10 +20,12 @@ export default function ProcessingQueue() {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const url = filter ? `/api/admin/processing-jobs/?status=${filter}` : '/api/admin/processing-jobs/';
-      const res = await fetchWithToken(url);
-      const data = await res.json();
-      setJobs(data);
+      // TODO: Endpoint não implementado no backend
+      // const url = filter ? `/api/admin/processing-jobs/?status=${filter}` : '/api/admin/processing-jobs/';
+      // const res = await fetchWithToken(url);
+      // const data = await res.json();
+      // setJobs(data);
+      setJobs([]); // Temporário até backend implementar
     } catch (error) {
       console.error('Failed to fetch', error);
     } finally {

@@ -119,19 +119,35 @@ interface RiskCardProps {
   risk: RiskItem;
   isExpanded: boolean;
   onToggle: () => void;
+  isSelected: boolean;
+  onSelect: () => void;
 }
 
 function RiskCard({
   risk,
   isExpanded,
   onToggle,
+  isSelected,
+  onSelect,
 }: RiskCardProps) {
   return (
     <div className="p-4 hover:bg-gray-50/50 transition-colors">
       <div className="flex gap-4">
         {/* Checkbox para seleção */}
         <div className="mt-1">
-          <div className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-teal-500 cursor-pointer transition-colors" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className={`w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${
+              isSelected
+                ? 'bg-teal-500 border-teal-500 text-white'
+                : 'border-gray-300 hover:border-teal-500 cursor-pointer'
+            }`}
+          >
+            {isSelected && <CheckCircle2 className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Conteúdo */}
@@ -338,10 +354,10 @@ export function RisksDetected() {
   
   // Obter assessmentId da URL ou do state de navegação
   const assessmentId = location.state?.assessmentId || 
-                       location.pathname.split('/').pop() ||
-                       '1'; // fallback para desenvolvimento
+                       location.pathname.split('/').pop();
   
   const [expandedRisks, setExpandedRisks] = useState<Set<string>>(new Set());
+  const [selectedRisks, setSelectedRisks] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -373,6 +389,29 @@ export function RisksDetected() {
     });
   };
   
+  const toggleRiskSelected = (riskId: string) => {
+    setSelectedRisks((prev) => {
+      const next = new Set(prev);
+      if (next.has(riskId)) {
+        next.delete(riskId);
+      } else {
+        next.add(riskId);
+      }
+      return next;
+    });
+  };
+  
+  const selectedCount = selectedRisks.size;
+  const allSelected = filteredRisks.length > 0 && selectedRisks.size === filteredRisks.length;
+  
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedRisks(new Set());
+    } else {
+      setSelectedRisks(new Set(filteredRisks.map((r) => r.id)));
+    }
+  };
+  
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setFilters({ ...filters, search: term });
@@ -389,6 +428,28 @@ export function RisksDetected() {
   const totalRisks = assessment?.risks.length || 0;
   const complianceScore = assessment?.compliance_score || 100;
   const canValidateAssessment = assessment ? canValidate(assessment.status) : false;
+  
+  // Se não tem assessmentId válido, mostra erro
+  if (!assessmentId || assessmentId === 'risks') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="flex items-center p-4 bg-white shadow-sm">
+          <button
+            onClick={() => navigate('/home')}
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-900 ml-4">Risks Detected</h1>
+        </header>
+        <ErrorState
+          message="No assessment selected. Please start a new inspection."
+          canRetry={false}
+          onRetry={() => navigate('/inspection/new')}
+        />
+      </div>
+    );
+  }
   
   // Renderizar estado específico
   if (screenState.type === 'loading') {
@@ -556,6 +617,43 @@ export function RisksDetected() {
             </span>
           </div>
 
+          {/* Select All Header */}
+          {filteredRisks.length > 0 && (
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/30 flex items-center justify-between">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-teal-600 transition-colors"
+              >
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  allSelected
+                    ? 'bg-teal-500 border-teal-500 text-white'
+                    : selectedCount > 0
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-gray-300'
+                }`}>
+                  {allSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {selectedCount > 0 && !allSelected && (
+                    <div className="w-2 h-2 bg-teal-500 rounded-sm" />
+                  )}
+                </div>
+                <span>
+                  {selectedCount === 0
+                    ? 'Select all'
+                    : `${selectedCount} selected`}
+                </span>
+              </button>
+              
+              {selectedCount > 0 && (
+                <button
+                  onClick={() => setSelectedRisks(new Set())}
+                  className="text-sm text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="divide-y divide-gray-100">
             {filteredRisks.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
@@ -568,6 +666,8 @@ export function RisksDetected() {
                     risk={risk}
                     isExpanded={expandedRisks.has(risk.id)}
                     onToggle={() => toggleRiskExpanded(risk.id)}
+                    isSelected={selectedRisks.has(risk.id)}
+                    onSelect={() => toggleRiskSelected(risk.id)}
                   />
                 </div>
               ))

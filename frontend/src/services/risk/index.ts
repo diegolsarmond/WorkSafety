@@ -3,3 +3,4 @@
  */
 
 export * from './riskService';
+export * from './riskTypeService';

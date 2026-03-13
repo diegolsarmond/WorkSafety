@@ -156,7 +156,7 @@ export async function humanValidateAssessment(
 ): Promise<{ status: AssessmentStatus; previous_status: string; message: string }> {
   try {
     const response = await apiClient.post(
-      `${API_PREFIX}/${assessmentId}/human-validate/`,
+      `${API_PREFIX}/${assessmentId}/human-validated/`,
       { reason }
     );
     return response.data;
