@@ -10,6 +10,11 @@ from django.db import models
 from django.conf import settings
 
 
+# Import circular handling via string reference in FK
+ConfigurationAssessmentType = 'configurations.AssessmentType'
+ConfigurationEnvironmentType = 'configurations.EnvironmentType'
+
+
 class RiskAssessment(models.Model):
     """F12.1 — Avaliação de risco com ciclo de vida completo (Sprint 3)."""
 
@@ -45,7 +50,25 @@ class RiskAssessment(models.Model):
     )
     title = models.CharField("título", max_length=255, blank=True)
     description = models.TextField("descrição", blank=True)
-    
+
+    # F16.1 / F16.2 — Tipos de avaliação e ambiente
+    assessment_type = models.ForeignKey(
+        ConfigurationAssessmentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assessments",
+        verbose_name="tipo de avaliação",
+    )
+    environment_type = models.ForeignKey(
+        ConfigurationEnvironmentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assessments",
+        verbose_name="tipo de ambiente",
+    )
+
     # Timestamps de cada marco do ciclo de vida
     captured_at = models.DateTimeField("capturado em", null=True, blank=True)
     synced_at = models.DateTimeField("sincronizado em", null=True, blank=True)

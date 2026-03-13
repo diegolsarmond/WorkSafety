@@ -7,17 +7,34 @@ from .models import (
     HumanValidationDecision,
     AssessmentStatusHistory,
 )
+from configurations.models import AssessmentType, EnvironmentType
+
+
+class AssessmentTypeRefSerializer(serializers.ModelSerializer):
+    """Serializer para referência de tipo de avaliação (resumo)."""
+
+    class Meta:
+        model = AssessmentType
+        fields = ['id', 'name', 'description', 'active']
+
+
+class EnvironmentTypeRefSerializer(serializers.ModelSerializer):
+    """Serializer para referência de tipo de ambiente (resumo)."""
+
+    class Meta:
+        model = EnvironmentType
+        fields = ['id', 'name', 'description', 'active']
 
 
 class EvidenceSerializer(serializers.ModelSerializer):
     """Serializer para evidências (fotos)."""
     url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Evidence
         fields = ['id', 'file', 'url', 'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
         read_only_fields = ['file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
-    
+
     def get_url(self, obj: Evidence) -> str:
         """Retorna a URL completa do arquivo."""
         if obj.file:
@@ -153,18 +170,21 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
     """Serializer para listagem de avaliações."""
     created_by_email = serializers.SerializerMethodField()
     risk_count = serializers.SerializerMethodField()
-    
+    assessment_type = AssessmentTypeRefSerializer(read_only=True)
+    environment_type = EnvironmentTypeRefSerializer(read_only=True)
+
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'created_by_email',
-            'risk_count', 'captured_at', 'ai_reviewed_at', 
+            'risk_count', 'assessment_type', 'environment_type',
+            'captured_at', 'ai_reviewed_at',
             'human_validated_at', 'created_at'
         ]
-    
+
     def get_created_by_email(self, obj: RiskAssessment) -> str:
         return obj.created_by.email if obj.created_by else ""
-    
+
     def get_risk_count(self, obj: RiskAssessment) -> int:
         return obj.findings.count()
 
@@ -178,13 +198,16 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
     compliance_score = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
     valid_transitions = serializers.SerializerMethodField()
-    
+    assessment_type = AssessmentTypeRefSerializer(read_only=True)
+    environment_type = EnvironmentTypeRefSerializer(read_only=True)
+
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'status_display',
-            'created_by', 'created_by_email', 'risks', 'evidences', 
+            'created_by', 'created_by_email', 'risks', 'evidences',
             'inferences', 'compliance_score', 'valid_transitions',
+            'assessment_type', 'environment_type',
             'captured_at', 'synced_at', 'ai_reviewed_at',
             'human_validated_at', 'finalized_at',
             'status_changed_at', 'status_change_reason',
@@ -196,33 +219,33 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
             'status_changed_at', 'status_changed_by',
             'created_at', 'updated_at'
         ]
-    
+
     def get_created_by_email(self, obj: RiskAssessment) -> str:
         return obj.created_by.email if obj.created_by else ""
-    
+
     def get_compliance_score(self, obj: RiskAssessment) -> int:
         """Calcula score de compliance baseado nos riscos."""
         risks = obj.findings.all()
         if not risks:
             return 100
-        
+
         severity_weights = {
             'CRITICAL': 0,
             'HIGH': 25,
             'MEDIUM': 50,
             'LOW': 75,
         }
-        
+
         total_score = 0
         for risk in risks:
             weight = severity_weights.get(risk.severity.upper(), 50)
             total_score += weight
-        
+
         return min(100, max(0, int(total_score / len(risks))))
-    
+
     def get_status_display(self, obj: RiskAssessment) -> str:
         return obj.get_status_display()
-    
+
     def get_valid_transitions(self, obj: RiskAssessment) -> list:
         """Retorna transições válidas do status atual."""
         from .services import AssessmentLifecycleService
@@ -235,11 +258,27 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
 
 class RiskAssessmentSerializer(serializers.ModelSerializer):
     """Serializer básico para criação/atualização."""
+    assessment_type_id = serializers.PrimaryKeyRelatedField(
+        queryset=AssessmentType.objects.all(),
+        source='assessment_type',
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    environment_type_id = serializers.PrimaryKeyRelatedField(
+        queryset=EnvironmentType.objects.all(),
+        source='environment_type',
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'created_by', 'status', 'title', 'description',
-            'captured_at', 'synced_at', 'ai_reviewed_at', 
+            'assessment_type_id', 'environment_type_id',
+            'captured_at', 'synced_at', 'ai_reviewed_at',
             'human_validated_at', 'finalized_at',
             'status_changed_at', 'status_change_reason',
             'created_at', 'updated_at'
@@ -251,6 +290,18 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
             'status_changed_at', 'status_changed_by',
             'created_at', 'updated_at'
         ]
+
+    def validate_assessment_type(self, value: AssessmentType | None) -> AssessmentType | None:
+        """Valida que o tipo de avaliação está ativo."""
+        if value is not None and not value.active:
+            raise serializers.ValidationError("Tipo de avaliação inativo não pode ser selecionado.")
+        return value
+
+    def validate_environment_type(self, value: EnvironmentType | None) -> EnvironmentType | None:
+        """Valida que o tipo de ambiente está ativo."""
+        if value is not None and not value.active:
+            raise serializers.ValidationError("Tipo de ambiente inativo não pode ser selecionado.")
+        return value
 
 
 class RiskAssessmentStatusSerializer(serializers.Serializer):
