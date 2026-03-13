@@ -1,0 +1,50 @@
+﻿backend-1  |     migrations.AddIndex(
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/operations/models.py", line 942, in __init__
+backend-1  |     raise ValueError(
+backend-1  | ValueError: Indexes passed to AddIndex operations require a name argument. <Index: fields=['evidence', '-created_at']> doesn't have one.
+backend-1  | Traceback (most recent call last):
+backend-1  |   File "/app/manage.py", line 22, in <module>
+backend-1  |     main()
+backend-1  |   File "/app/manage.py", line 18, in main
+backend-1  |     execute_from_command_line(sys.argv)
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/__init__.py", line 442, in execute_from_command_line
+backend-1  |     utility.execute()
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/__init__.py", line 436, in execute
+backend-1  |     self.fetch_command(subcommand).run_from_argv(self.argv)
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/base.py", line 420, in run_from_argv
+backend-1  |     self.execute(*args, **cmd_options)
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/base.py", line 464, in execute
+backend-1  |     output = self.handle(*args, **options)
+backend-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/base.py", line 111, in wrapper
+backend-1  |     res = handle_func(*args, **kwargs)
+backend-1  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/core/management/commands/migrate.py", line 114, in handle
+backend-1  |     executor = MigrationExecutor(connection, self.migration_progress_callback)
+backend-1  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/executor.py", line 18, in __init__
+backend-1  |     self.loader = MigrationLoader(self.connection)
+backend-1  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/loader.py", line 58, in __init__
+backend-1  |     self.build_graph()
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/loader.py", line 229, in build_graph
+backend-1  |     self.load_disk()
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/loader.py", line 120, in load_disk
+backend-1  |     migration_module = import_module(migration_path)
+backend-1  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/importlib/__init__.py", line 90, in import_module
+backend-1  |     return _bootstrap._gcd_import(name[level:], package, level)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+backend-1  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+backend-1  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+backend-1  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+backend-1  |   File "/app/assessments/migrations/0014_lgpd_privacy_compliance.py", line 14, in <module>
+backend-1  |     class Migration(migrations.Migration):
+backend-1  |   File "/app/assessments/migrations/0014_lgpd_privacy_compliance.py", line 181, in Migration
+backend-1  |     migrations.AddIndex(
+backend-1  |   File "/usr/local/lib/python3.12/site-packages/django/db/migrations/operations/models.py", line 942, in __init__
+backend-1  |     raise ValueError(
+backend-1  | ValueError: Indexes passed to AddIndex operations require a name argument. <Index: fields=['evidence', '-created_at']> doesn't have one.

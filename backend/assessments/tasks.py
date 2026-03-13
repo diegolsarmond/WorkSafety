@@ -15,6 +15,171 @@ from .ai_client import get_ai_client, AIInferenceRequest
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# LGPD/GDPR - Anonymization Tasks
+# =============================================================================
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def anonymize_evidence_task(self, evidence_id: int, user_id: Optional[int] = None):
+    """
+    Task Celery para anonimização assíncrona de evidências.
+    
+    Esta task é executada após o upload de evidências para processar
+    a anonimização de dados pessoais (rostos, placas) em background.
+    
+    Args:
+        evidence_id: ID da evidência a ser anonimizada
+        user_id: ID do usuário que fez o upload (opcional, para auditoria)
+    
+    Returns:
+        Dict com resultado da operação
+    """
+    from django.contrib.auth import get_user_model
+    from .anonymization import anonymize_evidence
+    
+    User = get_user_model()
+    
+    logger.info(f"Starting anonymization for evidence {evidence_id}")
+    
+    try:
+        # Buscar evidência
+        try:
+            evidence = Evidence.objects.get(id=evidence_id)
+        except Evidence.DoesNotExist:
+            logger.error(f"Evidence {evidence_id} not found")
+            return {"status": "error", "message": "Evidence not found"}
+        
+        # Buscar usuário se fornecido
+        user = None
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                logger.warning(f"User {user_id} not found, proceeding without user attribution")
+        
+        # Verificar se já foi anonimizada
+        if evidence.is_anonymized and evidence.anonymization_status == "completed":
+            logger.info(f"Evidence {evidence_id} already anonymized, skipping")
+            return {
+                "status": "skipped",
+                "evidence_id": evidence_id,
+                "message": "Already anonymized",
+            }
+        
+        # Atualizar status para processing
+        evidence.anonymization_status = "processing"
+        evidence.save(update_fields=["anonymization_status"])
+        
+        # Executar anonimização
+        result = anonymize_evidence(evidence, user)
+        
+        if result.success:
+            logger.info(
+                f"Evidence {evidence_id} anonymized successfully: "
+                f"{result.faces_anonymized} faces, {result.plates_anonymized} plates"
+            )
+            return {
+                "status": "success",
+                "evidence_id": evidence_id,
+                "faces_detected": result.faces_detected,
+                "faces_anonymized": result.faces_anonymized,
+                "plates_detected": result.plates_detected,
+                "plates_anonymized": result.plates_anonymized,
+                "processing_duration_ms": result.processing_duration_ms,
+            }
+        else:
+            # Falha na anonimização
+            logger.error(f"Anonymization failed for evidence {evidence_id}: {result.error_message}")
+            
+            # Retry em caso de erro transitório
+            if self.request.retries < self.max_retries:
+                logger.info(f"Retrying anonymization for evidence {evidence_id}")
+                raise self.retry(exc=Exception(result.error_message))
+            
+            return {
+                "status": "error",
+                "evidence_id": evidence_id,
+                "error": result.error_message,
+                "retries_exhausted": True,
+            }
+            
+    except Exception as e:
+        logger.exception(f"Unexpected error anonymizing evidence {evidence_id}: {e}")
+        
+        # Tentar atualizar status da evidência para falha
+        try:
+            evidence = Evidence.objects.get(id=evidence_id)
+            evidence.anonymization_status = "failed"
+            evidence.save(update_fields=["anonymization_status"])
+        except Exception:
+            pass
+        
+        # Retry
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e)
+        
+        return {
+            "status": "error",
+            "evidence_id": evidence_id,
+            "error": str(e),
+            "retries_exhausted": True,
+        }
+
+
+@shared_task
+def batch_anonymize_assessment_evidences(assessment_id: int, user_id: Optional[int] = None):
+    """
+    Anonimiza todas as evidências pendentes de uma avaliação.
+    
+    Útil para processar evidências em lote ou reprocessar
+    evidências que falharam anteriormente.
+    
+    Args:
+        assessment_id: ID da avaliação
+        user_id: ID do usuário (opcional)
+    
+    Returns:
+        Dict com resultados do processamento em lote
+    """
+    logger.info(f"Starting batch anonymization for assessment {assessment_id}")
+    
+    try:
+        assessment = RiskAssessment.objects.get(id=assessment_id)
+    except RiskAssessment.DoesNotExist:
+        return {"status": "error", "message": "Assessment not found"}
+    
+    # Buscar evidências pendentes
+    pending_evidences = Evidence.objects.filter(
+        assessment=assessment,
+        anonymization_status__in=["pending", "failed"]
+    )
+    
+    results = {
+        "status": "queued",
+        "assessment_id": assessment_id,
+        "total": pending_evidences.count(),
+        "queued": 0,
+        "failed": 0,
+        "task_ids": [],
+    }
+    
+    for evidence in pending_evidences:
+        try:
+            task = anonymize_evidence_task.delay(evidence.id, user_id)
+            results["queued"] += 1
+            results["task_ids"].append(task.id)
+        except Exception as e:
+            logger.error(f"Failed to queue anonymization for evidence {evidence.id}: {e}")
+            results["failed"] += 1
+    
+    logger.info(
+        f"Batch anonymization for assessment {assessment_id}: "
+        f"{results['queued']} queued, {results['failed']} failed"
+    )
+    
+    return results
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_assessment(self, assessment_id: int):
     """

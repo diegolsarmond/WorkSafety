@@ -11,3 +11,5 @@ Pillow>=10.2
 celery>=5.3
 redis>=5.0
 reportlab>=4.0
+# LGPD/GDPR - Anonymization
+opencv-python>=4.9.0

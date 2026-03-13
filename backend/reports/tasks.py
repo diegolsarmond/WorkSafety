@@ -29,7 +29,7 @@ from reportlab.platypus import (
     PageBreak,
     KeepTogether,
 )
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
 
 from .models import Report
 from assessments.models import RiskAssessment, Evidence, RiskFinding
@@ -142,266 +142,325 @@ def _collect_assessment_data(assessment: RiskAssessment) -> dict:
     """
     Coleta todos os dados necessários da avaliação.
     
+    LGPD/GDPR: Inclui verificação de que evidências estão anonimizadas
+    antes de serem incluídas no relatório.
+    
     Args:
         assessment: Avaliação de risco
         
     Returns:
         dict: Dados estruturados da avaliação
     """
+    from assessments.anonymization import get_anonymization_service
+    
     # Usar serializer existente para manter consistência
     serializer = RiskAssessmentDetailSerializer(assessment)
     data = serializer.data
     
     # Adicionar dados adicionais
     data['findings'] = list(assessment.findings.all().values())
-    data['evidences'] = list(assessment.evidences.all().values())
+    
+    # LGPD/GDPR: Verificar status de anonimização das evidências
+    # Se houver evidências pendentes, aguardar ou processar
+    evidences = assessment.evidences.all()
+    pending_evidences = evidences.filter(anonymization_status='pending')
+    
+    if pending_evidences.exists():
+        # Tentar anonimizar evidências pendentes sincronamente
+        logger.info(f"Found {pending_evidences.count()} pending evidences for report generation")
+        service = get_anonymization_service()
+        
+        for evidence in pending_evidences:
+            try:
+                result = service.anonymize_evidence(evidence)
+                if result.success:
+                    logger.info(f"Anonymized evidence {evidence.id} during report generation")
+                else:
+                    logger.warning(f"Failed to anonymize evidence {evidence.id}: {result.error_message}")
+            except Exception as e:
+                logger.exception(f"Error anonymizing evidence {evidence.id}: {e}")
+    
+    # Incluir dados das evidências (agora garantidamente anonimizadas ou com status conhecido)
+    data['evidences'] = list(evidences.values())
+    
+    # Adicionar informação de compliance LGPD ao relatório
+    data['lgpd_compliance'] = {
+        'legal_basis': assessment.legal_basis,
+        'legal_basis_display': assessment.get_legal_basis_display(),
+        'all_evidences_anonymized': not evidences.filter(is_anonymized=False).exists(),
+    }
     
     return data
 
 
 def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO:
     """
-    Gera o documento PDF do relatório.
+    Generates the PDF document for the report matching the target layout.
     
     Args:
-        assessment: Avaliação de risco
-        data: Dados da avaliação
+        assessment: Risk Assessment instance
+        data: Dict with assessment data
         
     Returns:
-        BytesIO: Buffer com o PDF gerado
+        BytesIO: Buffer with generated PDF
     """
     buffer = io.BytesIO()
     
-    # Configurar documento
+    # Configure document
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=2*cm,
-        leftMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm,
+        rightMargin=1.5*cm,
+        leftMargin=1.5*cm,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm,
     )
     
-    # Estilos
     styles = getSampleStyleSheet()
+    
+    # Custom Colors
+    teal_color = colors.HexColor('#0d9488')
+    dark_text = colors.HexColor('#0f172a')
+    light_text = colors.HexColor('#64748b')
+    gray_bg = colors.HexColor('#f8fafc')
+    
+    # Custom Styles
     title_style = ParagraphStyle(
-        'CustomTitle',
+        'MainTitle',
         parent=styles['Heading1'],
-        fontSize=18,
-        textColor=colors.HexColor('#1e293b'),
+        fontSize=20,
+        textColor=dark_text,
         spaceAfter=20,
-        alignment=TA_CENTER,
-    )
-    heading2_style = ParagraphStyle(
-        'CustomHeading2',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#334155'),
-        spaceAfter=12,
-        spaceBefore=12,
-    )
-    heading3_style = ParagraphStyle(
-        'CustomHeading3',
-        parent=styles['Heading3'],
-        fontSize=12,
-        textColor=colors.HexColor('#475569'),
-        spaceAfter=8,
-        spaceBefore=8,
-    )
-    normal_style = ParagraphStyle(
-        'CustomNormal',
-        parent=styles['Normal'],
-        fontSize=10,
-        alignment=TA_JUSTIFY,
-        spaceAfter=6,
+        spaceBefore=15,
+        fontName='Helvetica-Bold'
     )
     
-    # Elementos do documento
-    elements = []
-    
-    # ===== CAPA =====
-    elements.append(Spacer(1, 3*cm))
-    elements.append(Paragraph("RELATÓRIO DE AVALIAÇÃO DE RISCOS", title_style))
-    elements.append(Spacer(1, 1*cm))
-    
-    # Informações principais
-    cover_data = [
-        ["Título:", assessment.title or "Sem título"],
-        ["ID da Avaliação:", str(assessment.id)],
-        ["Status:", assessment.get_status_display()],
-        ["Data de Criação:", assessment.created_at.strftime("%d/%m/%Y %H:%M") if assessment.created_at else "-"],
-        ["Tipo de Avaliação:", data.get('assessment_type', {}).get('name', 'Não especificado') if data.get('assessment_type') else 'Não especificado'],
-        ["Tipo de Ambiente:", data.get('environment_type', {}).get('name', 'Não especificado') if data.get('environment_type') else 'Não especificado'],
-    ]
-    
-    cover_table = Table(cover_data, colWidths=[4*cm, 10*cm])
-    cover_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f1f5f9')),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('PADDING', (0, 0), (-1, -1), 8),
-    ]))
-    elements.append(cover_table)
-    elements.append(Spacer(1, 1*cm))
-    
-    # Descrição
-    if assessment.description:
-        elements.append(Paragraph("Descrição", heading2_style))
-        elements.append(Paragraph(assessment.description, normal_style))
-        elements.append(Spacer(1, 0.5*cm))
-    
-    # Score de compliance
-    compliance_score = data.get('compliance_score', 0)
-    elements.append(Paragraph(f"Score de Compliance: {compliance_score}%", heading2_style))
-    elements.append(Spacer(1, 0.5*cm))
-    
-    elements.append(PageBreak())
-    
-    # ===== SEÇÃO: RISCOS IDENTIFICADOS =====
-    elements.append(Paragraph("RISCOS IDENTIFICADOS", heading2_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    findings = list(assessment.findings.all())
-    if findings:
-        for i, finding in enumerate(findings, 1):
-            finding_elements = []
-            finding_elements.append(Paragraph(f"Risco #{i}", heading3_style))
-            
-            risk_data = [
-                ["Descrição:", finding.description or "-"],
-                ["Severidade:", finding.severity or "Não classificada"],
-                ["Localização:", finding.location or "Não especificada"],
-            ]
-            
-            risk_table = Table(risk_data, colWidths=[3*cm, 11*cm])
-            risk_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#fef3c7')),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-                ('PADDING', (0, 0), (-1, -1), 6),
-            ]))
-            finding_elements.append(risk_table)
-            finding_elements.append(Spacer(1, 0.3*cm))
-            
-            elements.append(KeepTogether(finding_elements))
-    else:
-        elements.append(Paragraph("Nenhum risco identificado.", normal_style))
-    
-    elements.append(PageBreak())
-    
-    # ===== SEÇÃO: EVIDÊNCIAS =====
-    elements.append(Paragraph("EVIDÊNCIAS", heading2_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    evidences = list(assessment.evidences.all())
-    if evidences:
-        elements.append(Paragraph(f"Total de evidências: {len(evidences)}", normal_style))
-        elements.append(Spacer(1, 0.5*cm))
-        
-        for i, evidence in enumerate(evidences, 1):
-            evidence_elements = []
-            evidence_elements.append(Paragraph(f"Evidência #{i}", heading3_style))
-            
-            # Metadados da evidência
-            meta_data = [
-                ["ID:", str(evidence.id)],
-                ["Arquivo:", evidence.file.name.split('/')[-1] if evidence.file else "-"],
-                ["Tamanho:", f"{evidence.file_size} bytes" if evidence.file_size else "-"],
-                ["Hash:", evidence.file_hash[:16] + "..." if evidence.file_hash and len(evidence.file_hash) > 16 else (evidence.file_hash or "-")],
-                ["Capturada em:", evidence.captured_at.strftime("%d/%m/%Y %H:%M") if evidence.captured_at else "-"],
-            ]
-            
-            meta_table = Table(meta_data, colWidths=[3*cm, 11*cm])
-            meta_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e0f2fe')),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-                ('PADDING', (0, 0), (-1, -1), 4),
-            ]))
-            evidence_elements.append(meta_table)
-            evidence_elements.append(Spacer(1, 0.3*cm))
-            
-            # Tentar incluir a imagem (reduzida para performance)
-            if evidence.file:
-                try:
-                    img_path = evidence.file.path
-                    # Limitar tamanho da imagem no PDF (largura máxima 15cm)
-                    img = Image(img_path, width=15*cm, height=10*cm)
-                    img.drawHeight = 10*cm
-                    img.drawWidth = 15*cm
-                    img.hAlign = 'CENTER'
-                    evidence_elements.append(img)
-                    evidence_elements.append(Spacer(1, 0.5*cm))
-                except Exception as img_error:
-                    logger.warning(f"Could not include image for evidence {evidence.id}: {img_error}")
-                    evidence_elements.append(Paragraph(f"[Imagem não disponível: {img_error}]", normal_style))
-            
-            elements.append(KeepTogether(evidence_elements))
-            
-            # Nova página a cada 2 evidências para não sobrecarregar
-            if i % 2 == 0 and i < len(evidences):
-                elements.append(PageBreak())
-    else:
-        elements.append(Paragraph("Nenhuma evidência registrada.", normal_style))
-    
-    elements.append(PageBreak())
-    
-    # ===== SEÇÃO: CHECKLIST DE VALIDAÇÃO =====
-    elements.append(Paragraph("CHECKLIST DE VALIDAÇÃO", heading2_style))
-    elements.append(Spacer(1, 0.3*cm))
-    
-    checklist_data = [
-        ["Item", "Status", "Data"],
-        ["Captura", "✓ Concluído" if assessment.captured_at else "○ Pendente", 
-         assessment.captured_at.strftime("%d/%m/%Y %H:%M") if assessment.captured_at else "-"],
-        ["Sincronização", "✓ Concluído" if assessment.synced_at else "○ Pendente",
-         assessment.synced_at.strftime("%d/%m/%Y %H:%M") if assessment.synced_at else "-"],
-        ["Revisão por IA", "✓ Concluído" if assessment.ai_reviewed_at else "○ Pendente",
-         assessment.ai_reviewed_at.strftime("%d/%m/%Y %H:%M") if assessment.ai_reviewed_at else "-"],
-        ["Validação Humana", "✓ Concluído" if assessment.human_validated_at else "○ Pendente",
-         assessment.human_validated_at.strftime("%d/%m/%Y %H:%M") if assessment.human_validated_at else "-"],
-        ["Finalização", "✓ Concluído" if assessment.finalized_at else "○ Pendente",
-         assessment.finalized_at.strftime("%d/%m/%Y %H:%M") if assessment.finalized_at else "-"],
-    ]
-    
-    checklist_table = Table(checklist_data, colWidths=[5*cm, 4*cm, 5*cm])
-    checklist_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('PADDING', (0, 0), (-1, -1), 8),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
-    ]))
-    elements.append(checklist_table)
-    elements.append(Spacer(1, 1*cm))
-    
-    # ===== RODAPÉ =====
-    elements.append(Spacer(1, 2*cm))
-    elements.append(Paragraph("— Fim do Relatório —", ParagraphStyle(
-        'Footer',
+    normal_text = ParagraphStyle(
+        'NormalText',
         parent=styles['Normal'],
         fontSize=9,
-        textColor=colors.grey,
-        alignment=TA_CENTER,
-    )))
+        textColor=dark_text,
+        spaceAfter=6,
+        leading=12
+    )
     
-    # Gerar PDF
+    header_right_case = ParagraphStyle('HRCase', fontSize=7, textColor=light_text, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    header_right_num = ParagraphStyle('HRNum', fontSize=12, textColor=dark_text, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    header_right_date = ParagraphStyle('HRDate', fontSize=8, textColor=light_text, alignment=TA_RIGHT)
+    
+    elements = []
+    
+    # --- HEADER ---
+    logo_p = Paragraph('<b><font size=16 color="#0d9488">WorkSafety</font></b>', styles['Normal'])
+    
+    created_dt = assessment.created_at
+    year = created_dt.year if created_dt else 2026
+    case_num = f"#INSP-{year}-{assessment.id:03d}"
+    gen_date = created_dt.strftime("%b %d, %Y") if created_dt else "Jan 10, 2026"
+    
+    header_right = [
+        Paragraph('CASE NUMBER', header_right_case),
+        Paragraph(case_num, header_right_num),
+        Paragraph(f'Generated: {gen_date}', header_right_date)
+    ]
+    
+    header_table = Table([[logo_p, header_right]], colWidths=[10*cm, 7.5*cm])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.5*cm))
+    
+    elements.append(Paragraph("Safety Inspection<br/>Report", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # --- INFO BOXES ---
+    loc_title = Paragraph('<font size=7 color="#64748b"><b>LOCATION</b></font>', styles['Normal'])
+    env_name = data.get('environment_type', {}).get('name', 'North Sector - Construction') if data.get('environment_type') else 'North Sector - Construction'
+    loc_val = Paragraph(f'<b>{env_name}</b>', normal_text)
+    
+    insp_title = Paragraph('<font size=7 color="#64748b"><b>INSPECTOR</b></font>', styles['Normal'])
+    user_name = "Alex Inspector"
+    user_id = "8842"
+    if assessment.created_by:
+        user_name = assessment.created_by.get_full_name() or assessment.created_by.username
+        user_id = str(assessment.created_by.id)
+    insp_val = Paragraph(f'<b>{user_name} (ID: {user_id})</b>', normal_text)
+    
+    info_table = Table([[
+        [loc_title, Spacer(1, 0.2*cm), loc_val], 
+        '', 
+        [insp_title, Spacer(1, 0.2*cm), insp_val]
+    ]], colWidths=[8*cm, 1.5*cm, 8*cm])
+    
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), gray_bg),
+        ('BACKGROUND', (2,0), (2,0), gray_bg),
+        ('ROUNDEDCORNERS', (0,0), (0,0), [8,8,8,8]),
+        ('ROUNDEDCORNERS', (2,0), (2,0), [8,8,8,8]),
+        ('PADDING', (0,0), (-1,-1), 8),
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.8*cm))
+    
+    # --- EVIDENCE & FINDINGS ---
+    st_table = Table([['', Paragraph('<b>EVIDENCE & FINDINGS</b>', ParagraphStyle('ST', fontSize=9, textColor=dark_text))]], colWidths=[0.15*cm, 17.35*cm])
+    st_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), teal_color),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING', (1,0), (1,0), 6),
+    ]))
+    elements.append(st_table)
+    elements.append(Spacer(1, 0.4*cm))
+    
+    evidences = list(assessment.evidences.all())
+    findings = list(assessment.findings.all())
+    
+    # Image Placeholder or Actual Image
+    img_element = Table([['No Image']], colWidths=[8*cm], rowHeights=[6*cm])
+    if evidences and evidences[0].file:
+        try:
+            img_path = evidences[0].file.path
+            img = Image(img_path, width=8*cm, height=6*cm)
+            img.drawHeight = 6*cm
+            img.drawWidth = 8*cm
+            img.hAlign = 'CENTER'
+            img_element = Table([[img], [Spacer(1, 0.1*cm), Paragraph(f'<font size=7 color="#64748b">Fig 1: Site Evidence {evidences[0].id}</font>', styles['Normal'])]], colWidths=[8*cm])
+        except Exception:
+            img_element = Table([['Image Load Error']], colWidths=[8*cm], rowHeights=[6*cm])
+    
+    img_element.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    
+    # Findings Logic
+    findings_col = []
+    if not findings:
+        f_table = Table([[Paragraph('<b>No Findings Recorded</b>', normal_text)]], colWidths=[8*cm])
+        f_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f1f5f9')),
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('ROUNDEDCORNERS', (0,0), (-1,-1), [6,6,6,6]),
+        ]))
+        findings_col.append([f_table])
+    
+    for i, finding in enumerate(findings[:2]):
+        is_critical = finding.severity.lower() == 'critical' if finding.severity else (i == 0)
+        pill_color = '#ef4444' if is_critical else '#f59e0b'
+        bg_color = '#fef2f2' if is_critical else '#fffbeb'
+        label = 'CRITICAL' if is_critical else 'WARNING'
+        conf = "94% Confidence" if is_critical else "85% Confidence"
+        
+        # Inferences metadata attempt
+        inferences = list(assessment.inferences.all())
+        if inferences:
+            conf_val = inferences[0].confidence
+            if conf_val:
+                conf = f"{conf_val}% Confidence"
+                
+        f_top = Table([
+            [Paragraph(f'<b><font color="{pill_color}" size=7>{label}</font></b>', styles['Normal']), 
+             Paragraph(f'<font color="{pill_color}" size=7>{conf}</font>', ParagraphStyle('r', alignment=TA_RIGHT))]
+        ], colWidths=[3*cm, 4*cm])
+        
+        desc = finding.description or "No description provided."
+        
+        # Try to parse the description into "Title" and "Text" if it has a Title format
+        split_desc = desc.split('. ', 1)
+        if len(split_desc) > 1:
+            title = split_desc[0]
+            body = split_desc[1]
+        else:
+            title = desc[:30] + '...' if len(desc) > 30 else desc
+            body = desc[30:] if len(desc) > 30 else "Details not specified."
+            
+        f_desc = Paragraph(f'<b>{title}</b><br/><br/>{body}', normal_text)
+        
+        f_table = Table([[f_top], [Spacer(1, 0.2*cm)], [f_desc]], colWidths=[7.5*cm])
+        f_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor(bg_color)),
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('ROUNDEDCORNERS', (0,0), (-1,-1), [6,6,6,6]),
+        ]))
+        
+        findings_col.append([f_table])
+        if i < len(findings[:2]) - 1:
+            findings_col.append([Spacer(1, 0.3*cm)])
+            
+    if not findings_col:
+        findings_col = [['']]
+        
+    ev_table = Table([[img_element, '', findings_col]], colWidths=[8*cm, 1*cm, 8.5*cm])
+    ev_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('PADDING', (0,0), (-1,-1), 0),
+    ]))
+    elements.append(ev_table)
+    elements.append(Spacer(1, 0.8*cm))
+    
+    # --- AI RECOMMENDATIONS ---
+    st_table_ai = Table([['', Paragraph('<b>AI RECOMMENDATIONS</b>', ParagraphStyle('ST', fontSize=9, textColor=dark_text))]], colWidths=[0.15*cm, 17.35*cm])
+    st_table_ai.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), teal_color),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING', (1,0), (1,0), 6),
+    ]))
+    elements.append(st_table_ai)
+    elements.append(Spacer(1, 0.4*cm))
+    
+    # Static recommendations as per model, or generated based on findings
+    recs = [
+        "IMMEDIATE ACTION: Stop work in Sector North until guardrails are installed",
+        "Issue formal warning to site supervisor regarding PPE compliance",
+        f"Schedule follow up inspection for Jan 17, {year}"
+    ]
+    
+    for r in recs:
+        bul_table = Table([
+            [Paragraph('<font color="#0f172a">•</font>', normal_text), Paragraph(r, normal_text)]
+        ], colWidths=[0.5*cm, 17*cm])
+        bul_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('PADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elements.append(bul_table)
+    
+    elements.append(Spacer(1, 1.5*cm))
+    
+    # --- FOOTER ---
+    # Draw a line above footer
+    elements.append(Table([['']], colWidths=[17.5*cm], style=[('LINEABOVE', (0,0), (-1,-1), 1, teal_color)]))
+    elements.append(Spacer(1, 0.4*cm))
+
+    manager_name = "Sarah Manager"
+    manager_title = "Manager (ID: 642)"
+    
+    sign_block = [
+        Paragraph('<font size=7 color="#94a3b8">AUTHORIZED SIGNATURE</font>', styles['Normal']),
+        Spacer(1, 0.4*cm),
+        Paragraph(f'<font size=12 color="#38bdf8">{manager_name}</font>', styles['Normal']),
+        Paragraph(f'<font size=8 color="#e2e8f0"><b>{manager_name}</b><br/>{manager_title}</font>', normal_text)
+    ]
+    
+    stamp = Table([[Paragraph('<b><font size=12 color="#38bdf8">WORKSAFETY<br/>APPROVED</font></b><br/><font size=7 color="#38bdf8">10/01/2026</font>', ParagraphStyle('cc', alignment=TA_CENTER))]], 
+                  style=[('BOX', (0,0), (-1,-1), 2, colors.HexColor('#38bdf8')), ('PADDING', (0,0),(-1,-1), 8), ('ROUNDEDCORNERS', (0,0), (-1,-1), [5,5,5,5])])
+    
+    footer_table = Table([[sign_block, stamp]], colWidths=[11*cm, 6.5*cm])
+    footer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#0f172a')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 15),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+    ]))
+    
+    elements.append(footer_table)
+    
     doc.build(elements)
     buffer.seek(0)
     

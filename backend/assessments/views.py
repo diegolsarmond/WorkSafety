@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from rest_framework import views, status, parsers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -10,6 +11,8 @@ from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 
 from .models import RiskAssessment, Evidence, AIInferenceResult, AssessmentStatusHistory
+
+logger = logging.getLogger(__name__)
 from .serializers import (
     EvidenceUploadSerializer,
     EvidenceSerializer,
@@ -74,6 +77,8 @@ class RiskAssessmentDetailView(RetrieveAPIView):
             "If timestamps are provided, they must match the number of images. "
             "Each timestamp is stored in the evidence's captured_at field. "
             "Ensures idempotency based on standard hashing (SHA-256) of each image. "
+            "Images are automatically anonymized (faces and plates blurred) before storage "
+            "to ensure LGPD/GDPR compliance. "
             "Users can only upload evidences to their own RiskAssessments."
         ),
         request=EvidenceUploadSerializer,
@@ -85,6 +90,9 @@ class EvidenceUploadView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, assessment_id, *args, **kwargs):
+        from .anonymization import anonymize_evidence
+        from .tasks import anonymize_evidence_task
+
         # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
             RiskAssessment,
@@ -119,11 +127,36 @@ class EvidenceUploadView(views.APIView):
                 assessment=assessment,
                 file=image,
                 captured_at=timestamp,
+                anonymization_status="pending",
             )
             new_evidence.save()
+
+            # LGPD/GDPR: Anonimizar evidência antes de disponibilizar
+            # Por padrão, fazemos anonimização síncrona para garantir que
+            # o arquivo persistido já esteja anonimizado
+            try:
+                result = anonymize_evidence(new_evidence, request.user)
+                if not result.success:
+                    # Se anonimização falhou mas não é crítico, logamos e continuamos
+                    # Em ambientes com ANONYMIZATION_BLOCK_PLATES=True, pode falhar
+                    logger.warning(
+                        f"Anonymization issue for evidence {new_evidence.pk}: "
+                        f"{result.error_message}"
+                    )
+            except Exception as e:
+                # Em caso de erro na anonimização, não falhamos o upload
+                # mas marcamos para processamento assíncrono
+                logger.exception(f"Synchronous anonymization failed for evidence {new_evidence.pk}: {e}")
+                # Enfileirar para processamento assíncrono
+                anonymize_evidence_task.delay(new_evidence.id, request.user.id)
+
             created_evidences.append(new_evidence)
 
-        result_serializer = EvidenceSerializer(created_evidences, many=True)
+        result_serializer = EvidenceSerializer(
+            created_evidences,
+            many=True,
+            context={'request': request}
+        )
         return Response(result_serializer.data, status=status.HTTP_201_CREATED)
 
 

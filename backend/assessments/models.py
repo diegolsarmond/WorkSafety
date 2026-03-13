@@ -37,6 +37,23 @@ class RiskAssessment(models.Model):
         (STATUS_ERROR_AI, "Erro IA"),
     ]
 
+    # LGPD/GDPR — Bases legais para processamento de dados pessoais
+    LEGAL_BASIS_CONSENT = "consent"
+    LEGAL_BASIS_LEGITIMATE_INTEREST = "legitimate_interest"
+    LEGAL_BASIS_LEGAL_OBLIGATION = "legal_obligation"
+    LEGAL_BASIS_CONTRACT = "contract"
+    LEGAL_BASIS_PUBLIC_INTEREST = "public_interest"
+    LEGAL_BASIS_VITAL_INTEREST = "vital_interest"
+
+    LEGAL_BASIS_CHOICES = [
+        (LEGAL_BASIS_CONSENT, "Consentimento do titular"),
+        (LEGAL_BASIS_LEGITIMATE_INTEREST, "Interesse legítimo"),
+        (LEGAL_BASIS_LEGAL_OBLIGATION, "Cumprimento de obrigação legal"),
+        (LEGAL_BASIS_CONTRACT, "Execução de contrato"),
+        (LEGAL_BASIS_PUBLIC_INTEREST, "Missão de interesse público"),
+        (LEGAL_BASIS_VITAL_INTEREST, "Proteção da vida"),
+    ]
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -86,6 +103,20 @@ class RiskAssessment(models.Model):
         related_name="status_changes",
     )
     status_change_reason = models.TextField("motivo da mudança", blank=True)
+
+    # LGPD/GDPR — Base legal e justificativa
+    legal_basis = models.CharField(
+        "base legal LGPD",
+        max_length=30,
+        choices=LEGAL_BASIS_CHOICES,
+        default=LEGAL_BASIS_LEGITIMATE_INTEREST,
+        help_text="Base legal para processamento de dados pessoais conforme LGPD/GDPR",
+    )
+    legal_basis_notes = models.TextField(
+        "notas da base legal",
+        blank=True,
+        help_text="Justificativa adicional para a base legal selecionada",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -163,11 +194,140 @@ class Evidence(models.Model):
         except Exception:
             pass
 
+    # LGPD/GDPR — Controle de anonimização
+    is_anonymized = models.BooleanField(
+        "anonimizado",
+        default=False,
+        help_text="Indica se a evidência foi processada para remoção de dados pessoais",
+    )
+    anonymized_at = models.DateTimeField(
+        "anonimizado em",
+        null=True,
+        blank=True,
+    )
+    anonymization_status = models.CharField(
+        "status da anonimização",
+        max_length=20,
+        default="pending",
+        choices=[
+            ("pending", "Pendente"),
+            ("processing", "Processando"),
+            ("completed", "Concluído"),
+            ("failed", "Falhou"),
+            ("skipped", "Ignorado"),
+        ],
+        help_text="Estado atual do processo de anonimização",
+    )
+    original_file_hash = models.CharField(
+        "hash do arquivo original",
+        max_length=64,
+        blank=True,
+        help_text="SHA-256 do arquivo original antes da anonimização (para auditoria)",
+    )
+
     def save(self, *args, **kwargs):
         # Só preenche metadata no backend na criação (arquivo recém-enviado)
         if self.file and not self.pk:
             self._compute_file_metadata()
         super().save(*args, **kwargs)
+
+
+class EvidenceAnonymizationLog(models.Model):
+    """
+    LGPD/GDPR — Log de auditoria para processo de anonimização.
+    
+    Mantém registro completo de todas as operações de anonimização
+    para fins de compliance e auditoria.
+    """
+
+    OPERATION_ANONYMIZE = "anonymize"
+    OPERATION_RESTORE = "restore"
+    OPERATION_VERIFY = "verify"
+
+    OPERATION_CHOICES = [
+        (OPERATION_ANONYMIZE, "Anonimização"),
+        (OPERATION_RESTORE, "Restauração"),
+        (OPERATION_VERIFY, "Verificação"),
+    ]
+
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_PARTIAL = "partial"
+
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, "Sucesso"),
+        (STATUS_FAILED, "Falha"),
+        (STATUS_PARTIAL, "Parcial"),
+    ]
+
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.CASCADE,
+        related_name="anonymization_logs",
+        verbose_name="evidência",
+    )
+    operation = models.CharField(
+        "operação",
+        max_length=20,
+        choices=OPERATION_CHOICES,
+        default=OPERATION_ANONYMIZE,
+    )
+    status = models.CharField(
+        "status",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_SUCCESS,
+    )
+    faces_detected = models.IntegerField(
+        "rostos detectados",
+        null=True,
+        blank=True,
+    )
+    faces_anonymized = models.IntegerField(
+        "rostos anonimizados",
+        null=True,
+        blank=True,
+    )
+    plates_detected = models.IntegerField(
+        "placas detectadas",
+        null=True,
+        blank=True,
+    )
+    plates_anonymized = models.IntegerField(
+        "placas anonimizadas",
+        null=True,
+        blank=True,
+    )
+    error_message = models.TextField(
+        "mensagem de erro",
+        blank=True,
+    )
+    processing_duration_ms = models.IntegerField(
+        "duração do processamento (ms)",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="anonymization_logs",
+        verbose_name="executado por",
+    )
+
+    class Meta:
+        verbose_name = "log de anonimização"
+        verbose_name_plural = "logs de anonimização"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["evidence", "-created_at"]),
+            models.Index(fields=["operation", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_operation_display()} ({self.get_status_display()}) - Evidência #{self.evidence_id}"
 
 
 class RiskFinding(models.Model):

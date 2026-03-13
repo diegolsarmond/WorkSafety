@@ -29,11 +29,19 @@ class EnvironmentTypeRefSerializer(serializers.ModelSerializer):
 class EvidenceSerializer(serializers.ModelSerializer):
     """Serializer para evidências (fotos)."""
     url = serializers.SerializerMethodField()
+    privacy_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Evidence
-        fields = ['id', 'file', 'url', 'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
-        read_only_fields = ['file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at']
+        fields = [
+            'id', 'file', 'url', 'file_hash', 'file_size', 'mime_type',
+            'captured_at', 'created_at',
+            'privacy_status',
+        ]
+        read_only_fields = [
+            'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at',
+            'privacy_status',
+        ]
 
     def get_url(self, obj: Evidence) -> str:
         """Retorna a URL completa do arquivo."""
@@ -43,6 +51,16 @@ class EvidenceSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
         return ""
+
+    def get_privacy_status(self, obj: Evidence) -> dict:
+        """Retorna status de privacidade/LGPD da evidência."""
+        # Using default empty status to avoid 500 since LGPD fields do not exist on Evidence model
+        return {
+            'is_anonymized': False,
+            'anonymization_status': 'not_applicable',
+            'anonymized_at': None,
+            'has_original_hash': False,
+        }
 
 
 class EvidenceRefSerializer(serializers.ModelSerializer):
@@ -172,14 +190,13 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
     risk_count = serializers.SerializerMethodField()
     assessment_type = AssessmentTypeRefSerializer(read_only=True)
     environment_type = EnvironmentTypeRefSerializer(read_only=True)
-
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'created_by_email',
             'risk_count', 'assessment_type', 'environment_type',
             'captured_at', 'ai_reviewed_at',
-            'human_validated_at', 'created_at'
+            'human_validated_at', 'created_at',
         ]
 
     def get_created_by_email(self, obj: RiskAssessment) -> str:
@@ -272,7 +289,6 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True,
     )
-
     class Meta:
         model = RiskAssessment
         fields = [

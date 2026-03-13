@@ -13,6 +13,7 @@ import { RisksDetected } from '@/features/inspection/RisksDetected';
 import { ReviewValidation } from '@/features/inspection/ReviewValidation';
 import { SyncQueuePage } from '@/features/sync';
 import { AIQueuePage } from '@/features/ai-queue';
+import { ReportsPage } from '@/features/reports';
 
 export default function AppRouter() {
   return (
@@ -108,6 +109,15 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <AIQueuePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <ReportsPage />
             </ProtectedRoute>
           }
         />
