@@ -24,13 +24,28 @@ python manage.py runserver 3001
 ```
 
 O backend deve ter as seguintes URLs disponíveis:
-- `POST /auth/login/` - Login
-- `POST /auth/logout/` - Logout
-- `GET /auth/me/` - Dados do usuário atual
-- `POST /auth/token/refresh/` - Refresh do token JWT
-- `GET /users/` - Listar usuários
-- `POST /users/` - Criar usuário
-- `PATCH /users/{id}/` - Atualizar usuário
+- `POST /api/auth/login/` - Login
+- `POST /api/auth/logout/` - Logout
+- `GET /api/auth/me/` - Dados do usuário atual
+- `POST /api/auth/token/refresh/` - Refresh do token JWT
+- `GET /api/users/` - Listar usuários
+- `POST /api/users/` - Criar usuário
+- `PATCH /api/users/{id}/` - Atualizar usuário
+- `GET /api/admin/assessment-types/` - Listar tipos de avaliação
+- `POST /api/admin/assessment-types/` - Criar tipo de avaliação
+- `PATCH /api/admin/assessment-types/{id}/` - Atualizar tipo de avaliação
+- `POST /api/admin/assessment-types/{id}/deactivate/` - Desativar tipo de avaliação
+- `GET /api/admin/environment-types/` - Listar tipos de ambiente
+- `POST /api/admin/environment-types/` - Criar tipo de ambiente
+- `PATCH /api/admin/environment-types/{id}/` - Atualizar tipo de ambiente
+- `POST /api/admin/environment-types/{id}/deactivate/` - Desativar tipo de ambiente
+- `GET /api/admin/risk-types/` - Listar tipos de risco
+- `POST /api/admin/risk-types/` - Criar tipo de risco
+- `PATCH /api/admin/risk-types/{id}/` - Atualizar tipo de risco
+- `POST /api/admin/risk-types/{id}/deactivate/` - Desativar tipo de risco
+- `GET /api/admin/ai-thresholds/` - Listar thresholds da IA
+- `PUT /api/admin/ai-thresholds/confidence/` - Atualizar threshold de confiança
+- `GET /api/admin/ai-thresholds/confidence/current/` - Obter threshold atual
 
 ## Arquitetura da Integração
 
@@ -138,10 +153,24 @@ Protege rotas que requerem autenticação:
 
 | Operação | Método HTTP | Endpoint | Body |
 |----------|-------------|----------|------|
-| Listar | GET | `/users/` | - |
-| Criar | POST | `/users/` | `{email, password, is_staff}` |
-| Atualizar | PATCH | `/users/{id}/` | `{is_active, is_staff}` |
-| Desativar | PATCH | `/users/{id}/` | `{is_active: false}` |
+| Listar | GET | `/api/users/` | - |
+| Criar | POST | `/api/users/` | `{email, password, is_staff}` |
+| Atualizar | PATCH | `/api/users/{id}/` | `{is_active, is_staff}` |
+| Desativar | PATCH | `/api/users/{id}/` | `{is_active: false}` |
+| Listar Tipos de Avaliação | GET | `/api/admin/assessment-types/` | - |
+| Criar Tipo de Avaliação | POST | `/api/admin/assessment-types/` | `{name, description}` |
+| Atualizar Tipo de Avaliação | PATCH | `/api/admin/assessment-types/{id}/` | `{name, description}` |
+| Desativar Tipo de Avaliação | POST | `/api/admin/assessment-types/{id}/deactivate/` | - |
+| Listar Tipos de Ambiente | GET | `/api/admin/environment-types/` | - |
+| Criar Tipo de Ambiente | POST | `/api/admin/environment-types/` | `{name, description}` |
+| Atualizar Tipo de Ambiente | PATCH | `/api/admin/environment-types/{id}/` | `{name, description}` |
+| Desativar Tipo de Ambiente | POST | `/api/admin/environment-types/{id}/deactivate/` | - |
+| Listar Tipos de Risco | GET | `/api/admin/risk-types/` | - |
+| Criar Tipo de Risco | POST | `/api/admin/risk-types/` | `{name, description}` |
+| Atualizar Tipo de Risco | PATCH | `/api/admin/risk-types/{id}/` | `{name, description}` |
+| Desativar Tipo de Risco | POST | `/api/admin/risk-types/{id}/deactivate/` | - |
+| Obter Threshold IA | GET | `/api/admin/ai-thresholds/confidence/current/` | - |
+| Atualizar Threshold IA | PUT | `/api/admin/ai-thresholds/confidence/` | `{threshold_value: 60}` |
 
 ## Testando a Integração
 

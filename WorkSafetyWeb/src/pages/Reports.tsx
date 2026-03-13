@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
 import { Download, RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { fetchWithToken } from '../services/api';
 
 interface Report {
   id: number;
@@ -17,7 +18,7 @@ export default function Reports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/reports');
+      const res = await fetchWithToken('/api/admin/reports/');
       const data = await res.json();
       setReports(data);
     } catch (error) {
@@ -34,7 +35,7 @@ export default function Reports() {
   const handleRegenerate = async (assessmentId: number) => {
     if (confirm('Deseja regenerar o relatório para esta avaliação?')) {
       try {
-        await fetch(`/api/admin/assessments/${assessmentId}/generate-report`, { method: 'POST' });
+        await fetchWithToken(`/api/admin/assessments/${assessmentId}/generate-report/`, { method: 'POST' });
         fetchReports();
       } catch (error) {
         console.error('Failed to regenerate', error);

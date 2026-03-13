@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
 import { RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { fetchWithToken } from '../services/api';
 
 interface ProcessingJob {
   id: number;
@@ -19,8 +20,8 @@ export default function ProcessingQueue() {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const url = filter ? `/api/admin/processing-jobs?status=${filter}` : '/api/admin/processing-jobs';
-      const res = await fetch(url);
+      const url = filter ? `/api/admin/processing-jobs/?status=${filter}` : '/api/admin/processing-jobs/';
+      const res = await fetchWithToken(url);
       const data = await res.json();
       setJobs(data);
     } catch (error) {
@@ -37,7 +38,7 @@ export default function ProcessingQueue() {
   const handleReprocess = async (id: number) => {
     if (confirm('Deseja reprocessar esta avaliação?')) {
       try {
-        await fetch(`/api/admin/processing-jobs/${id}/reprocess`, { method: 'POST' });
+        await fetchWithToken(`/api/admin/processing-jobs/${id}/reprocess/`, { method: 'POST' });
         fetchJobs();
       } catch (error) {
         console.error('Failed to reprocess', error);

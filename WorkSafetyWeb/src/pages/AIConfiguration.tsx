@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
 import { Save } from 'lucide-react';
+import { fetchWithToken } from '../services/api';
 
 interface AIThreshold {
   id: number;
-  threshold_value: number;
+  threshold_value: string;
+  threshold_type: string;
+  threshold_type_display: string;
+  description: string;
   updated_at: string;
-  updated_by: number;
+  updated_by: number | null;
+  updated_by_email: string | null;
 }
 
 export default function AIConfiguration() {
@@ -18,12 +23,11 @@ export default function AIConfiguration() {
   const fetchThresholds = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/ai-thresholds');
+      // Buscar threshold atual
+      const res = await fetchWithToken('/api/admin/ai-thresholds/confidence/current/');
       const data = await res.json();
-      setThresholds(data);
-      if (data.length > 0) {
-        setCurrentThreshold(data[0].threshold_value);
-      }
+      setThresholds([data]);
+      setCurrentThreshold(parseFloat(data.threshold_value));
     } catch (error) {
       console.error('Failed to fetch', error);
     } finally {
@@ -38,9 +42,8 @@ export default function AIConfiguration() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch('/api/admin/ai-thresholds', {
+      await fetchWithToken('/api/admin/ai-thresholds/confidence/', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ threshold_value: currentThreshold }),
       });
       fetchThresholds();
@@ -55,12 +58,13 @@ export default function AIConfiguration() {
 
   const columns = [
     { header: 'ID', accessor: 'id' as const },
+    { header: 'Tipo', accessor: 'threshold_type_display' as const },
     { header: 'Valor (%)', accessor: 'threshold_value' as const },
     { 
       header: 'Data de Atualização', 
       accessor: (row: AIThreshold) => new Date(row.updated_at).toLocaleString('pt-BR')
     },
-    { header: 'Atualizado por (ID)', accessor: 'updated_by' as const },
+    { header: 'Atualizado por', accessor: 'updated_by_email' as const },
   ];
 
   return (

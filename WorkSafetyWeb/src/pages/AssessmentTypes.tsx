@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { fetchWithToken } from '../services/api';
 
 interface AssessmentType {
   id: number;
@@ -19,7 +20,8 @@ export default function AssessmentTypes() {
   const fetchTypes = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/assessment-types');
+      const res = await fetchWithToken('/api/admin/assessment-types/');
+      if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setTypes(data);
     } catch (error) {
@@ -37,15 +39,13 @@ export default function AssessmentTypes() {
     e.preventDefault();
     try {
       if (editingType) {
-        await fetch(`/api/admin/assessment-types/${editingType.id}`, {
+        await fetchWithToken(`/api/admin/assessment-types/${editingType.id}/`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
       } else {
-        await fetch('/api/admin/assessment-types', {
+        await fetchWithToken('/api/admin/assessment-types/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
       }
@@ -61,7 +61,7 @@ export default function AssessmentTypes() {
   const handleDeactivate = async (id: number) => {
     if (confirm('Tem certeza que deseja desativar este tipo?')) {
       try {
-        await fetch(`/api/admin/assessment-types/${id}/deactivate`, { method: 'POST' });
+        await fetchWithToken(`/api/admin/assessment-types/${id}/deactivate/`, { method: 'POST' });
         fetchTypes();
       } catch (error) {
         console.error('Failed to deactivate', error);

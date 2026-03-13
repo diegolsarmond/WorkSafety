@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
+import { fetchWithToken } from '../services/api';
 
 interface AuditLog {
   id: number;
-  entity: string;
+  entity_type: string;
   entity_id: number;
   action: string;
-  user_id: number;
-  details: string;
-  created_at: string;
+  action_display: string;
+  performed_by_email: string;
+  timestamp: string;
 }
 
 export default function AuditLogs() {
@@ -18,7 +19,7 @@ export default function AuditLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/audit-logs');
+      const res = await fetchWithToken('/api/admin/audit-logs/');
       const data = await res.json();
       setLogs(data);
     } catch (error) {
@@ -34,31 +35,25 @@ export default function AuditLogs() {
 
   const columns = [
     { header: 'ID', accessor: 'id' as const },
-    { header: 'Entidade', accessor: 'entity' as const },
+    { header: 'Entidade', accessor: 'entity_type' as const },
     { header: 'Entidade ID', accessor: 'entity_id' as const },
     { 
       header: 'Ação', 
       accessor: (row: AuditLog) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          row.action === 'CREATE' ? 'bg-emerald-100 text-emerald-800' :
-          row.action === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
-          row.action === 'DELETE' ? 'bg-red-100 text-red-800' :
+          row.action === 'create' ? 'bg-emerald-100 text-emerald-800' :
+          row.action === 'update' ? 'bg-blue-100 text-blue-800' :
+          row.action === 'delete' ? 'bg-red-100 text-red-800' :
           'bg-slate-100 text-slate-800'
         }`}>
-          {row.action}
+          {row.action_display}
         </span>
       )
     },
-    { header: 'Usuário ID', accessor: 'user_id' as const },
-    { 
-      header: 'Detalhes', 
-      accessor: (row: AuditLog) => (
-        <pre className="text-xs text-slate-500 overflow-x-auto max-w-xs">{row.details}</pre>
-      )
-    },
+    { header: 'Usuário', accessor: 'performed_by_email' as const },
     { 
       header: 'Data', 
-      accessor: (row: AuditLog) => new Date(row.created_at).toLocaleString('pt-BR')
+      accessor: (row: AuditLog) => new Date(row.timestamp).toLocaleString('pt-BR')
     },
   ];
 

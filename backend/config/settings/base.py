@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "accounts",
     "assessments",
+    "configurations",
 ]
 
 MIDDLEWARE = [
@@ -136,7 +137,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SERVE_PUBLIC": True,
     "COMPONENT_SPLIT_REQUEST": False,
-    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "SCHEMA_PATH_PREFIX": r"/api/",
     "SCHEMA_PATH_PREFIX_TRIM": True,
     # Desabilitar validação estrita para evitar erros 500
     "PREPROCESSING_HOOKS": [],

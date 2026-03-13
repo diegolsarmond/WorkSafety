@@ -3,7 +3,9 @@
  * Base URL: http://localhost:3001
  */
 
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://127.0.0.1:8000';
+// Use URL relativa para passar pelo proxy do server.ts
+// ou configure VITE_API_URL para apontar diretamente para o Django
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
 
 // Tipos de dados da API
 export interface User {
@@ -98,6 +100,28 @@ export function setCurrentUser(user: User): void {
   localStorage.setItem('user', JSON.stringify(user));
 }
 
+// Função helper para fazer fetch com token de autenticação
+export async function fetchWithToken(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = getAccessToken();
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+}
+
 // Função de fetch com retry para refresh token
 async function fetchWithAuth(
   url: string,
@@ -140,7 +164,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refresh) return null;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh }),
@@ -162,7 +186,7 @@ async function refreshAccessToken(): Promise<string | null> {
 // Serviço de Autenticação
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -187,7 +211,7 @@ export const authService = {
     const refresh = getRefreshToken();
     if (refresh) {
       try {
-        await fetch(`${API_BASE_URL}/auth/logout/`, {
+        await fetch(`${API_BASE_URL}/api/auth/logout/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh }),
@@ -200,7 +224,7 @@ export const authService = {
   },
 
   async me(): Promise<User> {
-    const response = await fetchWithAuth('/auth/me/');
+    const response = await fetchWithAuth('/api/auth/me/');
     
     if (!response.ok) {
       throw new ApiError('Erro ao obter dados do usuário', response.status);
@@ -215,7 +239,7 @@ export const authService = {
 // Serviço de Usuários
 export const userService = {
   async list(): Promise<User[]> {
-    const response = await fetchWithAuth('/users/');
+    const response = await fetchWithAuth('/api/users/');
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -230,7 +254,7 @@ export const userService = {
   },
 
   async get(id: number): Promise<User> {
-    const response = await fetchWithAuth(`/users/${id}/`);
+    const response = await fetchWithAuth(`/api/users/${id}/`);
     
     if (!response.ok) {
       throw new ApiError('Erro ao buscar usuário', response.status);
@@ -240,7 +264,7 @@ export const userService = {
   },
 
   async create(data: CreateUserData): Promise<User> {
-    const response = await fetchWithAuth('/users/', {
+    const response = await fetchWithAuth('/api/users/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -258,7 +282,7 @@ export const userService = {
   },
 
   async update(id: number, data: UpdateUserData): Promise<User> {
-    const response = await fetchWithAuth(`/users/${id}/`, {
+    const response = await fetchWithAuth(`/api/users/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

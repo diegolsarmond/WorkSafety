@@ -2,9 +2,13 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
-    path("auth/", include("accounts.urls")),
-    path("users/", include("accounts.urls_users")),
-    path("assessments/", include("assessments.urls")),
-    path("schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    # API v1 endpoints
+    path("api/auth/", include("accounts.urls")),
+    path("api/users/", include("accounts.urls_users")),
+    path("api/assessments/", include("assessments.urls")),
+    path("api/admin/", include("configurations.urls")),
+    
+    # API Schema e Docs
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
