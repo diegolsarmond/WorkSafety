@@ -4,45 +4,48 @@ import {
   FileText, 
   Download, 
   RefreshCw, 
-  CheckCircle, 
-  XCircle, 
+  CheckCircle2, 
+  AlertCircle, 
   Loader2,
-  AlertCircle
+  Clock,
+  ArrowLeft,
+  AlertTriangle
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { env } from '@/config/env';
+import { Button } from '@/ui/components/Button';
+import { SecureStorage } from '@/services/storage/secureStorage';
 
 interface Report {
   id: number;
-  assessment: number;
-  assessment_title: string;
+  assessment_id?: number;
+  assessment?: number;
   status: 'generating' | 'ready' | 'failed';
-  file: string | null;
+  file_url: string | null;
   created_at: string;
   generated_at: string | null;
   generation_time_seconds: number | null;
   error_message: string;
 }
 
+// API base URL - remove trailing slash to avoid duplication
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/').replace(/\/$/, '');
+
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const fetchReports = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      setError(null);
+      const token = SecureStorage.getItem('auth_token');
       if (!token) {
         navigate('/login');
         return;
       }
 
-      const response = await fetch(`${env.API_URL}api/admin/reports/`, {
+      const response = await fetch(`${API_BASE}/admin/reports/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -50,12 +53,7 @@ export default function ReportsPage() {
 
       if (!response.ok) {
         if (response.status === 403) {
-          toast({
-            title: 'Acesso negado',
-            description: 'Você precisa ser administrador para acessar esta página.',
-            variant: 'destructive',
-          });
-          navigate('/home');
+          setError('Acesso negado. Você precisa ser administrador.');
           return;
         }
         throw new Error('Falha ao carregar relatórios');
@@ -63,12 +61,8 @@ export default function ReportsPage() {
 
       const data = await response.json();
       setReports(data);
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os relatórios.',
-        variant: 'destructive',
-      });
+    } catch (err) {
+      setError('Não foi possível carregar os relatórios.');
     } finally {
       setLoading(false);
     }
@@ -77,10 +71,10 @@ export default function ReportsPage() {
   const regenerateReport = async (assessmentId: number) => {
     try {
       setRegenerating(assessmentId);
-      const token = localStorage.getItem('access_token');
+      const token = SecureStorage.getItem('auth_token');
       
       const response = await fetch(
-        `${env.API_URL}api/admin/assessments/${assessmentId}/regenerate-report/`,
+        `${API_BASE}/admin/assessments/${assessmentId}/regenerate-report/`,
         {
           method: 'POST',
           headers: {
@@ -93,28 +87,17 @@ export default function ReportsPage() {
         throw new Error('Falha ao regenerar relatório');
       }
 
-      const data = await response.json();
-      toast({
-        title: 'Sucesso',
-        description: 'Geração do relatório iniciada.',
-      });
-      
-      // Recarregar após 3 segundos
       setTimeout(fetchReports, 3000);
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível regenerar o relatório.',
-        variant: 'destructive',
-      });
+    } catch (err) {
+      alert('Não foi possível regenerar o relatório.');
     } finally {
       setRegenerating(null);
     }
   };
 
   const downloadReport = (report: Report) => {
-    if (report.file) {
-      window.open(report.file, '_blank');
+    if (report.file_url) {
+      window.open(report.file_url, '_blank');
     }
   };
 
@@ -122,83 +105,122 @@ export default function ReportsPage() {
     fetchReports();
   }, []);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ready':
-        return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Pronto
-          </Badge>
-        );
+        return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
       case 'generating':
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            Gerando...
-          </Badge>
-        );
+        return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
       case 'failed':
-        return (
-          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-            <XCircle className="w-3 h-3 mr-1" />
-            Falhou
-          </Badge>
-        );
+        return <AlertTriangle className="w-5 h-5 text-red-500" />;
       default:
-        return null;
+        return <Clock className="w-5 h-5 text-gray-400" />;
     }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'ready':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'generating':
+        return 'bg-blue-100 text-blue-700';
+      case 'failed':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'ready':
+        return 'Pronto';
+      case 'generating':
+        return 'Gerando...';
+      case 'failed':
+        return 'Falhou';
+      default:
+        return status;
+    }
+  };
+
+  const handleBack = () => {
+    navigate('/home');
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
-          <p className="text-gray-600 mt-1">
-            Visualize e baixe relatórios PDF das inspeções
-          </p>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleBack}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">Relatórios</h1>
+                <p className="text-sm text-gray-500">
+                  Visualize e baixe relatórios PDF das inspeções
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={fetchReports}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Atualizar
+            </Button>
+          </div>
         </div>
-        <Button onClick={fetchReports} variant="outline">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
-      </div>
+      </header>
 
-      {reports.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mb-4" />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {reports.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               Nenhum relatório encontrado
             </h3>
-            <p className="text-gray-500 text-center max-w-md">
+            <p className="text-gray-500 max-w-md mx-auto">
               Relatórios são gerados automaticamente quando uma inspeção é finalizada,
               ou você pode gerá-los manualmente a partir da página de detalhes da inspeção.
             </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {reports.map((report) => (
-            <Card key={report.id}>
-              <CardContent className="p-6">
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {reports.map((report) => (
+              <div 
+                key={report.id} 
+                className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="p-3 bg-primary/10 rounded-lg">
-                      <FileText className="w-6 h-6 text-primary" />
+                    <div className="p-3 bg-emerald-50 rounded-lg">
+                      <FileText className="w-6 h-6 text-emerald-600" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        {report.assessment_title || `Inspeção #${report.assessment}`}
+                        {`Inspeção #${report.assessment_id || report.assessment}`}
                       </h3>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                         <span>
@@ -206,7 +228,7 @@ export default function ReportsPage() {
                         </span>
                         {report.generation_time_seconds && (
                           <span>
-                            Tempo de geração: {report.generation_time_seconds.toFixed(2)}s
+                            Tempo: {report.generation_time_seconds.toFixed(2)}s
                           </span>
                         )}
                       </div>
@@ -219,42 +241,45 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    {getStatusBadge(report.status)}
+                  <div className="flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeClass(report.status)}`}>
+                      {getStatusIcon(report.status)}
+                      {getStatusText(report.status)}
+                    </span>
                     
-                    {report.status === 'ready' && report.file && (
+                    {report.status === 'ready' && report.file_url && (
                       <Button
                         onClick={() => downloadReport(report)}
                         variant="outline"
-                        size="sm"
+                        className="flex items-center gap-2"
                       >
-                        <Download className="w-4 h-4 mr-2" />
+                        <Download className="w-4 h-4" />
                         Baixar PDF
                       </Button>
                     )}
                     
                     {(report.status === 'failed' || report.status === 'ready') && (
                       <Button
-                        onClick={() => regenerateReport(report.assessment)}
+                        onClick={() => regenerateReport((report.assessment_id || report.assessment) as number)}
                         variant="outline"
-                        size="sm"
-                        disabled={regenerating === report.assessment}
+                        disabled={regenerating === (report.assessment_id || report.assessment)}
+                        className="flex items-center gap-2"
                       >
-                        {regenerating === report.assessment ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {regenerating === (report.assessment_id || report.assessment) ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <RefreshCw className="w-4 h-4 mr-2" />
+                          <RefreshCw className="w-4 h-4" />
                         )}
                         Regenerar
                       </Button>
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
