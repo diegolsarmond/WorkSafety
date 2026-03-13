@@ -138,7 +138,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_PUBLIC": True,
     "COMPONENT_SPLIT_REQUEST": False,
     "SCHEMA_PATH_PREFIX": r"/api/",
-    "SCHEMA_PATH_PREFIX_TRIM": True,
+    "SCHEMA_PATH_PREFIX_TRIM": False,
     # Desabilitar validação estrita para evitar erros 500
     "PREPROCESSING_HOOKS": [],
     "POSTPROCESSING_HOOKS": [],
