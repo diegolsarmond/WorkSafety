@@ -11,6 +11,7 @@ import {
 import { Button } from '@/ui/components/Button';
 import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
 import { SyncJob } from '@/types/sync';
+import { SyncStorage } from '@/services/sync/syncStorage';
 
 /**
  * Página de sincronização
@@ -40,6 +41,15 @@ export function Syncing() {
       const updated = jobs.find(j => j.id === currentJob.id);
       if (updated) {
         setCurrentJob(updated);
+      } else {
+        // Job desapareceu da lista filtrada - busca diretamente no storage
+        // Isso acontece quando o job transita para COMPLETED
+        SyncStorage.getAllJobs().then(allJobs => {
+          const found = allJobs.find(j => j.id === currentJob.id);
+          if (found) {
+            setCurrentJob(found);
+          }
+        });
       }
     }
   }, [jobs, currentJob]);

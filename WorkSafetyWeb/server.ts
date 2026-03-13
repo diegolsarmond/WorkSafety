@@ -18,7 +18,7 @@ async function startServer() {
     const options = {
       hostname: djangoUrl.hostname,
       port: djangoUrl.port || (djangoUrl.protocol === 'https:' ? 443 : 80),
-      path: req.url,
+      path: `/api${req.url}`,
       method: req.method,
       headers: {
         ...req.headers,

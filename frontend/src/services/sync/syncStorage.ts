@@ -93,13 +93,16 @@ export class SyncStorage {
 
   /**
    * Recupera jobs pendentes (para UI)
+   * Inclui jobs COMPLETED recentes para que a UI possa ver a transição
    */
   static async getPendingJobs(): Promise<SyncJob[]> {
     const jobs = await this.getAllJobs();
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     return jobs.filter(job => 
       job.status === 'PENDING' || 
       job.status === 'SYNCING' || 
-      job.status === 'FAILED'
+      job.status === 'FAILED' ||
+      (job.status === 'COMPLETED' && job.completedAt && job.completedAt > fiveMinutesAgo)
     ).sort((a, b) => b.createdAt - a.createdAt);
   }
 

@@ -212,9 +212,11 @@ class SyncWorker {
         });
 
         await apiClient.post(`/assessments/${assessmentId}/evidences/`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
           signal: this.abortController?.signal,
           timeout: 60000, // 60s timeout para upload
+          headers: {
+            'Content-Type': undefined, // Let axios auto-set with boundary
+          },
         });
       }
 
