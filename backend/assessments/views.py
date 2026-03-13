@@ -9,15 +9,16 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 
-from .models import RiskAssessment, Evidence, AIInferenceResult
+from .models import RiskAssessment, Evidence, AIInferenceResult, AssessmentStatusHistory
 from .serializers import (
-    EvidenceUploadSerializer, 
-    EvidenceSerializer, 
+    EvidenceUploadSerializer,
+    EvidenceSerializer,
     RiskAssessmentSerializer,
     RiskAssessmentStatusSerializer,
     RiskAssessmentListSerializer,
     RiskAssessmentDetailSerializer,
     AIInferenceDetailSerializer,
+    AssessmentStatusHistorySerializer,
 )
 from .services import AssessmentLifecycleService, InvalidTransitionError
 from .tasks import process_assessment, reprocess_assessment
@@ -81,46 +82,46 @@ class RiskAssessmentDetailView(RetrieveAPIView):
 class EvidenceUploadView(views.APIView):
     parser_classes = (parsers.MultiPartParser, parsers.FormParser)
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request, assessment_id, *args, **kwargs):
         # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
-            RiskAssessment, 
+            RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
-        
+
         serializer = EvidenceUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         images = serializer.validated_data['images']
         timestamps = serializer.validated_data.get('timestamps', [])
-        
+
         created_evidences = []
         for i, image in enumerate(images):
             timestamp = timestamps[i] if timestamps else None
-            
+
             # Read image content for hash to check idempotency
             image_content = image.read()
             file_hash = hashlib.sha256(image_content).hexdigest()
             image.seek(0)  # Reset file pointer after reading
-            
-            # Idempotency check: if evidence with this hash already exists for this assessment, return it instead of duplicating
+
+            # Idempotency check
             existing_evidence = Evidence.objects.filter(assessment=assessment, file_hash=file_hash).first()
             if existing_evidence:
                 created_evidences.append(existing_evidence)
                 continue
-                
+
             # Create new evidence
             new_evidence = Evidence(
                 assessment=assessment,
                 file=image,
-                captured_at=timestamp,  # Timestamp informado pelo cliente (ou None)
+                captured_at=timestamp,
             )
-            new_evidence.save()  # This triggers _compute_file_metadata and saves the hash
+            new_evidence.save()
             created_evidences.append(new_evidence)
-            
+
         result_serializer = EvidenceSerializer(created_evidences, many=True)
         return Response(result_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -131,11 +132,11 @@ class EvidenceUploadView(views.APIView):
 
 class AssessmentTransitionBaseView(views.APIView):
     """Base class para views de transição de status.
-    
+
     Users can only transition their own RiskAssessments.
     """
     permission_classes = [IsAuthenticated]
-    transition_method = None
+    transition_method: str = ''
     success_message = "Transição realizada com sucesso"
 
     @extend_schema(
@@ -155,26 +156,26 @@ class AssessmentTransitionBaseView(views.APIView):
     def post(self, request, assessment_id, *args, **kwargs):
         # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
-            RiskAssessment, 
+            RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
         reason = request.data.get('reason', None)
-        
+
         try:
             previous_status = assessment.status
-            
+
             # Executar transição via service
             method = getattr(AssessmentLifecycleService, self.transition_method)
             updated_assessment = method(assessment, request.user, reason)
-            
+
             return Response({
                 'status': updated_assessment.status,
                 'previous_status': previous_status,
                 'message': self.success_message,
                 'timestamp': updated_assessment.status_changed_at,
             }, status=status.HTTP_200_OK)
-            
+
         except InvalidTransitionError as e:
             return Response(
                 {'error': str(e)},
@@ -185,10 +186,10 @@ class AssessmentTransitionBaseView(views.APIView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentCaptureView(AssessmentTransitionBaseView):
     """
+    POST /assessments/{id}/capture
+
     Transiciona a avaliação para o estado CAPTURED.
-    
     Pré-requisito: status deve ser DRAFT.
-    Users can only transition their own RiskAssessments.
     """
     transition_method = 'capture'
     success_message = "Avaliação capturada com sucesso"
@@ -197,10 +198,10 @@ class AssessmentCaptureView(AssessmentTransitionBaseView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentSyncView(AssessmentTransitionBaseView):
     """
+    POST /assessments/{id}/sync
+
     Transiciona a avaliação para o estado SYNCED.
-    
     Pré-requisito: status deve ser CAPTURED.
-    Users can only transition their own RiskAssessments.
     """
     transition_method = 'sync'
     success_message = "Avaliação sincronizada com sucesso"
@@ -209,10 +210,10 @@ class AssessmentSyncView(AssessmentTransitionBaseView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentMarkAIReviewedView(AssessmentTransitionBaseView):
     """
+    POST /assessments/{id}/ai-reviewed
+
     Transiciona a avaliação para o estado AI_REVIEWED.
-    
     Pré-requisito: status deve ser SYNCED.
-    Users can only transition their own RiskAssessments.
     """
     transition_method = 'mark_ai_reviewed'
     success_message = "Avaliação revisada por IA com sucesso"
@@ -221,10 +222,10 @@ class AssessmentMarkAIReviewedView(AssessmentTransitionBaseView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentHumanValidateView(AssessmentTransitionBaseView):
     """
+    POST /assessments/{id}/human-validated
+
     Transiciona a avaliação para o estado HUMAN_VALIDATED.
-    
     Pré-requisito: status deve ser AI_REVIEWED.
-    Users can only transition their own RiskAssessments.
     """
     transition_method = 'human_validate'
     success_message = "Avaliação validada por humano com sucesso"
@@ -233,10 +234,10 @@ class AssessmentHumanValidateView(AssessmentTransitionBaseView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentFinalizeView(AssessmentTransitionBaseView):
     """
+    POST /assessments/{id}/finalize
+
     Transiciona a avaliação para o estado FINALIZED.
-    
     Pré-requisito: status deve ser HUMAN_VALIDATED.
-    Users can only transition their own RiskAssessments.
     """
     transition_method = 'finalize'
     success_message = "Avaliação finalizada com sucesso"
@@ -245,19 +246,47 @@ class AssessmentFinalizeView(AssessmentTransitionBaseView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentStatusHistoryView(views.APIView):
     """
-    Retorna o histórico de status/marcos de uma avaliação.
-    Users can only access history of their own RiskAssessments.
+    GET /assessments/{id}/status-history
+
+    Retorna o histórico completo de transições de status da avaliação,
+    incluindo registros persistidos no AssessmentStatusHistory.
     """
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         tags=["Assessment Lifecycle"],
-        responses={200: {'type': 'object'}}
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'current_status': {'type': 'string'},
+                    'current_status_display': {'type': 'string'},
+                    'transitions': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'id': {'type': 'integer'},
+                                'from_status': {'type': 'string'},
+                                'from_status_display': {'type': 'string'},
+                                'to_status': {'type': 'string'},
+                                'to_status_display': {'type': 'string'},
+                                'changed_by': {'type': 'string', 'nullable': True},
+                                'changed_at': {'type': 'string', 'format': 'date-time'},
+                                'reason': {'type': 'string'},
+                            },
+                        },
+                    },
+                    'milestones': {'type': 'object'},
+                    'last_status_change': {'type': 'object'},
+                },
+            }
+        }
     )
     def get(self, request, assessment_id, *args, **kwargs):
         # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
-            RiskAssessment, 
+            RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
@@ -268,8 +297,9 @@ class AssessmentStatusHistoryView(views.APIView):
 @extend_schema(tags=["Assessment Lifecycle"])
 class AssessmentValidTransitionsView(views.APIView):
     """
+    GET /assessments/{id}/valid-transitions
+
     Retorna as transições válidas a partir do status atual.
-    Users can only access transitions of their own RiskAssessments.
     """
     permission_classes = [IsAuthenticated]
 
@@ -280,17 +310,17 @@ class AssessmentValidTransitionsView(views.APIView):
     def get(self, request, assessment_id, *args, **kwargs):
         # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
-            RiskAssessment, 
+            RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
         valid_transitions = AssessmentLifecycleService.get_valid_transitions(assessment.status)
-        
+
         transitions_with_labels = [
             {'value': t, 'label': dict(RiskAssessment.STATUS_CHOICES).get(t, t)}
             for t in valid_transitions
         ]
-        
+
         return Response({
             'current_status': {
                 'value': assessment.status,
@@ -310,7 +340,7 @@ class AssessmentValidTransitionsView(views.APIView):
         summary="Force AI Processing",
         description=(
             "Força o reprocessamento da avaliação pelo serviço de IA. "
-            "Disponível para avaliações com status SYNCED ou ERROR. "
+            "Disponível para avaliações com status SYNCED ou ERROR_AI. "
             "Users can only process their own RiskAssessments."
         ),
         responses={
@@ -328,35 +358,32 @@ class AssessmentValidTransitionsView(views.APIView):
     )
 )
 class AssessmentProcessAIView(views.APIView):
-    """
-    Endpoint para forçar o processamento de IA de uma avaliação.
-    """
+    """Endpoint para forçar o processamento de IA de uma avaliação."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, assessment_id, *args, **kwargs):
-        # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
             RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
-        
+
         # Verificar se a avaliação pode ser processada
         if assessment.status not in [
             RiskAssessment.STATUS_SYNCED,
-            RiskAssessment.STATUS_ERROR,
+            RiskAssessment.STATUS_ERROR_AI,
         ]:
             return Response(
                 {
                     'error': f"Cannot process assessment with status '{assessment.status}'. "
-                            f"Expected 'synced' or 'error'."
+                            f"Expected 'synced' or 'error_ai'."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Enfileirar task
         task = process_assessment.delay(assessment.id)
-        
+
         return Response({
             'message': 'AI processing queued successfully',
             'task_id': task.id,
@@ -367,18 +394,25 @@ class AssessmentProcessAIView(views.APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["AI Processing"],
-        summary="Reprocess Assessment",
+        summary="Reprocess Assessment AI",
         description=(
-            "Reprocessa uma avaliação que falhou anteriormente (status=error). "
+            "Reprocessa uma avaliação que falhou anteriormente (status=error_ai). "
             "Reseta o status para SYNCED e enfileira novo processamento. "
             "Users can only reprocess their own RiskAssessments."
         ),
+        request={
+            'type': 'object',
+            'properties': {
+                'reason': {'type': 'string', 'description': 'Motivo opcional do reprocessamento'},
+            }
+        },
         responses={
             202: {
                 'type': 'object',
                 'properties': {
                     'message': {'type': 'string'},
                     'task_id': {'type': 'string'},
+                    'previous_status': {'type': 'string'},
                     'status': {'type': 'string'},
                 }
             },
@@ -387,38 +421,54 @@ class AssessmentProcessAIView(views.APIView):
         }
     )
 )
-class AssessmentReprocessView(views.APIView):
+class AssessmentReprocessAIView(views.APIView):
     """
-    Endpoint para reprocessar uma avaliação em estado de erro.
+    POST /assessments/{id}/reprocess-ai
+
+    Reprocessa uma avaliação em estado ERROR_AI.
+    Transiciona ERROR_AI → SYNCED e enfileira novo processamento de IA.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, assessment_id, *args, **kwargs):
-        # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
             RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
-        
-        # Verificar se está em estado de erro
-        if assessment.status != RiskAssessment.STATUS_ERROR:
+
+        # Verificar se está em estado de erro de IA
+        if assessment.status != RiskAssessment.STATUS_ERROR_AI:
             return Response(
                 {
                     'error': f"Cannot reprocess assessment with status '{assessment.status}'. "
-                            f"Only assessments with 'error' status can be reprocessed."
+                            f"Only assessments with 'error_ai' status can be reprocessed."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Enfileirar reprocessamento
-        task = reprocess_assessment.delay(assessment.id)
-        
-        return Response({
-            'message': 'Assessment reprocessing queued successfully',
-            'task_id': task.id,
-            'status': 'queued',
-        }, status=status.HTTP_202_ACCEPTED)
+
+        reason = request.data.get('reason', 'Reprocessamento de IA solicitado')
+
+        try:
+            previous_status = assessment.status
+            # Usar service para transição com histórico
+            AssessmentLifecycleService.reprocess_ai(assessment, request.user, reason)
+
+            # Enfileirar reprocessamento
+            task = reprocess_assessment.delay(assessment.id)
+
+            return Response({
+                'message': 'Assessment reprocessing queued successfully',
+                'task_id': task.id,
+                'previous_status': previous_status,
+                'status': 'queued',
+            }, status=status.HTTP_202_ACCEPTED)
+
+        except InvalidTransitionError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 @extend_schema_view(
@@ -437,30 +487,27 @@ class AssessmentReprocessView(views.APIView):
     )
 )
 class AssessmentAIStatusView(views.APIView):
-    """
-    Endpoint para consultar status do processamento de IA.
-    """
+    """Endpoint para consultar status do processamento de IA."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request, assessment_id, *args, **kwargs):
-        # Filter by created_by to ensure user can only access own assessments
         assessment = get_object_or_404(
             RiskAssessment,
             id=assessment_id,
             created_by=request.user
         )
-        
+
         # Buscar inferência mais recente
         inference = AIInferenceResult.objects.filter(
             assessment=assessment
         ).first()
-        
+
         if not inference:
             return Response({
                 'assessment_id': assessment_id,
                 'status': 'not_started',
                 'message': 'No AI processing has been started for this assessment',
             }, status=status.HTTP_200_OK)
-        
+
         serializer = AIInferenceDetailSerializer(inference, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)

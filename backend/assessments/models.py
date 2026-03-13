@@ -20,7 +20,7 @@ class RiskAssessment(models.Model):
     STATUS_AI_REVIEWED = "ai_reviewed"
     STATUS_HUMAN_VALIDATED = "human_validated"
     STATUS_FINALIZED = "finalized"
-    STATUS_ERROR = "error"
+    STATUS_ERROR_AI = "error_ai"
 
     STATUS_CHOICES = [
         (STATUS_DRAFT, "Rascunho"),
@@ -29,7 +29,7 @@ class RiskAssessment(models.Model):
         (STATUS_AI_REVIEWED, "Revisado por IA"),
         (STATUS_HUMAN_VALIDATED, "Validado por Humano"),
         (STATUS_FINALIZED, "Finalizado"),
-        (STATUS_ERROR, "Erro"),
+        (STATUS_ERROR_AI, "Erro IA"),
     ]
 
     created_by = models.ForeignKey(
@@ -257,3 +257,52 @@ class HumanValidationDecision(models.Model):
 
     def __str__(self):
         return f"{self.get_decision_display()} (inferência {self.inference_id})"
+
+
+class AssessmentStatusHistory(models.Model):
+    """Registro de cada transição de status de uma avaliação de risco.
+
+    Mantém auditoria completa de todas as mudanças de estado no ciclo de vida,
+    incluindo quem disparou a transição e o motivo.
+    """
+
+    assessment = models.ForeignKey(
+        RiskAssessment,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+    from_status = models.CharField(
+        "de",
+        max_length=20,
+        choices=RiskAssessment.STATUS_CHOICES,
+    )
+    to_status = models.CharField(
+        "para",
+        max_length=20,
+        choices=RiskAssessment.STATUS_CHOICES,
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assessment_status_changes",
+        verbose_name="alterado por",
+    )
+    changed_at = models.DateTimeField("alterado em", auto_now_add=True, db_index=True)
+    reason = models.TextField("motivo", blank=True, default="")
+
+    class Meta:
+        verbose_name = "histórico de status"
+        verbose_name_plural = "histórico de status"
+        ordering = ["-changed_at"]
+        indexes = [
+            models.Index(fields=["assessment", "-changed_at"]),
+        ]
+
+    def __str__(self):
+        actor = self.changed_by.email if self.changed_by else "Sistema"
+        return (
+            f"{self.assessment} : {self.from_status} → {self.to_status} "
+            f"por {actor} em {self.changed_at}"
+        )

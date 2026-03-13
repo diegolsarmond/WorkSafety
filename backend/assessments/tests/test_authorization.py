@@ -293,7 +293,7 @@ class LifecycleTransitionAuthorizationTest(TestCase):
         
         self.client.force_authenticate(user=self.user1)
         url = reverse(
-            "assessment-mark-ai-reviewed", 
+            "assessment-ai-reviewed", 
             kwargs={"assessment_id": self.assessment_user2.id}
         )
         response = self.client.post(url, {})
@@ -308,7 +308,7 @@ class LifecycleTransitionAuthorizationTest(TestCase):
         
         self.client.force_authenticate(user=self.user1)
         url = reverse(
-            "assessment-human-validate", 
+            "assessment-human-validated", 
             kwargs={"assessment_id": self.assessment_user2.id}
         )
         response = self.client.post(url, {})

@@ -150,7 +150,7 @@ class AIProcessingTaskTests(TestCase):
 
         # Verificar resultado
         self.assertEqual(result["status"], "error")
-        self.assertEqual(self.assessment.status, RiskAssessment.STATUS_ERROR)
+        self.assertEqual(self.assessment.status, RiskAssessment.STATUS_ERROR_AI)
 
         # Verificar inferência criada com falha
         inference = AIInferenceResult.objects.filter(assessment=self.assessment).first()
@@ -182,7 +182,7 @@ class AIProcessingTaskTests(TestCase):
     def test_reprocess_assessment(self, mock_process_delay):
         """Testa reprocessamento de avaliação em erro."""
         # Colocar em estado de erro
-        self.assessment.status = RiskAssessment.STATUS_ERROR
+        self.assessment.status = RiskAssessment.STATUS_ERROR_AI
         self.assessment.save()
 
         # Criar inferência falha
@@ -237,7 +237,7 @@ class AIProcessingIntegrationTests(APITestCase):
         mock_task.id = "test-task-id"
         mock_delay.return_value = mock_task
 
-        url = f"/api/v1/assessments/{self.assessment.id}/process-ai/"
+        url = f"/api/assessments/{self.assessment.id}/process-ai/"
         response = self.client.post(url)
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
@@ -250,7 +250,7 @@ class AIProcessingIntegrationTests(APITestCase):
         self.assessment.status = RiskAssessment.STATUS_DRAFT
         self.assessment.save()
 
-        url = f"/api/v1/assessments/{self.assessment.id}/process-ai/"
+        url = f"/api/assessments/{self.assessment.id}/process-ai/"
         response = self.client.post(url)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -259,14 +259,14 @@ class AIProcessingIntegrationTests(APITestCase):
     @patch('assessments.views.reprocess_assessment.delay')
     def test_reprocess_endpoint(self, mock_delay):
         """Testa endpoint de reprocessamento."""
-        self.assessment.status = RiskAssessment.STATUS_ERROR
+        self.assessment.status = RiskAssessment.STATUS_ERROR_AI
         self.assessment.save()
 
         mock_task = MagicMock()
         mock_task.id = "test-task-id"
         mock_delay.return_value = mock_task
 
-        url = f"/api/v1/assessments/{self.assessment.id}/reprocess/"
+        url = f"/api/assessments/{self.assessment.id}/reprocess-ai/"
         response = self.client.post(url)
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
@@ -275,7 +275,7 @@ class AIProcessingIntegrationTests(APITestCase):
 
     def test_reprocess_endpoint_not_in_error(self):
         """Testa reprocessamento de avaliação não está em erro."""
-        url = f"/api/v1/assessments/{self.assessment.id}/reprocess/"
+        url = f"/api/assessments/{self.assessment.id}/reprocess-ai/"
         response = self.client.post(url)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -283,7 +283,7 @@ class AIProcessingIntegrationTests(APITestCase):
 
     def test_ai_status_endpoint_no_inference(self):
         """Testa endpoint de status sem inferência."""
-        url = f"/api/v1/assessments/{self.assessment.id}/ai-status/"
+        url = f"/api/assessments/{self.assessment.id}/ai-status/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -298,7 +298,7 @@ class AIProcessingIntegrationTests(APITestCase):
             result_json={"findings": [{"severity": "HIGH"}]},
         )
 
-        url = f"/api/v1/assessments/{self.assessment.id}/ai-status/"
+        url = f"/api/assessments/{self.assessment.id}/ai-status/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

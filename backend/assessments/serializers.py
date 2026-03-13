@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Evidence, RiskAssessment, RiskFinding, AIInferenceResult, HumanValidationDecision
+from .models import (
+    Evidence,
+    RiskAssessment,
+    RiskFinding,
+    AIInferenceResult,
+    HumanValidationDecision,
+    AssessmentStatusHistory,
+)
 
 
 class EvidenceSerializer(serializers.ModelSerializer):
@@ -109,7 +116,7 @@ class RiskItemSerializer(serializers.ModelSerializer):
             'ai_reviewed': 'ai_detected',
             'human_validated': 'validated',
             'finalized': 'validated',
-            'error': 'error',
+            'error_ai': 'error',
         }
         return status_map.get(obj.assessment.status, 'pending')
 
@@ -252,6 +259,32 @@ class RiskAssessmentStatusSerializer(serializers.Serializer):
     previous_status = serializers.CharField(required=False)
     message = serializers.CharField(required=False)
     timestamp = serializers.DateTimeField(required=False)
+
+
+class AssessmentStatusHistorySerializer(serializers.ModelSerializer):
+    """Serializer para o histórico de transições de status."""
+    changed_by_email = serializers.SerializerMethodField()
+    from_status_display = serializers.SerializerMethodField()
+    to_status_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AssessmentStatusHistory
+        fields = [
+            'id', 'assessment', 'from_status', 'from_status_display',
+            'to_status', 'to_status_display', 'changed_by', 'changed_by_email',
+            'changed_at', 'reason',
+        ]
+        read_only_fields = fields
+
+    def get_changed_by_email(self, obj: AssessmentStatusHistory) -> str:
+        return obj.changed_by.email if obj.changed_by else ""
+
+    def get_from_status_display(self, obj: AssessmentStatusHistory) -> str:
+        return str(dict(RiskAssessment.STATUS_CHOICES).get(obj.from_status, obj.from_status))
+
+    def get_to_status_display(self, obj: AssessmentStatusHistory) -> str:
+        return str(dict(RiskAssessment.STATUS_CHOICES).get(obj.to_status, obj.to_status))
+
 
 class EvidenceUploadSerializer(serializers.Serializer):
     images = serializers.ListField(

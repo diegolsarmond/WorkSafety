@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import RiskAssessment, Evidence, RiskFinding, AIInferenceResult, HumanValidationDecision
+from .models import (
+    RiskAssessment,
+    Evidence,
+    RiskFinding,
+    AIInferenceResult,
+    HumanValidationDecision,
+    AssessmentStatusHistory,
+)
 
 
 @admin.register(RiskAssessment)
@@ -36,3 +43,13 @@ class HumanValidationDecisionAdmin(admin.ModelAdmin):
     list_display = ("id", "inference", "validator", "decision", "created_at")
     list_filter = ("decision",)
     raw_id_fields = ("inference", "validator")
+
+
+@admin.register(AssessmentStatusHistory)
+class AssessmentStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "assessment", "from_status", "to_status", "changed_by", "changed_at")
+    list_filter = ("from_status", "to_status")
+    raw_id_fields = ("assessment", "changed_by")
+    readonly_fields = ("changed_at",)
+    ordering = ("-changed_at",)
+

@@ -42,7 +42,7 @@ def process_assessment(self, assessment_id: int):
         # Verificar se a avaliação pode ser processada
         if assessment.status not in [
             RiskAssessment.STATUS_SYNCED,
-            RiskAssessment.STATUS_ERROR,
+            RiskAssessment.STATUS_ERROR_AI,
         ]:
             logger.warning(
                 f"Assessment {assessment_id} has invalid status for processing: {assessment.status}"
@@ -175,7 +175,7 @@ def reprocess_assessment(assessment_id: int):
         return {"status": "error", "message": "Assessment not found"}
     
     # Verificar se está em estado de erro
-    if assessment.status != RiskAssessment.STATUS_ERROR:
+    if assessment.status != RiskAssessment.STATUS_ERROR_AI:
         return {
             "status": "skipped",
             "message": f"Assessment is not in error state. Current status: {assessment.status}",
@@ -250,7 +250,7 @@ def _handle_processing_error(assessment_id: int, error_message: str):
                 inference.save()
             
             # Transicionar para erro
-            AssessmentLifecycleService.mark_error(
+            AssessmentLifecycleService.mark_error_ai(
                 assessment,
                 actor=None,  # System action
                 reason=f"AI processing failed: {error_message}",
@@ -290,7 +290,7 @@ def cleanup_stalled_processes():
         # Atualizar avaliação
         assessment = inference.assessment
         if assessment.status == RiskAssessment.STATUS_SYNCED:
-            AssessmentLifecycleService.mark_error(
+            AssessmentLifecycleService.mark_error_ai(
                 assessment,
                 actor=None,
                 reason="AI processing timed out",

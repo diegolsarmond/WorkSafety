@@ -9,6 +9,7 @@ from assessments.models import (
     RiskFinding,
     AIInferenceResult,
     HumanValidationDecision,
+    AssessmentStatusHistory,
 )
 
 
@@ -64,11 +65,11 @@ class AIInferenceResultModelTest(TestCase):
         assessment = RiskAssessment.objects.create(created_by=user, title="A1")
         inference = AIInferenceResult.objects.create(
             assessment=assessment,
-            raw_result={"labels": ["risk"]},
+            result_json={"labels": ["risk"]},
             confidence="0.95",
         )
         self.assertEqual(inference.assessment_id, assessment.id)
-        self.assertEqual(inference.raw_result, {"labels": ["risk"]})
+        self.assertEqual(inference.result_json, {"labels": ["risk"]})
         self.assertIsNotNone(inference.created_at)
 
 
@@ -76,7 +77,7 @@ class HumanValidationDecisionModelTest(TestCase):
     def test_create_human_validation_decision(self):
         user = User.objects.create_user(email="u@example.com", password="pass")
         assessment = RiskAssessment.objects.create(created_by=user, title="A1")
-        inference = AIInferenceResult.objects.create(assessment=assessment, raw_result={})
+        inference = AIInferenceResult.objects.create(assessment=assessment, result_json={})
         decision = HumanValidationDecision.objects.create(
             inference=inference,
             validator=user,
