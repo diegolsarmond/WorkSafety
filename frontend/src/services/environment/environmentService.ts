@@ -20,14 +20,14 @@ export interface AssessmentType {
 
 export const environmentService = {
   async getAll(): Promise<EnvironmentType[]> {
-    const response = await apiClient.get('/admin/environment-types/');
+    const response = await apiClient.get('admin/environment-types/');
     return response.data;
   },
 };
 
 export const assessmentService = {
   async getAll(): Promise<AssessmentType[]> {
-    const response = await apiClient.get('/admin/assessment-types/');
+    const response = await apiClient.get('admin/assessment-types/');
     return response.data;
   },
 };

@@ -105,7 +105,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/queue"
+          path="/ai-queue"
           element={
             <ProtectedRoute>
               <AIQueuePage />

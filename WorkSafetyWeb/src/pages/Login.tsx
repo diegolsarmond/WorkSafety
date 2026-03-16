@@ -12,7 +12,7 @@ export default function Login() {
   // Redireciona se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate('/admin/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -23,7 +23,7 @@ export default function Login() {
     try {
       await login({ email, password });
       // Redireciona para home após login bem-sucedido
-      navigate('/', { replace: true });
+      navigate('/admin/dashboard', { replace: true });
     } catch {
       // Erro já está tratado no hook
     }

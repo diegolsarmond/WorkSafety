@@ -58,7 +58,7 @@ export function useAIQueue(): UseAIQueueReturn {
       setIsLoading(true);
       setError(null);
 
-      const response = await apiClient.get('/assessments/ai-queue/');
+      const response = await apiClient.get('assessments/ai-queue/');
 
       setQueue(response.data.queue || []);
       setCounts(response.data.counts || {

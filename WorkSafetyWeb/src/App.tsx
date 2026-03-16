@@ -39,7 +39,7 @@ function useAuth() {
   
   const logout = () => {
     clearTokens();
-    window.location.href = '/login';
+    window.location.href = '/admin/login';
   };
   
   return { user, isAuthenticated, logout };
@@ -66,15 +66,15 @@ const Dashboard = () => (
 );
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Fila de Processamento', href: '/queue', icon: ListTodo },
-  { name: 'Relatórios', href: '/reports', icon: FileText },
-  { name: 'Logs/Auditoria', href: '/audit', icon: Activity },
-  { name: 'Usuários', href: '/users', icon: Users },
-  { name: 'Tipos de Avaliação', href: '/assessment-types', icon: Settings },
-  { name: 'Tipos de Ambiente', href: '/environment-types', icon: MapPin },
-  { name: 'Tipos de Risco', href: '/risk-types', icon: ShieldAlert },
-  { name: 'Configuração IA', href: '/ai-config', icon: BrainCircuit },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Fila de Processamento', href: '/admin/queue', icon: ListTodo },
+  { name: 'Relatórios', href: '/admin/reports', icon: FileText },
+  { name: 'Logs/Auditoria', href: '/admin/audit', icon: Activity },
+  { name: 'Usuários', href: '/admin/users', icon: Users },
+  { name: 'Tipos de Avaliação', href: '/admin/assessment-types', icon: Settings },
+  { name: 'Tipos de Ambiente', href: '/admin/environment-types', icon: MapPin },
+  { name: 'Tipos de Risco', href: '/admin/risk-types', icon: ShieldAlert },
+  { name: 'Configuração IA', href: '/admin/ai-config', icon: BrainCircuit },
 ];
 
 function Sidebar() {
@@ -158,11 +158,11 @@ export default function App() {
     <Router>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/admin/login" element={<Login />} />
         
         {/* Protected Routes */}
         <Route
-          path="/"
+          path="/admin/dashboard"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -172,7 +172,7 @@ export default function App() {
           }
         />
         <Route
-          path="/queue"
+          path="/admin/queue"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -182,7 +182,7 @@ export default function App() {
           }
         />
         <Route
-          path="/reports"
+          path="/admin/reports"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -192,7 +192,7 @@ export default function App() {
           }
         />
         <Route
-          path="/audit"
+          path="/admin/audit"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -202,7 +202,7 @@ export default function App() {
           }
         />
         <Route
-          path="/users"
+          path="/admin/users"
           element={
             <ProtectedRoute requireAdmin>
               <AppLayout>
@@ -212,7 +212,7 @@ export default function App() {
           }
         />
         <Route
-          path="/assessment-types"
+          path="/admin/assessment-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -222,7 +222,7 @@ export default function App() {
           }
         />
         <Route
-          path="/environment-types"
+          path="/admin/environment-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -232,7 +232,7 @@ export default function App() {
           }
         />
         <Route
-          path="/risk-types"
+          path="/admin/risk-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -242,7 +242,7 @@ export default function App() {
           }
         />
         <Route
-          path="/ai-config"
+          path="/admin/ai-config"
           element={
             <ProtectedRoute requireAdmin>
               <AppLayout>
@@ -253,7 +253,7 @@ export default function App() {
         />
         
         {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>
     </Router>
   );

@@ -12,7 +12,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const user = getCurrentUser();
 
   if (!authenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   if (requireAdmin && user && user.role !== 'admin') {

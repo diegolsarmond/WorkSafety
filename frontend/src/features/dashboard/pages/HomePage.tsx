@@ -21,7 +21,7 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         const [assessmentsRes, envs, types] = await Promise.all([
-          apiClient.get('/assessments/'),
+          apiClient.get('assessments/'),
           environmentService.getAll(),
           assessmentService.getAll()
         ]);
@@ -42,7 +42,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchAIQueue = async () => {
       try {
-        const response = await apiClient.get('/assessments/ai-queue/');
+        const response = await apiClient.get('assessments/ai-queue/');
         setAiQueueCounts(response.data.counts);
       } catch (error) {
         console.error("Failed to fetch AI queue:", error);
@@ -131,7 +131,7 @@ export default function HomePage() {
         {/* AI Processing Queue Card */}
         {!loadingAIQueue && aiQueueCounts && aiQueueCounts.total > 0 && (
           <div 
-            onClick={() => navigate('/queue')}
+            onClick={() => navigate('/ai-queue')}
             className="mb-6 bg-white border border-gray-200 rounded-xl p-3 text-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center justify-between">
