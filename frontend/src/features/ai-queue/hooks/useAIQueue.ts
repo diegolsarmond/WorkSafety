@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://200.152.38.136:8000';
+import { apiClient } from '@/services/api/apiClient';
 
 export interface AIQueueItem {
   assessment_id: number;
@@ -60,12 +58,7 @@ export function useAIQueue(): UseAIQueueReturn {
       setIsLoading(true);
       setError(null);
 
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(`${API_BASE_URL.replace(/\/$/, '')}/assessments/ai-queue/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get('/assessments/ai-queue/');
 
       setQueue(response.data.queue || []);
       setCounts(response.data.counts || {

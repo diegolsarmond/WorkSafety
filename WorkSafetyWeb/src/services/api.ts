@@ -3,6 +3,9 @@
  * Base URL: http://localhost:3001
  */
 
+import { SecureStorage } from './storage/secureStorage';
+export { SecureStorage };
+
 // Use URL relativa para passar pelo proxy do server.ts
 // ou configure VITE_API_URL para apontar diretamente para o Django
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
@@ -54,27 +57,25 @@ export class ApiError extends Error {
   }
 }
 
-// Função para obter o token de acesso
+// Função para obter o token de acesso (usa SecureStorage - compatível com app principal)
 export function getAccessToken(): string | null {
-  return localStorage.getItem('access_token');
+  return SecureStorage.getItem('auth_token');
 }
 
-// Função para obter o refresh token
+// Função para obter o refresh token (usa SecureStorage - compatível com app principal)
 export function getRefreshToken(): string | null {
-  return localStorage.getItem('refresh_token');
+  return SecureStorage.getItem('refresh_token');
 }
 
-// Função para salvar tokens
-export function setTokens(access: string, refresh: string): void {
-  localStorage.setItem('access_token', access);
-  localStorage.setItem('refresh_token', refresh);
+// Função para salvar tokens (usa SecureStorage - compatível com app principal)
+export function setTokens(access: string, refresh: string, keepSignedIn: boolean = false): void {
+  SecureStorage.setItem('auth_token', access, keepSignedIn);
+  SecureStorage.setItem('refresh_token', refresh, keepSignedIn);
 }
 
 // Função para limpar tokens (logout)
 export function clearTokens(): void {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
+  SecureStorage.clear();
 }
 
 // Função para verificar se está autenticado
@@ -84,7 +85,7 @@ export function isAuthenticated(): boolean {
 
 // Função para obter o usuário atual
 export function getCurrentUser(): User | null {
-  const userStr = localStorage.getItem('user');
+  const userStr = SecureStorage.getItem('user');
   if (userStr) {
     try {
       return JSON.parse(userStr) as User;
@@ -96,8 +97,8 @@ export function getCurrentUser(): User | null {
 }
 
 // Função para salvar o usuário atual
-export function setCurrentUser(user: User): void {
-  localStorage.setItem('user', JSON.stringify(user));
+export function setCurrentUser(user: User, keepSignedIn: boolean = false): void {
+  SecureStorage.setItem('user', JSON.stringify(user), keepSignedIn);
 }
 
 // Função helper para fazer fetch com token de autenticação
@@ -172,7 +173,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (response.ok) {
       const data = await response.json();
-      localStorage.setItem('access_token', data.access);
+      const keepSignedIn = localStorage.getItem('auth_token') !== null;
+      SecureStorage.setItem('auth_token', data.access, keepSignedIn);
       return data.access;
     }
   } catch {
@@ -202,8 +204,9 @@ export const authService = {
     }
 
     const result = await response.json();
-    setTokens(result.access, result.refresh);
-    setCurrentUser(result.user);
+    const keepSignedIn = true; // Login do admin sempre mantém sessão
+    setTokens(result.access, result.refresh, keepSignedIn);
+    setCurrentUser(result.user, keepSignedIn);
     return result;
   },
 

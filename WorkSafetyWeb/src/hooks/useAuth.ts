@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authService, userService, User, LoginData, ApiError } from '../services/api';
+import { authService, User, getAccessToken, clearTokens, SecureStorage } from '../services/api';
 
 interface UseAuthReturn {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (data: LoginData) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -23,7 +22,7 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   const checkAuth = useCallback(async () => {
-    const token = localStorage.getItem('access_token');
+    const token = getAccessToken();
     if (!token) {
       setIsLoading(false);
       return;
@@ -34,28 +33,8 @@ export function useAuth(): UseAuthReturn {
       setUser(userData);
     } catch {
       // Token inválido, limpa
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
+      clearTokens();
       setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const login = useCallback(async (data: LoginData) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await authService.login(data);
-      setUser(response.user);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Erro ao fazer login. Tente novamente.');
-      }
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +59,6 @@ export function useAuth(): UseAuthReturn {
     isAuthenticated: !!user,
     isLoading,
     error,
-    login,
     logout,
     checkAuth,
     clearError,
