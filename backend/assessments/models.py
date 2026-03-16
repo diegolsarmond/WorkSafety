@@ -489,3 +489,137 @@ class AssessmentStatusHistory(models.Model):
             f"{self.assessment} : {self.from_status} → {self.to_status} "
             f"por {actor} em {self.changed_at}"
         )
+
+
+class OlimpiaDetectionResult(models.Model):
+    """
+    Resultado de detecção da API Olímpia (Dataprev) para uma evidência específica.
+    
+    Armazena as detecções individuais com bounding boxes e metadados para
+    visualização e auditoria.
+    """
+
+    # Categorias de risco
+    CATEGORY_EPI = "EPI"
+    CATEGORY_QUEDA = "QUEDA"
+    CATEGORY_ESCAVACAO = "ESCAVACAO"
+    CATEGORY_MAQUINARIO = "MAQUINARIO"
+    CATEGORY_ESPACO_CONFINADO = "ESPACO_CONFINADO"
+    CATEGORY_ELETRICO = "ELETRICO"
+    CATEGORY_GENERAL = "GENERAL"
+
+    CATEGORY_CHOICES = [
+        (CATEGORY_EPI, "EPI - Equipamento de Proteção Individual"),
+        (CATEGORY_QUEDA, "Queda de Altura"),
+        (CATEGORY_ESCAVACAO, "Escavação/Vala"),
+        (CATEGORY_MAQUINARIO, "Máquinas e Equipamentos"),
+        (CATEGORY_ESPACO_CONFINADO, "Espaço Confinado"),
+        (CATEGORY_ELETRICO, "Risco Elétrico"),
+        (CATEGORY_GENERAL, "Geral"),
+    ]
+
+    # Severidades
+    SEVERITY_CRITICAL = "CRITICAL"
+    SEVERITY_HIGH = "HIGH"
+    SEVERITY_MEDIUM = "MEDIUM"
+    SEVERITY_LOW = "LOW"
+
+    SEVERITY_CHOICES = [
+        (SEVERITY_CRITICAL, "Crítica"),
+        (SEVERITY_HIGH, "Alta"),
+        (SEVERITY_MEDIUM, "Média"),
+        (SEVERITY_LOW, "Baixa"),
+    ]
+
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.CASCADE,
+        related_name="olimpia_detections",
+        verbose_name="evidência",
+    )
+    inference = models.ForeignKey(
+        AIInferenceResult,
+        on_delete=models.CASCADE,
+        related_name="olimpia_detections",
+        verbose_name="inferência",
+        null=True,
+        blank=True,
+    )
+    
+    # Dados da detecção
+    rule_id = models.CharField("ID da regra", max_length=50, blank=True)
+    rule_name = models.CharField("nome da regra", max_length=200, blank=True)
+    description = models.TextField("descrição da detecção")
+    confidence = models.DecimalField(
+        "confiança",
+        max_digits=4,
+        decimal_places=3,  # 0.000 a 0.999
+        null=True,
+        blank=True,
+    )
+    
+    # Bounding box (coordenadas normalizadas 0-1)
+    bbox_x1 = models.DecimalField("X1", max_digits=5, decimal_places=4, default=0)
+    bbox_y1 = models.DecimalField("Y1", max_digits=5, decimal_places=4, default=0)
+    bbox_x2 = models.DecimalField("X2", max_digits=5, decimal_places=4, default=1)
+    bbox_y2 = models.DecimalField("Y2", max_digits=5, decimal_places=4, default=1)
+    
+    # Classificação
+    category = models.CharField(
+        "categoria",
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_GENERAL,
+    )
+    severity = models.CharField(
+        "severidade",
+        max_length=20,
+        choices=SEVERITY_CHOICES,
+        default=SEVERITY_MEDIUM,
+    )
+    
+    # Recomendação de mitigação
+    recommendation = models.TextField("recomendação", blank=True)
+    
+    # Imagem processada com bounding boxes
+    processed_image = models.FileField(
+        "imagem processada",
+        upload_to="processed_detections/%Y/%m/",
+        null=True,
+        blank=True,
+        max_length=500,
+    )
+    
+    # Metadados
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+    
+    class Meta:
+        verbose_name = "detecção Olímpia"
+        verbose_name_plural = "detecções Olímpia"
+        ordering = ["-confidence", "-created_at"]
+        indexes = [
+            models.Index(fields=["evidence", "-confidence"]),
+            models.Index(fields=["category", "-confidence"]),
+            models.Index(fields=["severity", "-confidence"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.category}] {self.description[:50]} ({self.confidence:.0%})"
+
+    def get_bounding_box_list(self) -> list:
+        """Retorna bounding box como lista [x1, y1, x2, y2]."""
+        return [
+            float(self.bbox_x1),
+            float(self.bbox_y1),
+            float(self.bbox_x2),
+            float(self.bbox_y2),
+        ]
+    
+    def get_bounding_box_dict(self) -> dict:
+        """Retorna bounding box como dicionário."""
+        return {
+            "x1": float(self.bbox_x1),
+            "y1": float(self.bbox_y1),
+            "x2": float(self.bbox_x2),
+            "y2": float(self.bbox_y2),
+        }

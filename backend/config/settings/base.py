@@ -240,6 +240,21 @@ AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "true").lower() in
 AI_SERVICE_BASE_URL = os.environ.get("AI_SERVICE_BASE_URL", "")
 AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY", "")
 
+# Olímpia API Configuration (Dataprev Segurança por Imagem)
+OLIMPIA_API_ENABLED = os.environ.get("OLIMPIA_API_ENABLED", "false").lower() in ("1", "true", "yes")
+OLIMPIA_API_URL = os.environ.get(
+    "OLIMPIA_API_URL",
+    "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
+)
+OLIMPIA_API_TOKEN = os.environ.get("OLIMPIA_API_TOKEN", "")
+OLIMPIA_API_TIMEOUT = int(os.environ.get("OLIMPIA_API_TIMEOUT", "60"))
+OLIMPIA_API_LANGUAGE = os.environ.get("OLIMPIA_API_LANGUAGE", "en_us")
+OLIMPIA_MIN_CONFIDENCE = float(os.environ.get("OLIMPIA_MIN_CONFIDENCE", "0.70"))
+
+# Image Processing Configuration
+SAFETY_IMAGE_PROCESSING_ENABLED = os.environ.get("SAFETY_IMAGE_PROCESSING_ENABLED", "true").lower() in ("1", "true", "yes")
+SAFETY_IMAGE_DRAW_BOUNDING_BOXES = os.environ.get("SAFETY_IMAGE_DRAW_BOUNDING_BOXES", "true").lower() in ("1", "true", "yes")
+
 # Logging: invalid login attempts
 LOGGING = {
     "version": 1,

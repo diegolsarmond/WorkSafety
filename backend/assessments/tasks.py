@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
 
@@ -268,7 +269,7 @@ def process_assessment(self, assessment_id: int):
                 inference.save()
                 
                 # Criar/atualizar RiskFindings
-                _update_risk_findings(assessment, result.findings, evidences)
+                _update_risk_findings(assessment, result.findings, evidences, result)
                 
                 # Transicionar avaliação para AI_REVIEWED
                 AssessmentLifecycleService.mark_ai_reviewed(
@@ -365,6 +366,7 @@ def _update_risk_findings(
     assessment: RiskAssessment,
     findings_data: list,
     evidences,
+    inference_result=None,
 ):
     """
     Atualiza os RiskFindings baseado nos resultados da IA.
@@ -373,22 +375,72 @@ def _update_risk_findings(
         assessment: Avaliação sendo processada
         findings_data: Lista de achados retornados pela IA
         evidences: QuerySet de evidências da avaliação
+        inference_result: Instância opcional de AIInferenceResult com violations
     """
+    from .image_processor import process_evidence_with_olimpia, calculate_compliance_score
+    
     # Converter evidências para lista para indexação
     evidence_list = list(evidences)
     
+    # Agrupar findings por categoria para melhor associação com evidências
+    findings_by_category = {}
+    for finding_data in findings_data:
+        category = finding_data.get("category", "GENERAL")
+        if category not in findings_by_category:
+            findings_by_category[category] = []
+        findings_by_category[category].append(finding_data)
+    
     # Criar novos findings
+    created_findings = []
     for i, finding_data in enumerate(findings_data):
         # Associar com evidência correspondente (circular)
         evidence = evidence_list[i % len(evidence_list)] if evidence_list else None
         
-        RiskFinding.objects.create(
+        finding = RiskFinding.objects.create(
             assessment=assessment,
             description=finding_data.get("description", ""),
             severity=finding_data.get("severity", "MEDIUM"),
             location=finding_data.get("location", ""),
             evidence=evidence,
         )
+        created_findings.append(finding)
+        
+        # Se tivermos violations do Olimpia e evidência, processar imagem
+        if (
+            inference_result
+            and hasattr(inference_result, 'violations')
+            and evidence
+            and getattr(settings, 'SAFETY_IMAGE_DRAW_BOUNDING_BOXES', True)
+        ):
+            # Encontrar violations correspondentes a este finding
+            matching_violations = [
+                v for v in inference_result.violations
+                if v.description in finding_data.get("description", "")
+            ]
+            
+            if matching_violations:
+                try:
+                    processed_url = process_evidence_with_olimpia(
+                        evidence,
+                        matching_violations,
+                        save_processed_image=True,
+                    )
+                    if processed_url:
+                        logger.info(f"Imagem processada salva: {processed_url}")
+                except Exception as e:
+                    logger.warning(f"Erro ao processar imagem da evidência {evidence.id}: {e}")
+    
+    # Calcular e logar score de compliance
+    try:
+        compliance = calculate_compliance_score(findings_data)
+        logger.info(
+            f"Compliance score para avaliação {assessment.id}: "
+            f"{compliance['score']}/100 ({compliance['status']})"
+        )
+    except Exception as e:
+        logger.warning(f"Erro ao calcular compliance: {e}")
+    
+    return created_findings
 
 
 def _handle_processing_error(assessment_id: int, error_message: str):

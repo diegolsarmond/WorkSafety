@@ -221,7 +221,7 @@ curl -X POST http://localhost:8000/api/v1/assessments/1/reprocess/ \
 
 ## Configuração do Cliente de IA
 
-O cliente de IA pode operar em dois modos:
+O cliente de IA pode operar em três modos:
 
 ### Modo Mock (Desenvolvimento/Testes)
 
@@ -232,7 +232,35 @@ AI_SERVICE_ENABLED=true
 
 Neste modo, o serviço de IA é simulado, retornando resultados fictícios baseados nas evidências.
 
-### Modo Real (Produção)
+### Modo Olímpia - API Dataprev (Produção)
+
+Edite o arquivo `backend/.env`:
+
+```env
+AI_SERVICE_MOCK_MODE=false
+AI_SERVICE_ENABLED=true
+
+# Configuração da API Olímpia
+OLIMPIA_API_ENABLED=true
+OLIMPIA_API_TOKEN=seu_token_aqui
+# OLIMPIA_API_URL=https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer
+# OLIMPIA_API_TIMEOUT=60
+# OLIMPIA_API_LANGUAGE=en_us
+# OLIMPIA_MIN_CONFIDENCE=0.70
+
+# Processamento de imagens
+SAFETY_IMAGE_DRAW_BOUNDING_BOXES=true
+```
+
+Este modo utiliza a API Olímpia da Dataprev para análise real de segurança por imagem, detectando:
+- Uso inadequado de EPI
+- Trabalho em altura sem proteção
+- Proximidade com máquinas perigosas
+- Escavações sem sinalização
+- Riscos elétricos
+- Espaços confinados
+
+### Modo AI Genérico (Futuro)
 
 ```env
 AI_SERVICE_MOCK_MODE=false
@@ -242,7 +270,7 @@ AI_SERVICE_API_KEY=sua-api-key
 AI_SERVICE_TIMEOUT=30
 ```
 
-**Nota:** O cliente real (`AIClient`) precisa ser implementado quando o contrato do serviço de IA estiver definido.
+**Nota:** O cliente genérico (`AIClient`) pode ser implementado para outros provedores de IA.
 
 ## Executando Testes
 
@@ -312,9 +340,11 @@ http://localhost:5555
 ```
 backend/
 ├── assessments/
-│   ├── ai_client.py          # Interface e mock do cliente IA
+│   ├── ai_client.py          # Interface e implementações do cliente IA (inclui OlimpiaAIClient)
+│   ├── olimpia_service.py    # Serviço de integração com API Olímpia
+│   ├── image_processor.py    # Processamento de imagens com bounding boxes
 │   ├── tasks.py              # Tasks Celery
-│   ├── models.py             # Modelos (AIInferenceResult atualizado)
+│   ├── models.py             # Modelos (AIInferenceResult, OlimpiaDetectionResult)
 │   ├── views.py              # Endpoints de IA
 │   ├── urls.py               # Rotas de IA
 │   └── tests/
@@ -322,8 +352,8 @@ backend/
 ├── config/
 │   ├── celery.py             # Configuração Celery
 │   └── settings/
-│       └── base.py           # Configurações de IA
-└── requirements.txt          # Dependências (celery, redis)
+│       └── base.py           # Configurações de IA (OLIMPIA_API_*)
+└── requirements.txt          # Dependências (celery, redis, requests)
 
 infra/
 └── docker-compose.yml        # Redis e Worker adicionados

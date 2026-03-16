@@ -7,6 +7,7 @@ from .models import (
     HumanValidationDecision,
     AssessmentStatusHistory,
     EvidenceAnonymizationLog,
+    OlimpiaDetectionResult,
 )
 
 
@@ -122,4 +123,41 @@ class AssessmentStatusHistoryAdmin(admin.ModelAdmin):
     raw_id_fields = ("assessment", "changed_by")
     readonly_fields = ("changed_at",)
     ordering = ("-changed_at",)
+
+
+@admin.register(OlimpiaDetectionResult)
+class OlimpiaDetectionResultAdmin(admin.ModelAdmin):
+    """Admin para resultados de detecção da API Olímpia."""
+    list_display = (
+        "id", "evidence", "category", "severity", "confidence",
+        "rule_name", "created_at"
+    )
+    list_filter = ("category", "severity", "rule_id")
+    search_fields = ("description", "rule_name", "recommendation")
+    raw_id_fields = ("evidence", "inference")
+    readonly_fields = ("created_at", "get_bounding_box_list")
+    fieldsets = (
+        (None, {
+            "fields": ("evidence", "inference", "rule_id", "rule_name")
+        }),
+        ("Detecção", {
+            "fields": ("description", "confidence", "category", "severity")
+        }),
+        ("Bounding Box", {
+            "fields": (
+                "bbox_x1", "bbox_y1", "bbox_x2", "bbox_y2",
+                "get_bounding_box_list"
+            ),
+            "classes": ("collapse",),
+        }),
+        ("Mitigação", {
+            "fields": ("recommendation",),
+            "classes": ("collapse",),
+        }),
+    )
+    
+    def get_bounding_box_list(self, obj):
+        """Exibe bounding box como lista legível."""
+        return obj.get_bounding_box_list()
+    get_bounding_box_list.short_description = "Bounding Box (lista)"
 

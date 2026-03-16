@@ -6,11 +6,44 @@ proporciona uma abstração sobre o serviço real de inferência.
 """
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BoundingBox:
+    """Bounding box de uma detecção (coordenadas normalizadas 0-1)."""
+    x1: float  # left
+    y1: float  # top
+    x2: float  # right
+    y2: float  # bottom
+    
+    def to_list(self) -> List[float]:
+        """Retorna como lista [x1, y1, x2, y2]."""
+        return [self.x1, self.y1, self.x2, self.y2]
+    
+    @classmethod
+    def from_list(cls, coords: List[float]) -> "BoundingBox":
+        """Cria a partir de lista [x1, y1, x2, y2]."""
+        if len(coords) >= 4:
+            return cls(x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3])
+        return cls(x1=0, y1=0, x2=1, y2=1)
+
+
+@dataclass
+class SafetyViolation:
+    """Violação de segurança detectada."""
+    rule_id: str  # ex: "rule_1_violation"
+    rule_name: str  # nome legível da regra
+    description: str  # descrição do risco
+    confidence: float  # 0-1
+    bounding_box: BoundingBox
+    category: str = ""  # categoria do risco (EPI, altura, etc.)
+    severity: str = "MEDIUM"  # LOW, MEDIUM, HIGH, CRITICAL
+    recommendation: str = ""  # recomendação de mitigação
 
 
 @dataclass
@@ -22,6 +55,8 @@ class AIInferenceResult:
     model_version: str
     error_message: str = ""
     raw_response: Optional[Dict] = None
+    violations: List[SafetyViolation] = field(default_factory=list)
+    processed_image_url: Optional[str] = None  # URL da imagem com bounding boxes
 
 
 @dataclass
@@ -31,6 +66,7 @@ class AIInferenceRequest:
     evidence_urls: List[str]
     title: str = ""
     description: str = ""
+    evidence_files: List[Any] = field(default_factory=list)  # arquivos para upload multipart
 
 
 class AIClientInterface(ABC):
@@ -192,17 +228,391 @@ class AIClient(AIClientInterface):
         return False
 
 
+class OlimpiaAIClient(AIClientInterface):
+    """
+    Cliente de integração com a API Olímpia (Dataprev) para análise de segurança por imagem.
+    
+    Endpoint: POST /v2/seguranca-por-imagem/infer
+    Documentação: Integração real com API Olímpia para detecção de riscos ocupacionais.
+    """
+
+    # Mapeamento de regras para categorias e severidades
+    RULE_MAPPING = {
+        "rule_1_violation": {
+            "name": "Uso de EPI - Vestimenta de Segurança",
+            "category": "EPI",
+            "severity": "HIGH",
+            "description": "Verifica uso correto de Equipamentos de Proteção Individual",
+        },
+        "rule_2_violation": {
+            "name": "Trabalho em Altura",
+            "category": "QUEDA",
+            "severity": "CRITICAL",
+            "description": "Detecta trabalhadores acima de 3m sem proteção adequada",
+        },
+        "rule_3_violation": {
+            "name": "Abertura de Valas e Escavações",
+            "category": "ESCAVACAO",
+            "severity": "HIGH",
+            "description": "Identifica bordas de valas sem sinalização ou proteção",
+        },
+        "rule_4_violation": {
+            "name": "Proximidade com Máquinas",
+            "category": "MAQUINARIO",
+            "severity": "CRITICAL",
+            "description": "Detecta pedestres em área de operação de equipamentos",
+        },
+        "rule_5_violation": {
+            "name": "Espaço Confinado",
+            "category": "ESPACO_CONFINADO",
+            "severity": "CRITICAL",
+            "description": "Identifica entrada em espaços confinados sem autorização",
+        },
+        "rule_6_violation": {
+            "name": "Proteção Elétrica",
+            "category": "ELETRICO",
+            "severity": "HIGH",
+            "description": "Verifica exposição a riscos elétricos",
+        },
+    }
+
+    # Recomendações por categoria
+    RECOMMENDATIONS = {
+        "EPI": "Fornecer e fiscalizar uso correto de EPI conforme NR-6. Treinar trabalhadores.",
+        "QUEDA": "Implementar sistema de proteção coletiva ou individual conforme NR-35. Usar cinto de segurança.",
+        "ESCAVACAO": "Sinalizar perímetro, instalar barreiras físicas e seguir NR-18 para escavações.",
+        "MAQUINARIO": "Delimitar área de operação, usar sinalizador/spotter e manter distância de segurança.",
+        "ESPACO_CONFINADO": "Exigir Permissão de Trabalho (PT) e monitoramento contínuo conforme NR-33.",
+        "ELETRICO": "Verificar bloqueio/etiquetagem, usar EPI específico e manter distância mínima.",
+    }
+
+    def __init__(
+        self,
+        api_url: Optional[str] = None,
+        api_token: Optional[str] = None,
+        timeout: int = 60,
+        language: str = "en_us",
+    ):
+        self.api_url = api_url or getattr(
+            settings, "OLIMPIA_API_URL", 
+            "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
+        )
+        self.api_token = api_token or getattr(settings, "OLIMPIA_API_TOKEN", "")
+        self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
+        self.language = language or getattr(settings, "OLIMPIA_API_LANGUAGE", "en_us")
+        self.min_confidence = getattr(settings, "OLIMPIA_MIN_CONFIDENCE", 0.70)
+
+    def _get_headers(self) -> Dict[str, str]:
+        """Retorna headers para requisição à API Olímpia."""
+        return {
+            "accept": "application/json",
+            "Authorization": f"Bearer {self.api_token}",
+        }
+
+    def _build_url(self) -> str:
+        """Constrói URL completa com parâmetros de query."""
+        separator = "&" if "?" in self.api_url else "?"
+        return f"{self.api_url}{separator}lang={self.language}"
+
+    def _parse_violations(self, response_data: Dict[str, Any]) -> List[SafetyViolation]:
+        """Converte resposta da API em lista de SafetyViolation."""
+        violations = []
+        
+        for rule_key, detections in response_data.items():
+            if not rule_key.endswith("_violation"):
+                continue
+            
+            if not isinstance(detections, list):
+                continue
+            
+            rule_info = self.RULE_MAPPING.get(rule_key, {
+                "name": rule_key,
+                "category": "GENERAL",
+                "severity": "MEDIUM",
+                "description": "Violação de segurança detectada",
+            })
+            
+            for detection in detections:
+                confidence = detection.get("confidence", 0.0)
+                
+                # Filtrar por confiança mínima
+                if confidence < self.min_confidence:
+                    logger.debug(f"Ignorando detecção com confiança baixa: {confidence}")
+                    continue
+                
+                bbox = BoundingBox.from_list(detection.get("bounding_box", [0, 0, 1, 1]))
+                
+                violation = SafetyViolation(
+                    rule_id=rule_key,
+                    rule_name=rule_info["name"],
+                    description=detection.get("reason", rule_info["description"]),
+                    confidence=confidence,
+                    bounding_box=bbox,
+                    category=rule_info["category"],
+                    severity=rule_info["severity"],
+                    recommendation=self.RECOMMENDATIONS.get(rule_info["category"], ""),
+                )
+                violations.append(violation)
+        
+        # Ordenar por confiança (maior primeiro)
+        violations.sort(key=lambda v: v.confidence, reverse=True)
+        return violations
+
+    def _violations_to_findings(self, violations: List[SafetyViolation]) -> List[Dict[str, Any]]:
+        """Converte violações para formato de findings do sistema."""
+        findings = []
+        for v in violations:
+            findings.append({
+                "description": f"[{v.rule_name}] {v.description}",
+                "severity": v.severity,
+                "location": f"Área detectada (confiança: {v.confidence:.0%})",
+                "category": v.category,
+                "confidence": v.confidence,
+                "bounding_box": v.bounding_box.to_list(),
+                "rule_id": v.rule_id,
+                "recommendation": v.recommendation,
+            })
+        return findings
+
+    def analyze_image_file(self, image_path: str) -> AIInferenceResult:
+        """
+        Analisa uma imagem diretamente via API Olímpia.
+        
+        Args:
+            image_path: Caminho para o arquivo de imagem
+            
+        Returns:
+            AIInferenceResult com as violações detectadas
+        """
+        import requests
+        
+        url = self._build_url()
+        headers = self._get_headers()
+        
+        try:
+            with open(image_path, "rb") as image_file:
+                files = {"file": (image_path.split("/")[-1], image_file, "image/jpeg")}
+                
+                logger.info(f"Enviando imagem para API Olímpia: {image_path}")
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    files=files,
+                    timeout=self.timeout,
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                logger.info(f"Resposta da API Olímpia recebida: {len(data)} regras")
+                
+                violations = self._parse_violations(data)
+                findings = self._violations_to_findings(violations)
+                
+                # Calcular confiança geral
+                if violations:
+                    avg_confidence = sum(v.confidence for v in violations) / len(violations)
+                    if avg_confidence >= 0.85:
+                        confidence_level = "HIGH"
+                    elif avg_confidence >= 0.70:
+                        confidence_level = "MEDIUM"
+                    else:
+                        confidence_level = "LOW"
+                else:
+                    confidence_level = "HIGH"  # Sem violações = boa confiança
+                
+                return AIInferenceResult(
+                    success=True,
+                    findings=findings,
+                    confidence=confidence_level,
+                    model_version="olimpia-v2",
+                    error_message="",
+                    raw_response=data,
+                    violations=violations,
+                )
+                
+        except requests.exceptions.Timeout:
+            logger.error("Timeout na API Olímpia")
+            return AIInferenceResult(
+                success=False,
+                findings=[],
+                confidence="",
+                model_version="olimpia-v2",
+                error_message="Timeout ao conectar com API Olímpia",
+            )
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Erro HTTP na API Olímpia: {e}")
+            return AIInferenceResult(
+                success=False,
+                findings=[],
+                confidence="",
+                model_version="olimpia-v2",
+                error_message=f"Erro API Olímpia: {response.status_code} - {response.text}",
+            )
+        except Exception as e:
+            logger.exception(f"Erro inesperado na API Olímpia: {e}")
+            return AIInferenceResult(
+                success=False,
+                findings=[],
+                confidence="",
+                model_version="olimpia-v2",
+                error_message=f"Erro inesperado: {str(e)}",
+            )
+
+    def analyze_assessment(self, request: AIInferenceRequest) -> AIInferenceResult:
+        """
+        Analisa evidências de uma avaliação via API Olímpia.
+        
+        Processa cada evidência (imagem) individualmente e agrega resultados.
+        
+        Args:
+            request: Dados da requisição de inferência
+            
+        Returns:
+            AIInferenceResult com todos os achados agregados
+        """
+        import os
+        from django.conf import settings
+        from django.core.files.storage import default_storage
+        
+        all_violations = []
+        all_findings = []
+        all_raw_responses = []
+        total_confidences = []
+        
+        logger.info(f"Analisando avaliação {request.assessment_id} com {len(request.evidence_urls)} evidências")
+        
+        for evidence_url in request.evidence_urls:
+            try:
+                # Converter URL para caminho de arquivo local
+                if evidence_url.startswith("/media/"):
+                    relative_path = evidence_url.replace("/media/", "")
+                elif evidence_url.startswith(settings.MEDIA_URL):
+                    relative_path = evidence_url.replace(settings.MEDIA_URL, "")
+                else:
+                    relative_path = evidence_url
+                
+                file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+                
+                if not os.path.exists(file_path):
+                    logger.warning(f"Arquivo não encontrado: {file_path}")
+                    continue
+                
+                # Analisar imagem
+                result = self.analyze_image_file(file_path)
+                
+                if result.success:
+                    all_violations.extend(result.violations)
+                    all_findings.extend(result.findings)
+                    all_raw_responses.append(result.raw_response)
+                    
+                    if result.violations:
+                        avg_conf = sum(v.confidence for v in result.violations) / len(result.violations)
+                        total_confidences.append(avg_conf)
+                else:
+                    logger.warning(f"Falha ao analisar {file_path}: {result.error_message}")
+                    
+            except Exception as e:
+                logger.exception(f"Erro processando evidência {evidence_url}: {e}")
+                continue
+        
+        # Calcular confiança geral
+        if total_confidences:
+            overall_confidence = sum(total_confidences) / len(total_confidences)
+            if overall_confidence >= 0.85:
+                confidence_level = "HIGH"
+            elif overall_confidence >= 0.70:
+                confidence_level = "MEDIUM"
+            else:
+                confidence_level = "LOW"
+        else:
+            confidence_level = "HIGH"  # Sem violações
+        
+        # Remover duplicatas baseadas na descrição (mesmo risco em múltiplas imagens)
+        seen_descriptions = set()
+        unique_findings = []
+        for finding in all_findings:
+            desc = finding["description"]
+            if desc not in seen_descriptions:
+                seen_descriptions.add(desc)
+                unique_findings.append(finding)
+        
+        logger.info(
+            f"Análise concluída: {len(unique_findings)} findings únicos "
+            f"de {len(all_findings)} total"
+        )
+        
+        return AIInferenceResult(
+            success=True,
+            findings=unique_findings,
+            confidence=confidence_level,
+            model_version="olimpia-v2",
+            error_message="",
+            raw_response={
+                "processed_images": len(request.evidence_urls),
+                "total_violations": len(all_violations),
+                "unique_findings": len(unique_findings),
+                "individual_responses": all_raw_responses,
+            },
+            violations=all_violations,
+        )
+
+    def health_check(self) -> bool:
+        """Verifica saúde da API Olímpia com uma requisição simples."""
+        import requests
+        
+        try:
+            # Fazer requisição HEAD ou GET simples
+            # Como a API Olímpia não tem endpoint de health específico,
+            # verificamos apenas se a URL está acessível
+            response = requests.get(
+                self.api_url.replace("/infer", "/health"),
+                headers=self._get_headers(),
+                timeout=10,
+                verify=True,
+            )
+            return response.status_code in [200, 404]  # 404 é OK se o endpoint não existir
+        except requests.exceptions.RequestException:
+            # Tentar verificar se o domínio resolve
+            try:
+                import socket
+                hostname = self.api_url.split("//")[1].split("/")[0]
+                socket.gethostbyname(hostname)
+                return True  # DNS resolve, API pode estar disponível
+            except Exception:
+                return False
+
+
 def get_ai_client() -> AIClientInterface:
     """
     Factory para obter cliente de IA configurado.
     
+    Prioridade:
+    1. Mock mode (para desenvolvimento/testes)
+    2. Olimpia client (para produção com API Dataprev)
+    3. MockAIClient (fallback)
+    
     Returns:
         Instância de AIClientInterface configurada
     """
+    # Modo mock - sempre usa mock
     if getattr(settings, 'AI_SERVICE_MOCK_MODE', False):
         logger.info("Using MockAIClient (mock mode enabled)")
         return MockAIClient()
     
-    # TODO: Quando o serviço real estiver disponível, retornar AIClient()
-    logger.info("Using MockAIClient (real client not yet implemented)")
+    # Cliente Olímpia - integração real com API Dataprev
+    olimpia_enabled = getattr(settings, 'OLIMPIA_API_ENABLED', False)
+    olimpia_token = getattr(settings, 'OLIMPIA_API_TOKEN', '')
+    
+    if olimpia_enabled and olimpia_token:
+        logger.info("Using OlimpiaAIClient (Dataprev API integration)")
+        return OlimpiaAIClient(
+            api_url=getattr(settings, 'OLIMPIA_API_URL', None),
+            api_token=olimpia_token,
+            timeout=getattr(settings, 'OLIMPIA_API_TIMEOUT', 60),
+            language=getattr(settings, 'OLIMPIA_API_LANGUAGE', 'en_us'),
+        )
+    
+    # Fallback para mock se nenhum cliente real estiver configurado
+    logger.info("Using MockAIClient (no real AI client configured)")
     return MockAIClient()
