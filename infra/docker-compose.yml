@@ -48,6 +48,17 @@ services:
     volumes:
       - ../backend:/app
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
   worker:
     build:
       context: ../backend
