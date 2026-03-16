@@ -50,8 +50,8 @@ services:
 
   frontend:
     build:
-      context: ../frontend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: infra/frontend.Dockerfile
     ports:
       - "3000:80"
     depends_on:
