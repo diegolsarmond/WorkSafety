@@ -27,7 +27,7 @@ class EnvironmentTypeRefSerializer(serializers.ModelSerializer):
 
 
 class EvidenceSerializer(serializers.ModelSerializer):
-    """Serializer para evidências (fotos)."""
+    """Serializer para evidências (fotos) com campos LGPD/GDPR."""
     url = serializers.SerializerMethodField()
     privacy_status = serializers.SerializerMethodField()
 
@@ -35,11 +35,14 @@ class EvidenceSerializer(serializers.ModelSerializer):
         model = Evidence
         fields = [
             'id', 'file', 'url', 'file_hash', 'file_size', 'mime_type',
-            'captured_at', 'created_at',
+            'captured_at', 'created_at', 'updated_at',
+            # Campos LGPD/GDPR
+            'is_anonymized', 'anonymization_status', 'anonymized_at',
             'privacy_status',
         ]
         read_only_fields = [
-            'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at',
+            'file_hash', 'file_size', 'mime_type', 'captured_at', 'created_at', 'updated_at',
+            'is_anonymized', 'anonymization_status', 'anonymized_at',
             'privacy_status',
         ]
 
@@ -54,12 +57,11 @@ class EvidenceSerializer(serializers.ModelSerializer):
 
     def get_privacy_status(self, obj: Evidence) -> dict:
         """Retorna status de privacidade/LGPD da evidência."""
-        # Using default empty status to avoid 500 since LGPD fields do not exist on Evidence model
         return {
-            'is_anonymized': False,
-            'anonymization_status': 'not_applicable',
-            'anonymized_at': None,
-            'has_original_hash': False,
+            'is_anonymized': obj.is_anonymized,
+            'anonymization_status': obj.anonymization_status,
+            'anonymized_at': obj.anonymized_at,
+            'has_original_hash': bool(obj.original_file_hash),
         }
 
 
@@ -190,11 +192,14 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
     risk_count = serializers.SerializerMethodField()
     assessment_type = AssessmentTypeRefSerializer(read_only=True)
     environment_type = EnvironmentTypeRefSerializer(read_only=True)
+    legal_basis_display = serializers.CharField(source='get_legal_basis_display', read_only=True)
+
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'created_by_email',
             'risk_count', 'assessment_type', 'environment_type',
+            'legal_basis', 'legal_basis_display',
             'captured_at', 'ai_reviewed_at',
             'human_validated_at', 'created_at',
         ]
@@ -217,6 +222,7 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
     valid_transitions = serializers.SerializerMethodField()
     assessment_type = AssessmentTypeRefSerializer(read_only=True)
     environment_type = EnvironmentTypeRefSerializer(read_only=True)
+    legal_basis_display = serializers.CharField(source='get_legal_basis_display', read_only=True)
 
     class Meta:
         model = RiskAssessment
@@ -225,6 +231,7 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
             'created_by', 'created_by_email', 'risks', 'evidences',
             'inferences', 'compliance_score', 'valid_transitions',
             'assessment_type', 'environment_type',
+            'legal_basis', 'legal_basis_display', 'legal_basis_notes',
             'captured_at', 'synced_at', 'ai_reviewed_at',
             'human_validated_at', 'finalized_at',
             'status_changed_at', 'status_change_reason',
@@ -289,11 +296,14 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True,
     )
+    legal_basis_display = serializers.CharField(source='get_legal_basis_display', read_only=True)
+
     class Meta:
         model = RiskAssessment
         fields = [
             'id', 'created_by', 'status', 'title', 'description',
             'assessment_type_id', 'environment_type_id',
+            'legal_basis', 'legal_basis_display', 'legal_basis_notes',
             'captured_at', 'synced_at', 'ai_reviewed_at',
             'human_validated_at', 'finalized_at',
             'status_changed_at', 'status_change_reason',
