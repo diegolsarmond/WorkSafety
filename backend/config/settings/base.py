@@ -12,7 +12,7 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 DEBUG = os.environ.get("DEBUG", "false").lower() in ("1", "true", "yes")
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,200.152.38.136").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,200.152.38.136,inovacao.dataprev.gov.br").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -47,6 +47,23 @@ MIDDLEWARE = [
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "https://inovacao.dataprev.gov.br",
+    "http://inovacao.dataprev.gov.br",
+    "http://200.152.38.136:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]
+
+# CSRF trusted origins (necessário para frontend HTTPS -> backend HTTP)
+CSRF_TRUSTED_ORIGINS = [
+    "https://inovacao.dataprev.gov.br",
+    "http://inovacao.dataprev.gov.br",
+    "http://200.152.38.136:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"

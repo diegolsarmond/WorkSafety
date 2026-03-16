@@ -27,7 +27,7 @@ interface Report {
 }
 
 // API base URL - remove trailing slash to avoid duplication
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://200.152.38.136:8000/api/').replace(/\/$/, '');
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
