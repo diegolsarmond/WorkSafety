@@ -40,7 +40,8 @@ function useAuth() {
   
   const logout = () => {
     clearTokens();
-    window.location.href = '/login';
+    const basePath = import.meta.env.MODE === 'production' ? '/worksafety/admin/login' : '/login';
+    window.location.href = basePath;
   };
   
   return { user, isAuthenticated, logout };
@@ -179,8 +180,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  // Use /admin basename in production, / in development
-  const basename = import.meta.env.MODE === 'production' ? '/admin' : '/';
+  // Use /worksafety/admin basename in production, / in development
+  const basename = import.meta.env.MODE === 'production' ? '/worksafety/admin' : '/';
   
   return (
     <Router basename={basename}>
