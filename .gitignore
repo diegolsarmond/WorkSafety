@@ -31,3 +31,24 @@ build/
 dist/
 .npm
 .yarn
+
+# LOCAL DEVELOPMENT CONFIGS (não subir para produção)
+start-local.bat
+start-local.sh
+apply-local.sh
+apply-local.bat
+# Arquivos de configuração para desenvolvimento local (sem /worksafety)
+*.local
+*.local.*
+infra/*.local
+infra/*.local.*
+infra/nginx-local.conf
+docker-compose.override.yml
+
+# Frontend local config
+frontend/vite.config.ts.local
+frontend/src/app/router.tsx.local
+
+# Admin local config  
+WorkSafetyWeb/vite.config.ts.local
+WorkSafetyWeb/src/App.tsx.local
