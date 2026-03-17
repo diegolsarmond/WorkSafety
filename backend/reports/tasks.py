@@ -441,9 +441,20 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     # Recommendations
     recommendations = [
         "<b>IMMEDIATE ACTION:</b> Stop work in Sector until critical hazards are resolved.",
-        f"Schedule follow-up inspection for {(created_dt.replace(day=created_dt.day + 2) if created_dt else datetime.now().replace(day=13)).strftime('%b %d, %Y')}",
-        "Issue formal warning to site supervisor regarding outstanding compliance issues.",
     ]
+    
+    # Calcular data de follow-up (2 dias após criação) - com tratamento seguro para fim de mês
+    if created_dt:
+        try:
+            follow_up_dt = created_dt + timedelta(days=2)
+            follow_up_str = follow_up_dt.strftime('%b %d, %Y')
+        except Exception:
+            follow_up_str = "TBD"
+    else:
+        follow_up_str = datetime.now().strftime('%b %d, %Y')
+    
+    recommendations.append(f"Schedule follow-up inspection for {follow_up_str}")
+    recommendations.append("Issue formal warning to site supervisor regarding outstanding compliance issues.")
     
     for rec_text in recommendations:
         rec_para = Paragraph(

@@ -123,7 +123,8 @@ class RiskItemSerializer(serializers.ModelSerializer):
                 {'id': '5', 'title': 'Monitor', 'description': 'Monitor and address when possible', 'priority': 'low'},
             ],
         }
-        return recommendations.get(obj.severity.upper(), [])
+        severity = obj.severity.upper() if obj.severity else 'MEDIUM'
+        return recommendations.get(severity, [])
     
     def get_ai_confidence(self, obj: RiskFinding) -> str:
         """Retorna a confiança da IA formatada como percentual."""
@@ -259,7 +260,8 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
 
         total_score = 0
         for risk in risks:
-            weight = severity_weights.get(risk.severity.upper(), 50)
+            severity = risk.severity.upper() if risk.severity else 'MEDIUM'
+            weight = severity_weights.get(severity, 50)
             total_score += weight
 
         return min(100, max(0, int(total_score / len(risks))))
