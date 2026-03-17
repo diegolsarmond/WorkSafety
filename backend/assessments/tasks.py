@@ -396,12 +396,22 @@ def _update_risk_findings(
         # Associar com evidência correspondente (circular)
         evidence = evidence_list[i % len(evidence_list)] if evidence_list else None
         
+        # Extrair confiança do finding_data (pode vir como decimal 0-1 ou string)
+        confidence = finding_data.get("confidence", None)
+        if isinstance(confidence, str):
+            try:
+                # Tentar converter string para float
+                confidence = float(confidence)
+            except (ValueError, TypeError):
+                confidence = None
+        
         finding = RiskFinding.objects.create(
             assessment=assessment,
             description=finding_data.get("description", ""),
             severity=finding_data.get("severity", "MEDIUM"),
             location=finding_data.get("location", ""),
             evidence=evidence,
+            ai_confidence=confidence,  # Preencher com confiança individual
         )
         created_findings.append(finding)
         

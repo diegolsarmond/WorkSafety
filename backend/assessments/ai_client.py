@@ -143,10 +143,14 @@ class MockAIClient(AIClientInterface):
             for i, url in enumerate(request.evidence_urls):
                 # Selecionar risk type baseado no índice (ciclico)
                 risk_type = risk_types[i % len(risk_types)]
+                # Gerar confiança individual aleatória (0.70 a 0.95)
+                individual_confidence = 0.70 + (i * 0.05) % 0.25  # Entre 0.70 e 0.95
                 findings.append({
                     "description": risk_type["description"],
                     "severity": risk_type["severity"],
                     "location": f"Area {i+1}",
+                    "confidence": individual_confidence,  # Confiança individual
+                    "category": "GENERAL",
                 })
 
         # Calcular confiança baseada na quantidade de evidências

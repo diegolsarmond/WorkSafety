@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
 import { Download, RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchWithToken } from '../services/api';
 
 interface Report {
@@ -14,6 +15,7 @@ interface Report {
 export default function Reports() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   const fetchReports = async () => {
     setLoading(true);
@@ -33,7 +35,7 @@ export default function Reports() {
   }, []);
 
   const handleRegenerate = async (assessmentId: number) => {
-    if (confirm('Deseja regenerar o relatório para esta avaliação?')) {
+    if (confirm(t('Deseja regenerar o relatório para esta avaliação?'))) {
       try {
         await fetchWithToken(`/api/admin/assessments/${assessmentId}/generate-report/`, { method: 'POST' });
         fetchReports();
@@ -54,7 +56,7 @@ export default function Reports() {
 
   const columns = [
     { header: 'ID', accessor: 'id' as const },
-    { header: 'Avaliação ID', accessor: 'assessment_id' as const },
+    { header: t('Avaliação ID'), accessor: 'assessment_id' as const },
     { 
       header: 'Status', 
       accessor: (row: Report) => (
@@ -65,7 +67,7 @@ export default function Reports() {
       )
     },
     { 
-      header: 'Criado em', 
+      header: t('Criado em'), 
       accessor: (row: Report) => new Date(row.created_at).toLocaleString('pt-BR')
     },
   ];
@@ -73,11 +75,11 @@ export default function Reports() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t('Relatórios')}</h1>
       </div>
 
       {loading ? (
-        <div className="text-center py-10 text-slate-500">Carregando...</div>
+        <div className="text-center py-10 text-slate-500">{t('Carregando...')}</div>
       ) : (
         <Table
           data={reports}
@@ -90,7 +92,7 @@ export default function Reports() {
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
                 >
                   <Download className="h-3 w-3 mr-1" />
-                  Download
+                  {t('Download')}
                 </a>
               )}
               {row.status === 'failed' && (
@@ -99,7 +101,7 @@ export default function Reports() {
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-amber-600 hover:bg-amber-700"
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
-                  Regenerar
+                  {t('Regenerar')}
                 </button>
               )}
             </div>

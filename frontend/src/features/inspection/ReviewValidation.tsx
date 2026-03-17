@@ -2,11 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ChevronRight } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
-import { useInspectionStore } from '../../store/inspectionStore';
+import { useInspectionStore } from '@/store/inspectionStore';
 
 export function ReviewValidation() {
   const navigate = useNavigate();
-  const { photos, setStatus } = useInspectionStore();
+  const { photos, setStatus, assessmentId } = useInspectionStore();
 
   const handleSave = () => {
     setStatus('HUMAN_VALIDATED');
@@ -43,7 +43,9 @@ export function ReviewValidation() {
           <h2 className="text-sm font-bold text-gray-500 tracking-wider mb-4">ANALYSIS RESULT</h2>
 
           <button
-            onClick={() => navigate('/inspection/risks')}
+            onClick={() => navigate('/inspection/risks', {
+              state: { assessmentId }
+            })}
             className="w-full bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-4">

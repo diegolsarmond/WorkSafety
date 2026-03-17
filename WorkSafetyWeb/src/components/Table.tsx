@@ -3,6 +3,7 @@ import React from 'react';
 interface Column<T> {
   header: string;
   accessor: keyof T | ((row: T) => React.ReactNode);
+  className?: string;
 }
 
 interface TableProps<T> {
@@ -37,7 +38,7 @@ export function Table<T extends { id: number }>({ data, columns, actions }: Tabl
           {data.map((row) => (
             <tr key={row.id}>
               {columns.map((col, i) => (
-                <td key={i} className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                <td key={i} className={`px-6 py-4 text-sm text-slate-900 ${col.className || 'whitespace-normal'}`}>
                   {typeof col.accessor === 'function' ? col.accessor(row) : (row[col.accessor] as React.ReactNode)}
                 </td>
               ))}

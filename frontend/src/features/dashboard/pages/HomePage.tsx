@@ -1,7 +1,7 @@
 import { Button } from '@/ui/components/Button';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box, Brain, Loader2, Clock } from 'lucide-react';
+import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box, Brain, Loader2, Clock, CheckCircle2, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
 import { SyncStatusBadge } from '@/features/sync';
@@ -16,6 +16,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [aiQueueCounts, setAiQueueCounts] = useState<AIQueueCounts | null>(null);
   const [loadingAIQueue, setLoadingAIQueue] = useState(true);
+  const [readyReportsCount, setReadyReportsCount] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,8 +26,8 @@ export default function HomePage() {
           environmentService.getAll(),
           assessmentService.getAll()
         ]);
-        const drafts = assessmentsRes.data.filter((a: any) => a.status === 'draft');
-        setPendingAssessments(drafts);
+        // Show all assessments (not just drafts) - they will be grouped by status
+        setPendingAssessments(assessmentsRes.data);
         setEnvironments(envs);
         setAssessmentTypes(types);
       } catch (error) {
@@ -57,6 +58,24 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch ready reports count
+  useEffect(() => {
+    const fetchReadyReports = async () => {
+      try {
+        const response = await apiClient.get('admin/reports/?status=ready');
+        const readyReports = Array.isArray(response.data) ? response.data.filter((r: any) => r.status === 'ready').length : 0;
+        setReadyReportsCount(readyReports);
+      } catch (error) {
+        console.error("Failed to fetch reports:", error);
+      }
+    };
+    fetchReadyReports();
+    
+    // Poll every 15 seconds
+    const interval = setInterval(fetchReadyReports, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -80,6 +99,14 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/admin/reports')}
+            className="h-11 px-4 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors gap-2"
+            title="View Reports"
+          >
+            <FileText className="w-5 h-5" />
+            <span className="text-sm font-medium hidden sm:inline">Reports</span>
+          </button>
           <SyncStatusBadge onClick={() => navigate('/sync-queue')} />
           <button
             onClick={handleLogout}
@@ -167,87 +194,172 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Pending Analysis */}
+        {/* Ready Reports Card */}
+        {readyReportsCount > 0 && (
+          <div 
+            onClick={() => navigate('/admin/reports')}
+            className="mb-6 bg-white border border-gray-200 rounded-xl p-3 text-gray-700 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[14px] text-gray-900">Reports Ready</h3>
+                  <p className="text-gray-500 text-[12px]">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                      {readyReportsCount} ready for download
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-gray-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assessments by Status */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
-            <h3 className="text-[19px] font-bold text-[#111827]">Pending Analysis</h3>
+            <h3 className="text-[19px] font-bold text-[#111827]">My Assessments</h3>
             <span className="px-3 py-1 bg-gray-100 text-[#4B5563] text-[11px] font-bold rounded-full tracking-wider">
-              {loading ? "..." : `${pendingAssessments.length} PENDING`}
+              {loading ? "..." : `${pendingAssessments.length} TOTAL`}
             </span>
           </div>
 
-          <div className="space-y-4">
-            {loading ? (
-              <p className="text-gray-500 text-sm text-center py-8">Loading assessments...</p>
-            ) : pendingAssessments.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-8">No pending assessments.</p>
-            ) : (
-              pendingAssessments.map((assessment) => {
-                // Parse 'Inspection - Environment - Category'
-                const parts = assessment.title.split(' - ');
-                const environmentId = parts[1] || 'Unknown';
-                const categoryRaw = parts[2] || 'Unknown';
+          {loading ? (
+            <p className="text-gray-500 text-sm text-center py-8">Loading assessments...</p>
+          ) : pendingAssessments.length === 0 ? (
+            <p className="text-gray-500 text-sm text-center py-8">No assessments yet.</p>
+          ) : (
+            <div className="space-y-6">
+              {/* Group assessments by status */}
+              {(() => {
+                const statusGroups: Record<string, any[]> = {
+                  draft: [],
+                  captured: [],
+                  synced: [],
+                  ai_reviewed: [],
+                  human_validated: [],
+                  finalized: [],
+                  error_ai: [],
+                };
+                
+                pendingAssessments.forEach((a: any) => {
+                  if (statusGroups[a.status]) {
+                    statusGroups[a.status].push(a);
+                  }
+                });
 
-                const envObj = environments.find(e => e.id.toString() === environmentId);
-                const environmentName = envObj ? envObj.name : environmentId;
+                const statusLabels = {
+                  draft: { label: 'Draft', color: 'bg-gray-100 text-gray-600', icon: '📝' },
+                  captured: { label: 'Captured', color: 'bg-blue-100 text-blue-600', icon: '📸' },
+                  synced: { label: 'Synced', color: 'bg-purple-100 text-purple-600', icon: '☁️' },
+                  ai_reviewed: { label: 'AI Reviewed', color: 'bg-indigo-100 text-indigo-600', icon: '🤖' },
+                  human_validated: { label: 'Validated', color: 'bg-green-100 text-green-600', icon: '✅' },
+                  finalized: { label: 'Finalized', color: 'bg-gray-800 text-white', icon: '🎯' },
+                  error_ai: { label: 'Error', color: 'bg-red-100 text-red-600', icon: '⚠️' },
+                };
 
-                const typeObj = assessmentTypes.find(t => t.id.toString() === categoryRaw);
-                const categoryName = typeObj ? typeObj.name : categoryRaw;
-
-                const dateObj = new Date(assessment.created_at);
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const formattedDate = `${day}/${month}`;
-
-                let Icon = Building2;
-                let bgClass = "bg-[#FFF3E0]";
-                let textClass = "text-[#F57C00]";
-
-                if (environmentName.toLowerCase().includes('construction') || environmentName.toLowerCase().includes('obra')) {
-                  Icon = Building2;
-                  bgClass = "bg-[#FFF3E0]";
-                  textClass = "text-[#F57C00]";
-                } else if (environmentName.toLowerCase().includes('industry') || environmentName.toLowerCase().includes('indústria')) {
-                  Icon = Factory;
-                  bgClass = "bg-[#E3F2FD]";
-                  textClass = "text-[#1976D2]";
-                } else {
-                  Icon = Box;
-                  bgClass = "bg-[#F3F4F6]";
-                  textClass = "text-[#4B5563]";
-                }
-
-                return (
-                  <div key={assessment.id} className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between transition-transform active:scale-95 cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-[52px] h-[52px] rounded-2xl ${bgClass} flex items-center justify-center ${textClass}`}>
-                        <Icon className="w-6 h-6" />
+                return Object.entries(statusGroups).map(([status, assessments]) => 
+                  assessments.length > 0 && (
+                    <div key={status}>
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusLabels[status as keyof typeof statusLabels]?.color || 'bg-gray-100'}`}>
+                          {statusLabels[status as keyof typeof statusLabels]?.label || status}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {assessments.length} {assessments.length === 1 ? 'item' : 'items'}
+                        </span>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-[#111827] text-[16px] capitalize">{environmentName}</h4>
-                        <p className="text-[13px] text-[#4B5563] font-medium">{categoryName}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {formattedDate}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                          <span className="text-[13px] font-semibold text-gray-500">Not synced</span>
-                        </div>
+                      <div className="space-y-3">
+                        {assessments.map((assessment) => {
+                          // Parse 'Inspection - Environment - Category'
+                          const parts = assessment.title.split(' - ');
+                          const environmentId = parts[1] || 'Unknown';
+                          const categoryRaw = parts[2] || 'Unknown';
+
+                          const envObj = environments.find(e => e.id.toString() === environmentId);
+                          const environmentName = envObj ? envObj.name : environmentId;
+
+                          const typeObj = assessmentTypes.find(t => t.id.toString() === categoryRaw);
+                          const categoryName = typeObj ? typeObj.name : categoryRaw;
+
+                          const dateObj = new Date(assessment.created_at);
+                          const day = String(dateObj.getDate()).padStart(2, '0');
+                          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                          const formattedDate = `${day}/${month}`;
+
+                          let Icon = Building2;
+                          let bgClass = "bg-[#FFF3E0]";
+                          let textClass = "text-[#F57C00]";
+
+                          if (environmentName.toLowerCase().includes('construction') || environmentName.toLowerCase().includes('obra')) {
+                            Icon = Building2;
+                            bgClass = "bg-[#FFF3E0]";
+                            textClass = "text-[#F57C00]";
+                          } else if (environmentName.toLowerCase().includes('industry') || environmentName.toLowerCase().includes('indústria')) {
+                            Icon = Factory;
+                            bgClass = "bg-[#E3F2FD]";
+                            textClass = "text-[#1976D2]";
+                          } else {
+                            Icon = Box;
+                            bgClass = "bg-[#F3F4F6]";
+                            textClass = "text-[#4B5563]";
+                          }
+
+                          return (
+                            <div 
+                              key={assessment.id} 
+                              onClick={() => navigate(`/inspection/${assessment.id}`)}
+                              className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 flex items-center justify-between transition-transform active:scale-95 cursor-pointer hover:shadow-md hover:border-gray-200"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-[52px] h-[52px] rounded-2xl ${bgClass} flex items-center justify-center ${textClass}`}>
+                                  <Icon className="w-6 h-6" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-[#111827] text-[16px] capitalize">{environmentName}</h4>
+                                  <p className="text-[13px] text-[#4B5563] font-medium">{categoryName}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[13px] text-gray-500 flex items-center gap-1.5">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                      {formattedDate}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <div className={`w-2 h-2 rounded-full ${status === 'finalized' || status === 'human_validated' ? 'bg-green-500' : status === 'error_ai' ? 'bg-red-500' : status === 'ai_reviewed' ? 'bg-indigo-500' : status === 'synced' ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
+                                    <span className={`text-[13px] font-semibold ${status === 'finalized' || status === 'human_validated' ? 'text-green-600' : status === 'error_ai' ? 'text-red-600' : status === 'ai_reviewed' ? 'text-indigo-600' : status === 'synced' ? 'text-purple-600' : 'text-gray-500'}`}>
+                                      {statusLabels[status as keyof typeof statusLabels]?.label || status}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-[#F5A623]">
+                                {status === 'draft' && <AlertTriangle className="w-6 h-6" />}
+                                {status === 'error_ai' && <AlertTriangle className="w-6 h-6 text-red-600" />}
+                                {(status === 'captured' || status === 'synced') && <Clock className="w-6 h-6 text-blue-600" />}
+                                {status === 'ai_reviewed' && <Brain className="w-6 h-6 text-indigo-600" />}
+                                {(status === 'human_validated' || status === 'finalized') && <CheckCircle2 className="w-6 h-6 text-green-600" />}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div className="text-[#F5A623]">
-                      <AlertTriangle className="w-6 h-6" />
-                    </div>
-                  </div>
+                  )
                 );
-              })
-            )}
-          </div>
+              })()}
+            </div>
+          )}
         </div>
       </main>
     </div>

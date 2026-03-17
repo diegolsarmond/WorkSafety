@@ -25,11 +25,13 @@ export interface User {
 export interface CreateUserData {
   email: string;
   password: string;
+  name?: string;
   is_staff?: boolean;
   is_active?: boolean;
 }
 
 export interface UpdateUserData {
+  name?: string;
   is_active?: boolean;
   is_staff?: boolean;
 }

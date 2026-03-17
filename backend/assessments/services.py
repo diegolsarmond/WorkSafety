@@ -215,8 +215,37 @@ class AssessmentLifecycleService:
     @classmethod
     @transaction.atomic
     def human_validate(cls, assessment: RiskAssessment, actor, reason: Optional[str] = None) -> RiskAssessment:
-        """Transiciona para HUMAN_VALIDATED."""
-        return cls.transition(assessment, RiskAssessment.STATUS_HUMAN_VALIDATED, actor, reason)
+        """
+        Transiciona para HUMAN_VALIDATED e gera relatório automaticamente.
+        
+        Quando uma inspeção é validada por humano, um relatório PDF é 
+        gerado automaticamente para download na seção de relatórios.
+        """
+        result = cls.transition(assessment, RiskAssessment.STATUS_HUMAN_VALIDATED, actor, reason)
+        
+        # Gerar relatório automaticamente após validação humana
+        try:
+            from reports.models import Report
+            from reports.tasks import generate_report
+            
+            # Criar registro de relatório
+            report = Report.objects.create(
+                assessment=assessment,
+                status=Report.STATUS_GENERATING,
+            )
+            
+            # Enfileirar geração do PDF
+            task = generate_report.delay(report.id)
+            logger.info(
+                f"Report generation queued for assessment {assessment.id} "
+                f"(report_id={report.id}, task_id={task.id})"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to queue report generation for assessment {assessment.id}: {e}"
+            )
+        
+        return result
 
     @classmethod
     @transaction.atomic

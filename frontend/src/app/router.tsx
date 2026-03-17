@@ -11,6 +11,7 @@ import { ReviewPhotos } from '@/features/inspection/ReviewPhotos';
 import { Syncing } from '@/features/inspection/Syncing';
 import { RisksDetected } from '@/features/inspection/RisksDetected';
 import { ReviewValidation } from '@/features/inspection/ReviewValidation';
+import InspectionDetailPage from '@/features/inspection/InspectionDetailPage';
 import { SyncQueuePage } from '@/features/sync';
 import { AIQueuePage } from '@/features/ai-queue';
 import { ReportsPage } from '@/features/reports';
@@ -87,6 +88,15 @@ export default function AppRouter() {
         />
 
         <Route
+          path="/inspection/:assessmentId"
+          element={
+            <ProtectedRoute>
+              <InspectionDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/admin/users"
           element={
             <ProtectedRoute>
@@ -114,7 +124,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/reports"
+          path="/admin/reports"
           element={
             <ProtectedRoute>
               <ReportsPage />

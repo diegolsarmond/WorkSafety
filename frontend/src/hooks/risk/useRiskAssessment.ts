@@ -72,6 +72,10 @@ export function useRiskAssessment(
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   
+  // Estado para rastrear timeout do processamento de IA (5 minutos = 300000ms)
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const PROCESSING_TIMEOUT = 5 * 60 * 1000; // 5 minutos
+  
   // Fetch da avaliação
   const fetchAssessment = useCallback(async () => {
     if (!assessmentId) {
@@ -96,12 +100,39 @@ export function useRiskAssessment(
       
       // Verificar se está em processamento de IA (synced ou error_ai)
       if (data.status === 'synced') {
+        // Rastrear quando começou o processamento
+        if (!processingStartTime) {
+          setProcessingStartTime(Date.now());
+        }
+        
+        // Verificar se passou o timeout
+        const timeElapsed = Date.now() - (processingStartTime || Date.now());
+        if (timeElapsed > PROCESSING_TIMEOUT) {
+          // Timeout: mostrar dados mesmo com processamento pendente
+          console.warn('AI processing timeout exceeded, showing data with pending analysis');
+          if (data.risks.length === 0) {
+            setScreenState({
+              type: 'empty',
+              message: 'No risks detected (AI analysis still in progress)',
+            });
+          } else {
+            setScreenState({
+              type: 'data',
+              assessment: data,
+            });
+          }
+          return;
+        }
+        
         setScreenState({
           type: 'loading',
           message: 'AI is analyzing the images...',
         });
         return;
       }
+      
+      // Se não está mais em synced, limpar o timer
+      setProcessingStartTime(null);
       
       if (data.status === 'error' || data.status === 'error_ai') {
         setScreenState({
@@ -178,10 +209,20 @@ export function useRiskAssessment(
   
   // Fetch inicial
   useEffect(() => {
+    // Resetar o timer quando mudar de assessment
+    setProcessingStartTime(null);
+    
     if (autoFetch && assessmentId) {
       fetchAssessment();
     }
   }, [autoFetch, assessmentId, fetchAssessment]);
+  
+  // Resetar o timer de processamento quando mudar de assessment ou quando deixar de estar em loading
+  useEffect(() => {
+    if (screenState.type !== 'loading' || !screenState.message?.includes('AI')) {
+      setProcessingStartTime(null);
+    }
+  }, [screenState]);
   
   // Refresh automático em intervalos (para atualizações da IA)
   useEffect(() => {

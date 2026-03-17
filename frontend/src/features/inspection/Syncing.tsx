@@ -12,6 +12,7 @@ import { Button } from '@/ui/components/Button';
 import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
 import { SyncJob } from '@/types/sync';
 import { SyncStorage } from '@/services/sync/syncStorage';
+import { useInspectionStore } from '@/store/inspectionStore';
 
 /**
  * Página de sincronização
@@ -22,6 +23,7 @@ import { SyncStorage } from '@/services/sync/syncStorage';
 export function Syncing() {
   const navigate = useNavigate();
   const { jobs, isProcessing, refresh } = useSyncQueue();
+  const { setAssessmentId } = useInspectionStore();
   
   // Encontra o job mais recente (que acabamos de criar)
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
@@ -58,16 +60,20 @@ export function Syncing() {
   useEffect(() => {
     if (currentJob?.status === 'COMPLETED') {
       const timer = setTimeout(() => {
+        // Armazena o assessmentId no store para uso posterior
+        const assessmentId = currentJob.assessmentId || currentJob.id;
+        setAssessmentId(assessmentId);
+        
         // Passa o assessmentId para a tela de riscos
         navigate("/inspection/risks", {
           state: { 
-            assessmentId: currentJob.assessmentId || currentJob.id 
+            assessmentId: assessmentId
           }
         });
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [currentJob, navigate]);
+  }, [currentJob, navigate, setAssessmentId]);
 
   const handleRetry = () => {
     if (currentJob) {
@@ -248,11 +254,15 @@ export function Syncing() {
 
         {isCompleted && (
           <Button
-            onClick={() => navigate("/inspection/risks", {
-              state: { 
-                assessmentId: currentJob?.assessmentId || currentJob?.id 
-              }
-            })}
+            onClick={() => {
+              const assessmentId = currentJob?.assessmentId || currentJob?.id;
+              setAssessmentId(assessmentId);
+              navigate("/inspection/risks", {
+                state: { 
+                  assessmentId: assessmentId
+                }
+              });
+            }}
             className="w-full h-14 text-lg rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold transition-all active:scale-95 shadow-lg shadow-emerald-500/30"
           >
             Continue

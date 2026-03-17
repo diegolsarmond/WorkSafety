@@ -13,11 +13,13 @@ export interface InspectionState {
   category: string;
   photos: Photo[];
   status: 'DRAFT' | 'CAPTURED' | 'SYNCING' | 'SYNCED' | 'ERROR' | 'AI_REVIEWED' | 'HUMAN_VALIDATED' | 'FINALIZED';
+  assessmentId: string | null;
   setEnvironment: (env: string) => void;
   setCategory: (cat: string) => void;
   addPhoto: (photo: Photo) => void;
   removePhoto: (id: string) => void;
   setStatus: (status: InspectionState['status']) => void;
+  setAssessmentId: (id: string | null) => void;
   reset: () => void;
 }
 
@@ -41,12 +43,14 @@ export const useInspectionStore = create<InspectionState>()(
       category: 'General Safety',
       photos: [],
       status: 'DRAFT',
+      assessmentId: null,
       setEnvironment: (env) => set({ environment: env }),
       setCategory: (cat) => set({ category: cat }),
       addPhoto: (photo) => set((state) => ({ photos: [...state.photos, photo] })),
       removePhoto: (id) => set((state) => ({ photos: state.photos.filter((p) => p.id !== id) })),
       setStatus: (status) => set({ status }),
-      reset: () => set({ environment: '', category: 'General Safety', photos: [], status: 'DRAFT' }),
+      setAssessmentId: (id) => set({ assessmentId: id }),
+      reset: () => set({ environment: '', category: 'General Safety', photos: [], status: 'DRAFT', assessmentId: null }),
     }),
     {
       name: 'inspection-storage',

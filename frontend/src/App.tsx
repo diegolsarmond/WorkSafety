@@ -24,6 +24,28 @@ export default function App() {
     initializeSync();
   }, [initializeSync]);
 
+  // Register PWA service worker after app is mounted and interactive
+  useEffect(() => {
+    const registerPWA = async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const { registerSW } = await import('virtual:pwa-register');
+          registerSW({ immediate: true });
+        }
+      } catch (error) {
+        // PWA registration is optional
+        console.debug('PWA unavailable:', error);
+      }
+    };
+
+    // Use requestIdleCallback if available, otherwise use setTimeout
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => registerPWA(), { timeout: 2000 });
+    } else {
+      setTimeout(registerPWA, 1000);
+    }
+  }, []);
+
   // Show splash screen first
   if (showSplash) {
     return <SplashScreen onComplete={handleSplashComplete} duration={5000} />;

@@ -349,6 +349,15 @@ class RiskFinding(models.Model):
         related_name="findings",
         verbose_name="evidência",
     )
+    # Confiança da IA para este risco específico (0-1)
+    ai_confidence = models.DecimalField(
+        "confiança da IA",
+        max_digits=4,
+        decimal_places=3,  # 0.000 a 0.999 = 0% a 99.9%
+        null=True,
+        blank=True,
+        help_text="Confiança da detecção de IA para este risco específico",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -20,7 +20,7 @@ COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Compile TypeScript
-RUN npm ci --only=dev && npx tsc server.ts --target es2020 --module commonjs --moduleResolution node --skipLibCheck --strict false
+RUN npm ci --only=dev && npx tsc server.ts --target es2020 --module commonjs --moduleResolution node --skipLibCheck --strict false --esModuleInterop
 
 EXPOSE 3001
 

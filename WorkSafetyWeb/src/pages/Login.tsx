@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, AlertCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 
 export default function Login() {
@@ -8,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { login, isLoading, error, clearError, isAuthenticated } = useAuth();
+  const { t } = useTranslation();
 
   // Redireciona se já estiver autenticado
   useEffect(() => {
@@ -37,16 +39,16 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
             <ShieldAlert className="h-8 w-8 text-emerald-600" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">WorkSafety Admin</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('WorkSafety Admin')}</h1>
           <p className="text-slate-500 mt-1">
-            Sistema de Gestão de Segurança do Trabalho
+            {t('Sistema de Gestão de Segurança do Trabalho')}
           </p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">
-            Acesse sua conta
+            {t('Acesse sua conta')}
           </h2>
 
           {error && (
@@ -62,7 +64,7 @@ export default function Login() {
                 htmlFor="email" 
                 className="block text-sm font-medium text-slate-700"
               >
-                E-mail
+                {t('E-mail')}
               </label>
               <input
                 type="email"
@@ -81,7 +83,7 @@ export default function Login() {
                 htmlFor="password" 
                 className="block text-sm font-medium text-slate-700"
               >
-                Senha
+                {t('Senha')}
               </label>
               <input
                 type="password"
@@ -103,10 +105,10 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  Entrando...
+                  {t('Entrando...')}
                 </>
               ) : (
-                'Entrar'
+                t('Entrar')
               )}
             </button>
           </form>
@@ -117,10 +119,10 @@ export default function Login() {
               className="text-sm text-emerald-600 hover:text-emerald-500"
               onClick={(e) => {
                 e.preventDefault();
-                alert('Funcionalidade em desenvolvimento');
+                alert(t('Funcionalidade em desenvolvimento'));
               }}
             >
-              Esqueceu a senha?
+              {t('Esqueceu a senha?')}
             </a>
           </div>
         </div>
@@ -128,7 +130,7 @@ export default function Login() {
         {/* Demo Credentials */}
         <div className="mt-6 text-center">
           <p className="text-xs text-slate-500">
-            Credenciais de demonstração:<br />
+            {t('Credenciais de demonstração:')}<br />
             <span className="font-mono">admin@worksafety.gov / admin123</span>
           </p>
         </div>

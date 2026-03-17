@@ -14,6 +14,8 @@ urlpatterns = [
     # API Schema e Docs
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("schema/", SpectacularAPIView.as_view(), name="schema-root"),
+    path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui-root"),
 ]
 
 if settings.DEBUG:

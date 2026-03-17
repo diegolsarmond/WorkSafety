@@ -152,6 +152,7 @@ class OlimpiaService:
                 severity=detection.severity,
                 location=f"Detectado na evidência #{detection.evidence_id}",
                 evidence=detection.evidence,
+                ai_confidence=detection.confidence,  # Armazenar confiança individual
             )
             findings.append(finding)
         

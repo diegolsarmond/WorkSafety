@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
 import { Plus, Edit2, Trash2, RefreshCw, AlertCircle, Power, PowerOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUsers } from '../hooks/useUsers';
 import { User, CreateUserData } from '../services/api';
 
 interface UserFormData {
+  name: string;
   email: string;
   password: string;
   is_staff: boolean;
@@ -17,6 +19,7 @@ export default function Users() {
     error, 
     fetchUsers, 
     createUser, 
+    updateUser,
     deactivateUser, 
     activateUser,
     clearError 
@@ -25,12 +28,14 @@ export default function Users() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<UserFormData>({ 
+    name: '',
     email: '', 
     password: '', 
     is_staff: false 
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,21 +43,29 @@ export default function Users() {
     
     try {
       if (editingUser) {
-        // Atualização não implementada no backend (apenas ativar/desativar)
-        setFormError('Edição direta não suportada. Use ativar/desativar.');
-        return;
+        if (!formData.name) {
+          setFormError(t('Nome é obrigatório'));
+          return;
+        }
+        await updateUser(editingUser.id, {
+          name: formData.name,
+          is_staff: formData.is_staff,
+        });
+        setIsModalOpen(false);
+        resetForm();
       } else {
         // Validação
-        if (!formData.email || !formData.password) {
-          setFormError('Email e senha são obrigatórios');
+        if (!formData.name || !formData.email || !formData.password) {
+          setFormError(t('Nome, email e senha são obrigatórios'));
           return;
         }
         if (formData.password.length < 8) {
-          setFormError('A senha deve ter pelo menos 8 caracteres');
+          setFormError(t('A senha deve ter pelo menos 8 caracteres'));
           return;
         }
         
         const data: CreateUserData = {
+          name: formData.name,
           email: formData.email,
           password: formData.password,
           is_staff: formData.is_staff,
@@ -65,15 +78,15 @@ export default function Users() {
       }
     } catch (err) {
       // Erro já está no hook, mas podemos mostrar no formulário também
-      setFormError(error || 'Erro ao salvar usuário');
+      setFormError(error || t('Erro ao salvar usuário'));
     }
   };
 
   const handleToggleStatus = async (user: User) => {
     if (actionLoading === user.id) return;
     
-    const action = user.is_active ? 'desativar' : 'ativar';
-    if (!confirm(`Tem certeza que deseja ${action} este usuário?`)) {
+    const action = user.is_active ? t('desativar') : t('ativar');
+    if (!confirm(t('Tem certeza que deseja {{action}} este usuário?', { action }))) {
       return;
     }
 
@@ -95,6 +108,7 @@ export default function Users() {
     if (user) {
       setEditingUser(user);
       setFormData({ 
+        name: user.name || '',
         email: user.email, 
         password: '', 
         is_staff: user.is_staff 
@@ -108,7 +122,7 @@ export default function Users() {
   };
 
   const resetForm = () => {
-    setFormData({ email: '', password: '', is_staff: false });
+    setFormData({ name: '', email: '', password: '', is_staff: false });
     setEditingUser(null);
     setFormError(null);
   };
@@ -121,20 +135,20 @@ export default function Users() {
   // Mapeia role para exibição amigável
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
-      admin: 'Administrador',
-      inspector: 'Inspetor',
-      user: 'Usuário',
-      manager: 'Gerente',
+      admin: t('Administrador'),
+      inspector: t('Inspetor'),
+      user: t('Usuário'),
+      manager: t('Gerente'),
     };
     return labels[role] || role;
   };
 
   const columns = [
     { header: 'ID', accessor: 'id' as const },
-    { header: 'Nome', accessor: (row: User) => row.name || '-' },
-    { header: 'E-mail', accessor: 'email' as const },
+    { header: t('Nome'), accessor: (row: User) => row.name || '-' },
+    { header: t('E-mail'), accessor: 'email' as const },
     { 
-      header: 'Papel', 
+      header: t('Papel'), 
       accessor: (row: User) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
           row.role === 'admin' || row.is_staff 
@@ -146,14 +160,14 @@ export default function Users() {
       )
     },
     { 
-      header: 'Status', 
+      header: t('Status'), 
       accessor: (row: User) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
           row.is_active 
             ? 'bg-emerald-100 text-emerald-800' 
             : 'bg-slate-100 text-slate-800'
         }`}>
-          {row.is_active ? 'Ativo' : 'Inativo'}
+          {row.is_active ? t('Ativo') : t('Inativo')}
         </span>
       )
     },
@@ -164,9 +178,9 @@ export default function Users() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Usuários</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('Usuários')}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Gerencie os usuários do sistema
+            {t('Gerencie os usuários do sistema')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -176,14 +190,14 @@ export default function Users() {
             className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
+            {t('Atualizar')}
           </button>
           <button
             onClick={() => openModal()}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Novo Usuário
+            {t('Novo Usuário')}
           </button>
         </div>
       </div>
@@ -210,24 +224,24 @@ export default function Users() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
             <RefreshCw className="h-8 w-8 text-slate-400 animate-spin" />
           </div>
-          <p className="text-slate-500">Carregando usuários...</p>
+          <p className="text-slate-500">{t('Carregando usuários...')}</p>
         </div>
       ) : (
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-              <p className="text-sm font-medium text-slate-500">Total de Usuários</p>
+              <p className="text-sm font-medium text-slate-500">{t('Total de Usuários')}</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">{users.length}</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-              <p className="text-sm font-medium text-slate-500">Usuários Ativos</p>
+              <p className="text-sm font-medium text-slate-500">{t('Usuários Ativos')}</p>
               <p className="text-2xl font-bold text-emerald-600 mt-1">
                 {users.filter(u => u.is_active).length}
               </p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-              <p className="text-sm font-medium text-slate-500">Administradores</p>
+              <p className="text-sm font-medium text-slate-500">{t('Administradores')}</p>
               <p className="text-2xl font-bold text-purple-600 mt-1">
                 {users.filter(u => u.is_staff).length}
               </p>
@@ -242,6 +256,13 @@ export default function Users() {
               actions={(row) => (
                 <div className="flex justify-end space-x-2">
                   <button 
+                    onClick={() => openModal(row)} 
+                    className="p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors disabled:opacity-50"
+                    title={t('Editar usuário')}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button 
                     onClick={() => handleToggleStatus(row)} 
                     disabled={actionLoading === row.id}
                     className={`p-2 rounded-md transition-colors ${
@@ -249,7 +270,7 @@ export default function Users() {
                         ? 'text-red-600 hover:bg-red-50 hover:text-red-700' 
                         : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
                     } disabled:opacity-50`}
-                    title={row.is_active ? 'Desativar usuário' : 'Ativar usuário'}
+                    title={row.is_active ? t('Desativar usuário') : t('Ativar usuário')}
                   >
                     {actionLoading === row.id ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
@@ -267,10 +288,10 @@ export default function Users() {
               <div className="text-center py-12">
                 <UsersIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-1">
-                  Nenhum usuário encontrado
+                  {t('Nenhum usuário encontrado')}
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Comece criando um novo usuário
+                  {t('Comece criando um novo usuário')}
                 </p>
               </div>
             )}
@@ -283,7 +304,7 @@ export default function Users() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <h2 className="text-lg font-bold mb-4">
-              {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
+              {editingUser ? t('Editar Usuário') : t('Novo Usuário')}
             </h2>
             
             {formError && (
@@ -297,35 +318,52 @@ export default function Users() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700">
-                    E-mail <span className="text-red-500">*</span>
+                    {t('Nome')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm p-2 border"
+                    placeholder="Nome completo"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    {t('E-mail')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm p-2 border"
+                    disabled={!!editingUser}
+                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm p-2 border disabled:bg-slate-100 disabled:text-slate-500"
                     placeholder="usuario@exemplo.com"
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Senha <span className="text-red-500">*</span>
-                    <span className="text-xs text-slate-500 font-normal ml-1">
-                      (mínimo 8 caracteres)
-                    </span>
-                  </label>
-                  <input
-                    type="password"
-                    required={!editingUser}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm p-2 border"
-                    placeholder="••••••••"
-                    minLength={8}
-                  />
-                </div>
+                {!editingUser && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">
+                      {t('Senha')} <span className="text-red-500">*</span>
+                      <span className="text-xs text-slate-500 font-normal ml-1">
+                        (mínimo 8 caracteres)
+                      </span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm p-2 border"
+                      placeholder="••••••••"
+                      minLength={8}
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center">
                   <input
@@ -336,16 +374,15 @@ export default function Users() {
                     className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-slate-300 rounded"
                   />
                   <label htmlFor="is_staff" className="ml-2 block text-sm text-slate-700">
-                    Administrador (acesso total ao sistema)
+                    {t('Administrador (acesso total ao sistema)')}
                   </label>
                 </div>
 
                 <div className="bg-slate-50 rounded-md p-3 text-xs text-slate-600">
-                  <p className="font-medium mb-1">Notas:</p>
+                  <p className="font-medium mb-1">{t('Notas:')}</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>O nome será gerado automaticamente a partir do email</li>
-                    <li>O usuário receberá o papel &quot;Inspetor&quot; por padrão</li>
-                    <li>Para editar, use ativar/desativar na lista</li>
+                    <li>{t('O usuário receberá o papel "Inspetor" por padrão')}</li>
+                    <li>{t('Para desativar, use o botão na lista')}</li>
                   </ul>
                 </div>
               </div>
@@ -356,14 +393,14 @@ export default function Users() {
                   onClick={closeModal}
                   className="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  Cancelar
+                  {t('Cancelar')}
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {isLoading ? 'Salvando...' : 'Salvar'}
+                  {isLoading ? t('Salvando...') : t('Salvar')}
                 </button>
               </div>
             </form>

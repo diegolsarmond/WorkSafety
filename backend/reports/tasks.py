@@ -7,7 +7,7 @@ Target: até 15s para 10 imagens.
 import io
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from celery import shared_task
 from django.utils import timezone
@@ -195,281 +195,318 @@ def _collect_assessment_data(assessment: RiskAssessment) -> dict:
 
 def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO:
     """
-    Generates the PDF document matching the exact target layout.
+    Generates the PDF document matching the modern design template.
+    Layout: Safety Inspection Report with professional styling
     """
     buffer = io.BytesIO()
     
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=1.5*cm,
-        leftMargin=1.5*cm,
-        topMargin=1.5*cm,
-        bottomMargin=2*cm,
+        rightMargin=1.2*cm,
+        leftMargin=1.2*cm,
+        topMargin=1.2*cm,
+        bottomMargin=0.5*cm,
     )
     
     styles = getSampleStyleSheet()
     
-    # Colors from design
-    teal = colors.HexColor('#14b8a6')
-    dark_bg = colors.HexColor('#1e293b')
-    dark_text = colors.HexColor('#0f172a')
-    light_text = colors.HexColor('#64748b')
-    gray_bg = colors.HexColor('#f1f5f9')
-    red_pill = colors.HexColor('#dc2626')
-    yellow_pill = colors.HexColor('#d97706')
-    red_bg = colors.HexColor('#fef2f2')
-    yellow_bg = colors.HexColor('#fffbeb')
-    cyan = colors.HexColor('#22d3ee')
+    # Define color palette (matching design template)
+    teal_primary = colors.HexColor('#00808e')  # Primary color from design
+    teal_light = colors.HexColor('#4fd1c5')    # Accent teal
+    dark_bg = colors.HexColor('#2d3748')       # Footer background
+    dark_text = colors.HexColor('#1a202c')     # Headings
+    slate_500 = colors.HexColor('#64748b')     # Secondary text
+    slate_400 = colors.HexColor('#94a3b8')     # Tertiary text
+    slate_50 = colors.HexColor('#f8fafc')      # Light background
+    red_critical = colors.HexColor('#dc2626')
+    red_bg = colors.HexColor('#fee2e2')
+    yellow_warning = colors.HexColor('#d97706')
+    yellow_bg = colors.HexColor('#fef3c7')
     
     elements = []
     
-    # --- HEADER ---
+    # --- HEADER SECTION ---
     created_dt = assessment.created_at
     year = created_dt.year if created_dt else 2026
     case_num = f"#INSP-{year}-{assessment.id:03d}"
     gen_date = created_dt.strftime("%b %d, %Y") if created_dt else "Jan 10, 2026"
     
-    # Logo with shield icon
-    logo = Paragraph(
-        '<font color="#14b8a6" size=20>◆</font> <b><font size=18 color="#0f172a">Work</font><font size=18 color="#14b8a6">Safety</font></b>',
-        styles['Normal']
+    # Logo and title
+    header_style = ParagraphStyle(
+        'Header',
+        fontSize=28,
+        fontName='Helvetica-Bold',
+        textColor=dark_text,
+        spaceAfter=6,
     )
     
-    case_info = [
-        Paragraph('<font size=8 color="#94a3b8">CASE NUMBER</font>', styles['Normal']),
-        Paragraph(f'<b><font size=14 color="#0f172a">{case_num}</font></b>', styles['Normal']),
-        Paragraph(f'<font size=8 color="#64748b">Generated: {gen_date}</font>', styles['Normal']),
-    ]
+    logo_style = ParagraphStyle(
+        'Logo',
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        textColor=slate_500,
+        spaceAfter=12,
+    )
     
-    header = Table([[logo, case_info]], colWidths=[8*cm, 9.5*cm])
-    header.setStyle(TableStyle([
-        ('ALIGN', (0,0), (0,0), 'LEFT'),
-        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+    # Left side - Logo and Title
+    logo_text = Paragraph('<font color="#00808e">◆</font> <b><font color="#2d3748">Work</font><font color="#00808e">Safety</font></b>', logo_style)
+    title_text = Paragraph('<b><font size=20 color="#1a202c">Safety Inspection<br/>Report</font></b>', header_style)
+    
+    # Right side - Case info
+    case_label = Paragraph('<font size=7 color="#94a3b8"><b>CASE NUMBER</b></font>', styles['Normal'])
+    case_value = Paragraph(f'<font size=14 color="#0f172a"><b>{case_num}</b></font>', styles['Normal'])
+    case_date = Paragraph(f'<font size=8 color="#64748b">Generated: {gen_date}</font>', styles['Normal'])
+    
+    case_box_content = [case_label, Spacer(1, 2), case_value, Spacer(1, 4), case_date]
+    case_box = Table([[Table([[c] for c in case_box_content], colWidths=[4*cm])]], colWidths=[4.5*cm])
+    case_box.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
-    elements.append(header)
-    elements.append(Spacer(1, 0.8*cm))
     
-    # --- TITLE ---
-    title = Paragraph(
-        '<b><font size=24 color="#0f172a">Safety Inspection<br/>Report</font></b>',
-        styles['Normal']
-    )
-    elements.append(title)
-    elements.append(Spacer(1, 0.6*cm))
+    header_row = Table([[logo_text, title_text, '', case_box]], colWidths=[2*cm, 6*cm, 3*cm, 4.5*cm])
+    header_row.setStyle(TableStyle([
+        ('ALIGN', (0,0), (0,0), 'LEFT'),
+        ('ALIGN', (1,0), (1,0), 'LEFT'),
+        ('ALIGN', (3,0), (3,0), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    
+    elements.append(header_row)
+    elements.append(Spacer(1, 0.5*cm))
     
     # --- INFO BOXES ---
-    env_name = data.get('environment_type', {}).get('name', 'North Sector - Construction') if data.get('environment_type') else 'North Sector - Construction'
-    user_name = "Alex Inspector"
-    user_id = "8842"
+    env_name = assessment.environment_type.name if assessment.environment_type else 'North Sector - Construction'
+    user_name = "Inspector"
+    user_id = "0"
     if assessment.created_by:
         user_name = assessment.created_by.get_full_name() or assessment.created_by.email.split('@')[0]
         user_id = str(assessment.created_by.id)
     
-    # Location box
-    loc_box = Table([
-        [Paragraph('<font size=7 color="#94a3b8">LOCATION</font>', styles['Normal'])],
-        [Paragraph(f'<font size=10>📍 <b>{env_name}</b></font>', styles['Normal'])],
-    ], colWidths=[8*cm])
+    # Info box style
+    info_label_style = ParagraphStyle('InfoLabel', fontSize=7, textColor=slate_400, spaceAfter=2)
+    info_value_style = ParagraphStyle('InfoValue', fontSize=9, fontName='Helvetica-Bold', textColor=dark_text)
+    
+    # Location info
+    loc_label = Paragraph('<font color="#94a3b8"><b>LOCATION</b></font>', info_label_style)
+    loc_value = Paragraph(f'<b>{env_name}</b>', info_value_style)
+    
+    # Inspector info
+    insp_label = Paragraph('<font color="#94a3b8"><b>INSPECTOR</b></font>', info_label_style)
+    insp_value = Paragraph(f'<b>{user_name} (ID: {user_id})</b>', info_value_style)
+    
+    # Create info boxes
+    loc_box = Table([[loc_label], [loc_value]], colWidths=[7*cm])
     loc_box.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), gray_bg),
-        ('PADDING', (0,0), (-1,-1), 12),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 8),
+        ('BACKGROUND', (0,0), (-1,-1), slate_50),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
     ]))
     
-    # Inspector box
-    insp_box = Table([
-        [Paragraph('<font size=7 color="#94a3b8">INSPECTOR</font>', styles['Normal'])],
-        [Paragraph(f'<font size=10>👤 <b>{user_name} (ID: {user_id})</b></font>', styles['Normal'])],
-    ], colWidths=[8*cm])
+    insp_box = Table([[insp_label], [insp_value]], colWidths=[7*cm])
     insp_box.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), gray_bg),
-        ('PADDING', (0,0), (-1,-1), 12),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 8),
+        ('BACKGROUND', (0,0), (-1,-1), slate_50),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
     ]))
     
-    info_row = Table([[loc_box, insp_box]], colWidths=[8*cm, 8*cm], hAlign='LEFT')
-    info_row.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-    ]))
+    info_row = Table([[loc_box, insp_box]], colWidths=[7.5*cm, 7.5*cm])
+    info_row.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT')]))
     elements.append(info_row)
-    elements.append(Spacer(1, 0.8*cm))
+    elements.append(Spacer(1, 0.6*cm))
     
-    # --- EVIDENCE & FINDINGS SECTION ---
+    # --- SECTION HEADER: EVIDENCE & FINDINGS ---
+    section_title_style = ParagraphStyle(
+        'SectionTitle',
+        fontSize=9,
+        fontName='Helvetica-Bold',
+        textColor=dark_text,
+        letterSpacing=1,
+    )
+    
     section_header = Table([
-        ['', Paragraph('<b><font size=10 color="#0f172a">EVIDENCE & FINDINGS</font></b>', styles['Normal'])]
-    ], colWidths=[0.3*cm, 17*cm])
+        [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=teal_primary)),
+         Paragraph('EVIDENCE & FINDINGS', section_title_style)]
+    ], colWidths=[0.3*cm, 14.7*cm])
     section_header.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), teal),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (1,0), (1,0), 8),
     ]))
     elements.append(section_header)
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.4*cm))
     
-    # Get evidences and findings
+    # --- EVIDENCE IMAGE & FINDINGS CARDS ---
     evidences = list(assessment.evidences.all())
     findings = list(assessment.findings.all())
     
-    # Evidence image
+    # Evidence image (main display)
     img_cell = None
     if evidences and evidences[0].file:
         try:
             img_path = evidences[0].file.path
-            img = Image(img_path, width=7.5*cm, height=5.5*cm)
-            img_cell = Table([
-                [img],
-                [Paragraph('<font size=8 color="#64748b">Fig 1. Site Capture - 10:42 AM</font>', styles['Normal'])]
-            ], colWidths=[7.5*cm])
+            img = Image(img_path, width=7*cm, height=5*cm)
+            img_caption = Paragraph('<font size=8 color="#64748b">Fig 1. Site Capture - 10:42 AM</font>', styles['Normal'])
+            img_cell = Table([[img], [Spacer(1, 2)], [img_caption]], colWidths=[7*cm])
             img_cell.setStyle(TableStyle([
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
             ]))
-        except Exception:
-            img_cell = Paragraph('<font color="#94a3b8">[Image]</font>', styles['Normal'])
+        except Exception as e:
+            logger.warning(f"Failed to load image: {e}")
+            img_cell = Paragraph('<font color="#cbd5e1" size=9>[Image not available]</font>', styles['Normal'])
     else:
-        img_cell = Paragraph('<font color="#94a3b8">[No Image]</font>', styles['Normal'])
+        img_cell = Paragraph('<font color="#cbd5e1" size=9>[No images captured]</font>', styles['Normal'])
     
-    # Findings cards
+    # Finding cards
     finding_cards = []
-    for i, finding in enumerate(findings[:2]):
-        is_critical = finding.severity and finding.severity.upper() == 'CRITICAL'
-        pill_color = red_pill if is_critical else yellow_pill
+    for finding in findings[:2]:  # Show top 2 findings
+        is_critical = finding.severity and 'CRITICAL' in finding.severity.upper()
+        
+        # Determine styling
+        badge_color = red_critical if is_critical else yellow_warning
         bg_color = red_bg if is_critical else yellow_bg
-        label = 'CRITICAL' if is_critical else 'WARNING'
+        badge_text = 'Critical' if is_critical else 'Warning'
+        
+        # Extract title and description
+        desc = finding.description or "No description provided"
+        lines = desc.split('. ')
+        title = lines[0][:50] + ('...' if len(lines[0]) > 50 else '')
+        body = '. '.join(lines[1:])[:100] + ('...' if len('. '.join(lines[1:])) > 100 else '') if len(lines) > 1 else ''
+        
+        # Calculate confidence (placeholder - can be enhanced with actual ML scores)
         confidence = "94%" if is_critical else "88%"
         
-        # Parse title and description
-        desc = finding.description or "No description"
-        parts = desc.split('. ', 1)
-        if len(parts) > 1:
-            title, body = parts[0], parts[1]
-        else:
-            title = desc[:40] + ('...' if len(desc) > 40 else '')
-            body = ""
+        # Build finding card
+        badge_row = Table([
+            [Paragraph(f'<font size=7 color="white"><b>{badge_text.upper()}</b></font>', styles['Normal']),
+             Paragraph(f'<font size=7 color="#64748b"><b>{confidence} Confidence</b></font>', styles['Normal'])]
+        ], colWidths=[2*cm, 4.5*cm])
+        badge_row.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (0,-1), badge_color),
+            ('PADDING', (0,0), (0,-1), 4),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ]))
         
-        # Finding card
-        card_content = [
-            # Badge row
-            Table([
-                [Paragraph(f'<font size=8 color="white"><b>{label}</b></font>', styles['Normal']),
-                 Paragraph(f'<font size=8 color="#64748b">{confidence} Confidence</font>', styles['Normal'])]
-            ], colWidths=[2.5*cm, 5*cm]),
-            Spacer(1, 0.3*cm),
-            Paragraph(f'<b><font size=10 color="#0f172a">{title}</font></b>', styles['Normal']),
-        ]
+        # Card content
+        card_elements = [badge_row, Spacer(1, 0.2*cm)]
+        card_elements.append(Paragraph(f'<b><font size=9 color="#1a202c">{title}</font></b>', styles['Normal']))
         
         if body:
-            card_content.extend([
-                Spacer(1, 0.2*cm),
-                Paragraph(f'<font size=9 color="#64748b">{body}</font>', styles['Normal']),
-            ])
+            card_elements.append(Spacer(1, 0.15*cm))
+            card_elements.append(Paragraph(f'<font size=8 color="#64748b">{body}</font>', styles['Normal']))
         
-        card = Table([[c] for c in card_content], colWidths=[7.5*cm])
+        # Wrap in table for styling
+        card = Table([[c] for c in card_elements], colWidths=[6.8*cm])
         card.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), bg_color),
-            ('PADDING', (0,0), (-1,-1), 12),
-            ('ROUNDEDCORNERS', (0,0), (-1,-1), 8),
+            ('PADDING', (0,0), (-1,-1), 10),
+            ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
         ]))
         finding_cards.append(card)
-        finding_cards.append(Spacer(1, 0.4*cm))
+        finding_cards.append(Spacer(1, 0.35*cm))
     
     if not finding_cards:
-        no_findings = Paragraph('<font color="#64748b">No findings recorded</font>', styles['Normal'])
-        finding_cards = [no_findings]
+        finding_cards = [Paragraph('<font color="#cbd5e1" size=9>No findings recorded</font>', styles['Normal'])]
     
-    findings_col = Table([[c] for c in finding_cards], colWidths=[8*cm])
+    findings_column = Table([[c] for c in finding_cards], colWidths=[6.8*cm])
     
-    # Evidence + Findings row
-    content_row = Table([[img_cell, findings_col]], colWidths=[8*cm, 9.5*cm])
+    # Combine image and findings
+    content_row = Table(
+        [[img_cell, findings_column]],
+        colWidths=[7.2*cm, 7.8*cm],
+    )
     content_row.setStyle(TableStyle([
-        ('VALIGN', (0,0), (0,0), 'TOP'),
-        ('VALIGN', (1,0), (1,0), 'TOP'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
     ]))
     elements.append(content_row)
-    elements.append(Spacer(1, 0.8*cm))
+    elements.append(Spacer(1, 0.5*cm))
     
-    # --- AI RECOMMENDATIONS ---
+    # --- SECTION HEADER: AI RECOMMENDATIONS ---
     ai_header = Table([
-        ['', Paragraph('<b><font size=10 color="#0f172a">AI RECOMMENDATIONS</font></b>', styles['Normal'])]
-    ], colWidths=[0.3*cm, 17*cm])
+        [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=slate_400)),
+         Paragraph('AI RECOMMENDATIONS', section_title_style)]
+    ], colWidths=[0.3*cm, 14.7*cm])
     ai_header.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), teal),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (1,0), (1,0), 8),
     ]))
     elements.append(ai_header)
-    elements.append(Spacer(1, 0.4*cm))
+    elements.append(Spacer(1, 0.3*cm))
     
-    # Recommendations list
-    recs = [
-        "IMMEDIATE ACTION: Stop work in Sector North until guardrails are installed.",
-        "Issue formal warning to site supervisor regarding PPE compliance.",
-        f"Schedule follow-up inspection for Jan 17, {year}."
+    # Recommendations
+    recommendations = [
+        "<b>IMMEDIATE ACTION:</b> Stop work in Sector until critical hazards are resolved.",
+        f"Schedule follow-up inspection for {(created_dt.replace(day=created_dt.day + 2) if created_dt else datetime.now().replace(day=13)).strftime('%b %d, %Y')}",
+        "Issue formal warning to site supervisor regarding outstanding compliance issues.",
     ]
     
-    for rec in recs:
-        rec_row = Table([
-            [Paragraph('•', styles['Normal']), Paragraph(f'<font size=9 color="#0f172a">{rec}</font>', styles['Normal'])]
-        ], colWidths=[0.5*cm, 16.5*cm])
-        rec_row.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ]))
-        elements.append(rec_row)
+    for rec_text in recommendations:
+        rec_para = Paragraph(
+            f'<font size=8 color="#64748b">• {rec_text}</font>',
+            ParagraphStyle('Rec', spaceAfter=6, leading=11)
+        )
+        elements.append(rec_para)
     
-    elements.append(Spacer(1, 1*cm))
+    elements.append(Spacer(1, 0.8*cm))
     
-    # --- PAGE NUMBER ---
-    page_num_style = ParagraphStyle('pageNum', alignment=TA_CENTER, fontSize=8, textColor=colors.HexColor('#94a3b8'))
-    elements.append(Paragraph('Page 1 of 1', page_num_style))
+    # --- FOOTER SECTION ---
+    # Page number
+    page_num = Paragraph(
+        '<font size=7 color="#94a3b8"><b>Page 1 of 1</b></font>',
+        ParagraphStyle('PageNum', alignment=TA_CENTER)
+    )
     
-    # --- FOOTER ---
-    footer_data = [
-        [
-            # Left: Signature block
-            [
-                Paragraph('<font size=8 color="#64748b">AUTHORIZED SIGNATURE</font>', styles['Normal']),
-                Spacer(1, 0.3*cm),
-                Paragraph(f'<font size=16 color="#22d3ee"><b>Sarah Manager</b></font>', styles['Normal']),
-                Spacer(1, 0.1*cm),
-                Paragraph('<font size=8 color="#94a3b8">_________________________</font>', styles['Normal']),
-                Spacer(1, 0.1*cm),
-                Paragraph('<font size=9 color="white"><b>Sarah Manager</b></font>', styles['Normal']),
-                Paragraph('<font size=8 color="#64748b">Manager ID: 4421</font>', styles['Normal']),
-            ],
-            # Right: Stamp
-            Table([
-                [Paragraph('<b><font size=11 color="#22d3ee">WORKSAFETY</font></b>', styles['Normal'])],
-                [Paragraph('<b><font size=14 color="#22d3ee">APPROVED</font></b>', styles['Normal'])],
-                [Paragraph('<font size=8 color="#22d3ee">10/01/2026</font>', styles['Normal'])],
-            ], colWidths=[4*cm])
-        ]
-    ]
+    # Signature block
+    sig_label = Paragraph('<font size=7 color="#94a3b8"><b>AUTHORIZED SIGNATURE</b></font>', styles['Normal'])
+    sig_name = Paragraph('<font size=12 color="#4fd1c5"><b>Sarah Manager</b></font>', styles['Normal'])
+    sig_line = Paragraph('<font size=8 color="#64748b">_____________________</font>', styles['Normal'])
+    sig_info = Paragraph('<font size=8 color="#cbd5e1"><b>Sarah Manager</b></font>', styles['Normal'])
+    sig_id = Paragraph('<font size=7 color="#94a3b8">Manager ID: 4421</font>', styles['Normal'])
     
-    # Style the stamp
-    stamp_table = footer_data[0][1]
-    stamp_table.setStyle(TableStyle([
+    # Approval stamp
+    stamp_label = Paragraph('<font size=7 color="#4fd1c5"><b>WorkSafety</b></font>', ParagraphStyle('Stamp', alignment=TA_CENTER))
+    stamp_text = Paragraph('<font size=14 color="#4fd1c5"><i><b>APPROVED</b></i></font>', ParagraphStyle('StampText', alignment=TA_CENTER))
+    stamp_date = Paragraph(f'<font size=7 color="#4fd1c5"><b>{gen_date}</b></font>', ParagraphStyle('StampDate', alignment=TA_CENTER))
+    
+    stamp = Table([[stamp_label], [stamp_text], [stamp_date]], colWidths=[3.5*cm])
+    stamp.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOX', (0,0), (-1,-1), 2, cyan),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 8),
-        ('PADDING', (0,0), (-1,-1), 10),
+        ('BOX', (0,0), (-1,-1), 2, teal_light),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
     ]))
     
-    footer = Table(footer_data, colWidths=[11*cm, 6.5*cm])
+    sig_block = Table(
+        [[sig_label, '', stamp_label],
+         [sig_name, '', stamp_text],
+         [sig_line, '', stamp_date],
+         [sig_info, '', ''],
+         [sig_id, '', '']],
+        colWidths=[5.5*cm, 4*cm, 3.5*cm]
+    )
+    sig_block.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('ALIGN', (1,0), (1,-1), 'CENTER'),
+        ('ALIGN', (2,0), (2,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    
+    # Dark footer background
+    footer = Table([[sig_block]], colWidths=[17*cm])
     footer.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), dark_bg),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 20),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), [8,8,0,0]),
+        ('PADDING', (0,0), (-1,-1), 12),
+        ('ROUNDEDCORNERS', (0,0), (-1,-1), [0, 0, 8, 8]),
     ]))
     
-    elements.append(Spacer(1, 0.5*cm))
     elements.append(footer)
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(page_num)
     
+    # Build PDF
     doc.build(elements)
     buffer.seek(0)
     

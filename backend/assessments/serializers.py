@@ -126,12 +126,9 @@ class RiskItemSerializer(serializers.ModelSerializer):
         return recommendations.get(obj.severity.upper(), [])
     
     def get_ai_confidence(self, obj: RiskFinding) -> str:
-        """Retorna a confiança da IA se disponível."""
-        inference = AIInferenceResult.objects.filter(
-            assessment=obj.assessment
-        ).first()
-        if inference:
-            return inference.confidence
+        """Retorna a confiança da IA formatada como percentual."""
+        if obj.ai_confidence:
+            return f"{obj.ai_confidence * 100:.0f}%"
         return ""
     
     def get_risk_status(self, obj: RiskFinding) -> str:

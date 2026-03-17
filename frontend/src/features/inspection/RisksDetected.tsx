@@ -23,6 +23,7 @@ import {
 import { Button } from '@/ui/components/Button';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { canValidate } from '@/services/risk/riskService';
+import { useInspectionStore } from '@/store/inspectionStore';
 import type { RiskItem, AssessmentStatus } from '@/types/risk';
 
 // =============================================================================
@@ -170,9 +171,12 @@ function RiskCard({
           <div className="flex items-center gap-2 flex-wrap">
             <SeverityBadge severity={risk.severity} />
             {risk.ai_confidence && (
-              <span className="text-xs text-gray-500">
-                AI Confidence: {risk.ai_confidence}
-              </span>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200">
+                <span className="text-xs font-medium text-teal-700">
+                  {risk.ai_confidence}
+                </span>
+                <span className="text-xs text-teal-500">confidence</span>
+              </div>
             )}
           </div>
 
@@ -351,10 +355,10 @@ function LifecycleStatusBadge({ status }: { status: AssessmentStatus }) {
 export function RisksDetected() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { assessmentId: storeAssessmentId } = useInspectionStore();
   
-  // Obter assessmentId da URL ou do state de navegação
-  const assessmentId = location.state?.assessmentId || 
-                       location.pathname.split('/').pop();
+  // Obter assessmentId da URL ou do state de navegação, com fallback para a store
+  const assessmentId = location.state?.assessmentId || storeAssessmentId;
   
   const [expandedRisks, setExpandedRisks] = useState<Set<string>>(new Set());
   const [selectedRisks, setSelectedRisks] = useState<Set<string>>(new Set());

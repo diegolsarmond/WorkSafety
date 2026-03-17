@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
+import { useTranslation } from 'react-i18next';
 import { fetchWithToken } from '../services/api';
 
 interface AuditLog {
@@ -15,6 +16,7 @@ interface AuditLog {
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -35,10 +37,10 @@ export default function AuditLogs() {
 
   const columns = [
     { header: 'ID', accessor: 'id' as const },
-    { header: 'Entidade', accessor: 'entity_type' as const },
-    { header: 'Entidade ID', accessor: 'entity_id' as const },
+    { header: t('Entidade'), accessor: 'entity_type' as const },
+    { header: t('Entidade ID'), accessor: 'entity_id' as const },
     { 
-      header: 'Ação', 
+      header: t('Ação'), 
       accessor: (row: AuditLog) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
           row.action === 'create' ? 'bg-emerald-100 text-emerald-800' :
@@ -50,9 +52,9 @@ export default function AuditLogs() {
         </span>
       )
     },
-    { header: 'Usuário', accessor: 'performed_by_email' as const },
+    { header: t('Usuário'), accessor: 'performed_by_email' as const },
     { 
-      header: 'Data', 
+      header: t('Data'), 
       accessor: (row: AuditLog) => new Date(row.timestamp).toLocaleString('pt-BR')
     },
   ];
@@ -60,11 +62,11 @@ export default function AuditLogs() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Logs/Auditoria</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t('Logs/Auditoria')}</h1>
       </div>
 
       {loading ? (
-        <div className="text-center py-10 text-slate-500">Carregando...</div>
+        <div className="text-center py-10 text-slate-500">{t('Carregando...')}</div>
       ) : (
         <Table data={logs} columns={columns} />
       )}

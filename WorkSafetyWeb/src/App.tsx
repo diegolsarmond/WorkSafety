@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useTranslation } from 'react-i18next';
 
 import AssessmentTypes from './pages/AssessmentTypes';
 import EnvironmentTypes from './pages/EnvironmentTypes';
@@ -45,25 +46,28 @@ function useAuth() {
   return { user, isAuthenticated, logout };
 }
 
-const Dashboard = () => (
-  <div className="p-8 max-w-6xl mx-auto">
-    <h1 className="text-2xl font-bold text-slate-900 mb-6">Dashboard</h1>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-        <h3 className="text-sm font-medium text-slate-500">Avaliações Pendentes</h3>
-        <p className="text-3xl font-bold text-slate-900 mt-2">12</p>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-        <h3 className="text-sm font-medium text-slate-500">Relatórios Gerados</h3>
-        <p className="text-3xl font-bold text-slate-900 mt-2">48</p>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-        <h3 className="text-sm font-medium text-slate-500">Usuários Ativos</h3>
-        <p className="text-3xl font-bold text-slate-900 mt-2">5</p>
+const Dashboard = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="p-8 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">{t('Dashboard')}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <h3 className="text-sm font-medium text-slate-500">{t('Avaliações Pendentes')}</h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">12</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <h3 className="text-sm font-medium text-slate-500">{t('Relatórios Gerados')}</h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">48</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+          <h3 className="text-sm font-medium text-slate-500">{t('Usuários Ativos')}</h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">5</p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -80,6 +84,13 @@ const navigation = [
 function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const lang = e.target.value;
+    i18n.changeLanguage(lang);
+    localStorage.setItem('appLanguage', lang);
+  };
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
@@ -109,7 +120,7 @@ function Sidebar() {
                 )}
                 aria-hidden="true"
               />
-              {item.name}
+              {t(item.name)}
             </Link>
           );
         })}
@@ -123,19 +134,33 @@ function Sidebar() {
           </div>
           <div className="ml-3 overflow-hidden">
             <p className="text-sm font-medium text-slate-900 truncate">
-              {user?.name || user?.email || 'Usuário'}
+              {user?.name || user?.email || t('Usuário')}
             </p>
             <p className="text-xs text-slate-500 capitalize truncate">
-              {user?.role === 'admin' ? 'Administrador' : 'Inspetor'}
+              {user?.role === 'admin' ? t('Administrador') : t('Inspetor')}
             </p>
           </div>
         </div>
+        
+        <div className="mb-4">
+          <label htmlFor="language-select" className="sr-only">{t('Idioma')}</label>
+          <select
+            id="language-select"
+            value={i18n.language}
+            onChange={handleLanguageChange}
+            className="mt-1 block w-full rounded-md border-slate-300 py-1 pl-3 pr-10 text-xs focus:border-emerald-500 focus:outline-none focus:ring-emerald-500 shadow-sm border bg-white text-slate-700"
+          >
+            <option value="pt">{t('Português')}</option>
+            <option value="en">{t('Inglês')}</option>
+          </select>
+        </div>
+
         <button
           onClick={logout}
           className="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-red-50 hover:text-red-600 transition-colors"
         >
           <LogOut className="mr-3 h-4 w-4" />
-          Sair
+          {t('Sair')}
         </button>
       </div>
     </div>
@@ -144,9 +169,9 @@ function Sidebar() {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-slate-50">
         {children}
       </main>
     </div>
