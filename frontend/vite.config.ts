@@ -97,13 +97,13 @@ export default defineConfig(({ mode }) => {
           categories: ['business', 'productivity', 'utilities'],
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any maskable'
             },
             {
-              src: '/pwa-512x512.png',
+              src: 'pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
@@ -111,14 +111,14 @@ export default defineConfig(({ mode }) => {
           ],
           screenshots: [
             {
-              src: '/screenshot-narrow.png',
+              src: 'screenshot-narrow.png',
               sizes: '750x1334',
               type: 'image/png',
               form_factor: 'narrow',
               label: 'Tela de login do WorkSafety'
             },
             {
-              src: '/screenshot-wide.png',
+              src: 'screenshot-wide.png',
               sizes: '1280x800',
               type: 'image/png',
               form_factor: 'wide',
@@ -130,15 +130,15 @@ export default defineConfig(({ mode }) => {
               name: 'Nova Inspeção',
               short_name: 'Inspeção',
               description: 'Iniciar uma nova inspeção de segurança',
-              url: '/inspection/new',
-              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+              url: 'inspection/new',
+              icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             },
             {
               name: 'Dashboard',
               short_name: 'Dashboard',
               description: 'Ver dashboard principal',
-              url: '/home',
-              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+              url: 'home',
+              icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             }
           ]
         },

@@ -132,8 +132,11 @@ class RiskAssessment(models.Model):
 
 def evidence_upload_to(instance, filename):
     """Upload path: evidence/YYYY/MM/<assessment_id>_<filename>."""
+    import os
     from django.utils import timezone
     now = timezone.now()
+    # Garantir que apenas o nome do arquivo seja usado, não o path completo
+    filename = os.path.basename(filename)
     return f"evidence/{now.year}/{now.month:02d}/{instance.assessment_id}_{filename}"
 
 

@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, ChevronRight, X } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
 import { useInspectionStore } from '@/store/inspectionStore';
 
 export function ReviewValidation() {
   const navigate = useNavigate();
   const { photos, setStatus, assessmentId } = useInspectionStore();
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const handleSave = () => {
     setStatus('HUMAN_VALIDATED');
@@ -25,12 +26,18 @@ export function ReviewValidation() {
       <main className="flex-1 p-4 overflow-y-auto pb-24">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-[#0b6b82]">Case</h2>
-          <span className="text-2xl font-black text-gray-900">#12345</span>
+          <span className="text-2xl font-black text-gray-900">
+            #{assessmentId || 'N/A'}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
-          {photos.slice(0, 2).map((photo, index) => (
-            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+          {photos.map((photo, index) => (
+            <div 
+              key={photo.id} 
+              onClick={() => setExpandedImage(photo.dataUrl)}
+              className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+            >
               <img src={photo.dataUrl} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
               <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-md">
                 #{index + 1}
@@ -69,6 +76,22 @@ export function ReviewValidation() {
           Save Validation
         </Button>
       </div>
+
+      {expandedImage && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          <button 
+            onClick={() => setExpandedImage(null)}
+            className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img 
+            src={expandedImage} 
+            alt="Expanded preview" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+          />
+        </div>
+      )}
     </div>
   );
 }
