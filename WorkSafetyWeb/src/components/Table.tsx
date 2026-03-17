@@ -13,6 +13,9 @@ interface TableProps<T> {
 }
 
 export function Table<T extends { id: number }>({ data, columns, actions }: TableProps<T>) {
+  // Ensure data is an array
+  const safeData = Array.isArray(data) ? data : [];
+  
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full divide-y divide-slate-200">
@@ -35,7 +38,7 @@ export function Table<T extends { id: number }>({ data, columns, actions }: Tabl
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-slate-200">
-          {data.map((row) => (
+          {safeData.map((row) => (
             <tr key={row.id}>
               {columns.map((col, i) => (
                 <td key={i} className={`px-6 py-4 text-sm text-slate-900 ${col.className || 'whitespace-normal'}`}>
@@ -49,7 +52,7 @@ export function Table<T extends { id: number }>({ data, columns, actions }: Tabl
               )}
             </tr>
           ))}
-          {data.length === 0 && (
+          {safeData.length === 0 && (
             <tr>
               <td colSpan={columns.length + (actions ? 1 : 0)} className="px-6 py-4 text-center text-sm text-slate-500">
                 Nenhum registro encontrado.

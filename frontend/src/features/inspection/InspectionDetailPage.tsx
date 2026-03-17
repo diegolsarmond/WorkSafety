@@ -37,6 +37,7 @@ export function InspectionDetailPage() {
     filteredRisks,
   } = useRiskAssessment(assessmentId, {
     autoFetch: true,
+    refreshInterval: 5000, // Poll every 5 seconds during loading, with 5-min timeout
   });
 
   const handleRiskDecision = (riskId: string, decision: 'approved' | 'rejected') => {

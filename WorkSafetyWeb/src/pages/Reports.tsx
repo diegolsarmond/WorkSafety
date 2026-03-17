@@ -21,10 +21,26 @@ export default function Reports() {
     setLoading(true);
     try {
       const res = await fetchWithToken('/api/admin/reports/');
+      
+      // Check if response is successful
+      if (!res.ok) {
+        console.error(`API Error: ${res.status} ${res.statusText}`);
+        setReports([]);
+        return;
+      }
+      
       const data = await res.json();
-      setReports(data);
+      
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setReports(data);
+      } else {
+        console.error('Expected array of reports, got:', data);
+        setReports([]);
+      }
     } catch (error) {
-      console.error('Failed to fetch', error);
+      console.error('Failed to fetch reports:', error);
+      setReports([]);
     } finally {
       setLoading(false);
     }
