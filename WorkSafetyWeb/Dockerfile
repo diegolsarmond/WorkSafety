@@ -19,9 +19,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Instala algo para rodar o server.ts (npx ts-node, por exemplo)
-RUN npm install -g ts-node typescript
+# Compile TypeScript
+RUN npm ci --only=dev && npx tsc server.ts --target es2020 --module commonjs --moduleResolution node --skipLibCheck --strict false
 
 EXPOSE 3001
 
-CMD ["ts-node", "server.ts"]
+CMD ["node", "server.js"]

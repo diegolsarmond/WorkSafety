@@ -59,6 +59,19 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  admin:
+    build:
+      context: ..
+      dockerfile: WorkSafetyWeb/Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+
   worker:
     build:
       context: ../backend

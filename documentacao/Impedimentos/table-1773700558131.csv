@@ -1,38 +1,29 @@
-﻿Table;;;;;;
-ID;Requisito OS 19;Especificação MVP;Protótipo (Mobile/Tablet);Status;Inconsistência Identificada;Impacto
-N1 - Captura e Modelo de Dados;;;;;;
-F1.1;Captura de fotos via câmera nativa Android;Resolução mínima 1280x720, confirmação visual;✅ Interface de câmera presente com preview em tempo real;✅;—;—
-F1.7;Timestamp automático ISO 8601;Exibir na tela de detalhes;"⚠️ Não visível na interface de captura; só aparece no relatório PDF";⚠️;Timestamp não é exibido na interface de review das fotos (páginas 7-11);Baixo - dados existem mas não expostos
-F2.6;Limite de 10 imagens por submissão;Botão desabilitado com mensagem;"❌ Interface mostra grid com 3 fotos e ""Add Photo"", mas não há indicador visual de limite máximo";⚠️;"Não há contador ""X/10"" nem mensagem de limite atingido no protótipo";Médio - risco de UX confusa
-N2 - Inteligência Artificial;;;;;;
-F2.1;Validação e triagem com filtros de privacidade;Blur em rostos, rejeição de imagens inadequadas;"✅ ""PRIVACY MODE ON"" visível; blur aplicado nas fotos do relatório";✅;—;—
-F2.2;Análise semântica visual;Descrição textual: ambiente, objetos, EPIs;⚠️ Interface mostra apenas detecção visual (bounding boxes), sem descrição textual visível;⚠️;A descrição semântica em linguagem natural não aparece na interface de review;Médio - requisito funcional oculto
-F2.3;Gestão de contexto com RAG;Upload PDF/TXT, indexação em 5min, correlação com normas;❌ Não há interface para upload de documentos normativos no protótipo;❌;Protótipo não contempla tela de gestão de base normativa/Bau-Wegweiser;Crítico - escopo Dataprev não demonstrável
-F2.4;Classificação preliminar CONFORME/NÃO_CONFORME/INCONCLUSIVO;Índice de confiança 0-100%, threshold 60%;"⚠️ Mostra ""Compliance 82%"" geral, não por imagem/risco";⚠️;"Classificação binária implícita, não ternária; sem indicação de ""INCONCLUSIVO""";Médio - simplificação excessiva
-F2.5;Anonimização automática rostos/placas;Blur antes do armazenamento, log de auditoria;✅ Blur visível nas fotos do relatório (página 15);✅;—;—
-N3 - Relatórios e Validação;;;;;;
-F3.1;Geração de relatório PDF;Dados da avaliação, imagens anonimizadas, riscos, normas;✅ Template de PDF presente (página 15);✅;—;—
-F3.2;Envio em lote assíncrono;Fila, status em tempo real, reenvio automático;"⚠️ Mostra ""Syncing"" com animação, mas sem indicador de fila/posição";⚠️;Não há visibilidade de múltiplos itens em fila nem status individual;Baixo - UX simplificada
-F4.7;Painel checklist/riscos por imagem;Lista com: imagem, risco, classificação, mitigação;⚠️ Checklist mostrado (página 10), mas sem vinculação explícita imagem-a-imagem;⚠️;Riscos listados sem referência visual direta às fotos que os originaram;Médio - dificulta rastreabilidade
-N5 - Ciclo de Vida;;;;;;
-F5.1;Ciclo de vida: DRAFT → CAPTURED → SYNCED → AI_REVIEWED → HUMAN_VALIDATED → FINALIZED;Status visível, transições ordenadas, histórico timestamp;"⚠️ Mostra ""Draft (AI)"" e ""Pending"", mas fluxo completo não visível";⚠️;Estados intermediários (CAPTURED, SYNCED, AI_REVIEWED) não aparecem na UI;Médio - transparência reduzida
-F5.3;Tratamento de falhas na IA;Status de erro, notificação, resubmissão;❌ Não há tela de tratamento de erro ou falha de processamento;❌;"Protótipo só mostra fluxo ""feliz""; sem cenário de falha da IA";Crítico - requisito de resiliência não demonstrável
-N6/N17 - Autenticação e Usuários;;;;;;
-F6.1/F20.1;Login básico com credenciais;Mensagem genérica de erro, redirecionamento;✅ Tela de login presente (páginas 2);✅;—;—
-F17.1;Cadastro/manutenção de usuários;CRUD usuários, busca/filtro;❌ Não há interface de administração de usuários no protótipo;❌;"Apenas login; sem gestão de usuários para administradores";Crítico - funcionalidade administrativa ausente
-F17.4;Redefinição de credenciais;Admin força reset, fluxo recuperação, token 24h;"❌ ""Forgot password?"" não tem fluxo definido no protótipo";⚠️;Link presente mas sem telas subsequentes;Médio - jornada incompleta
-N7 - Usabilidade;;;;;;
-F7.1;Interface otimizada campo (mínima digitação);Máximo 5 toques, seletores, câmera;✅ Seletores visuais para ambiente/categoria (página 4);✅;—;—
-F7.3;Conformidade WCAG básica;Contraste 4.5:1, touch 44x44px, legibilidade;⚠️ Elementos visuais presentes, mas sem evidência de testes de acessibilidade;⚠️;Cores e contraste parecem adequados, mas sem validação documentada;Baixo - requer verificação técnica
-N9 - Integração;;;;;;
-F9.2;Integração Portal Olimpia (Perseu/Sofia);APIs REST, timeout configurável, fila em indisponibilidade;"⚠️ ""AI:Object Detection (Perseu)Enabled"" visível, mas Sofia não explicitado";⚠️;Serviço Sofia (NLP/RAG) não é mencionado na interface;Médio - visibilidade parcial da integração
-F9.4;Suporte REST e GraphQL;Swagger/OpenAPI, endpoints críticos com GraphQL;❌ Não há documentação de API visível no protótipo;❌;Requisito técnico de backend não refletido em UI;Baixo - não afeta demo, mas afeta entregável
-N12 - Modelo de Dados;;;;;;
-F12.1-F12.6;Manter dados de avaliações, evidências, riscos, inferências, validações, usuários;Persistência completa, integridade referencial;✅ Estrutura implícita nas telas, mas sem visibilidade direta;✅;Modelo de dados funcional, mas não documentado na UI;—
-N16 - Configurações;;;;;;
-F16.1-F16.3;Configurar tipos de avaliação, ambiente, risco;CRUD parametrizável;❌ Não há interface de configuração administrativa;❌;Valores fixos nos seletores (Construction, Industry, Other);Crítico - flexibilidade do sistema não demonstrável
-F16.6;Configurar thresholds da IA;Limiar mínimo confiança, log auditoria, padrão 60%;❌ Sem interface de configuração de thresholds;❌;Thresholds parecem hardcoded (ex: 82% compliance);Crítico - governança da IA não ajustável
-N21 - Notificações;;;;;;
-F21.1;Notificação sincronização concluída;In-app, quantidade de avaliações;"✅ Animação de ""Syncing"" → checkmark (páginas 8-9)";✅;—;—
-F21.2;Notificação erro de sincronização;In-app, identificação da avaliação, sugestão ação;❌ Não há tela de erro de sincronização;❌;Mesmo gap de F5.3 - apenas fluxo feliz;Crítico - resiliência não demonstrável
-F21.5;Notificação geração relatório;Notificação com link download;"⚠️ ""Download PDF"" presente, mas sem notificação push/in-app explícita";⚠️;Ação manual vs. notificação automática;Baixo - funcionalidade parcial
+﻿Críticas (Bloqueantes para Homologação);;;;;;
+ID;Requisito OS 19;O que o Protótipo Mostra;Problema;Risco;;
+F2.3;Upload e processamento de documentos normativos (PDF/TXT) com RAG;❌ Ausente totalmente;IA opera sem base normativa visível;"Não demonstra valor do ""Sofia NLP""";;
+F5.3;Tratamento de falhas no processamento da IA;"❌ Ausente - só mostra ""Syncing"" com sucesso";Sistema parece infalível;Não comprova resiliência do MVP;;
+F17.1;Cadastro e manutenção de usuários (admin);❌ Ausente - só tem login;Gestão de acesso não existe;Governança básica comprometida;;
+F16.1-F16.6;Configuração de tipos de avaliação, ambiente, risco, thresholds;❌ Ausente - valores fixos;Sistema não é parametrizável;Flexibilidade do MVP não evidenciada;;
+F21.2;Notificação de erro de sincronização;❌ Ausente;Usuário sem feedback em falha;Experiência de campo comprometida;;
+;;;;;;
+;;;;;;
+;;;;;;
+Importantes (Impactam Critérios de Aceite);;;;;;
+ID;Funcionalidade;Critério de Aceite OS 19 (literal);O que o Protótipo Mobile Entrega;Status;Gap Específico;Mitigação Possível
+F1.7;Timestamp das evidências;"""O campo timestamp deve ser exibido na tela de detalhes da evidência""";"Timestamp só aparece no PDF final; não na tela de revisão de fotos (p.7)";⚠️ Não atende;Metadado existe mas não é exposto na UI de campo;"Adicionar linha ""Capturado em: 2026-03-16T10:42:00Z"" na tela de revisão"
+F2.2;Descrição semântica visual;"""A descrição deve identificar ao menos: tipo de ambiente, objetos principais e presença/ausência de EPIs visíveis""";"Só mostra bounding boxes visuais; sem texto descritivo";⚠️ Não atende;IA processa mas não comunica ao usuário em linguagem natural;"Adicionar card ""Análise IA: Ambiente de construção. EPIs detectados: capacete, colete. EPIs ausentes: luvas, calçado fechado"""
+F2.4;Classificação preliminar;"""Cada imagem deve receber: CONFORME, NÃO_CONFORME ou INCONCLUSIVO""";"Mostra ""Compliance 82%"" geral da avaliação";⚠️ Não atende;"Classificação binária implícita; sem estado INCONCLUSIVO; não por imagem";Alterar para badges por imagem: ✅ Conforme / ❌ Não Conforme / ⚠️ Inconclusivo (confiança <60%)
+F2.6;Limite de 10 imagens;"""Ao atingir o limite, o botão de adicionar imagens deve ser desabilitado com mensagem informativa""";"Grid mostra ""Add Photo"" sempre ativo; sem contador";⚠️ Não atende;Não há feedback de limite ao usuário;"Adicionar ""3/10 fotos"" + desabilitar ""Add Photo"" no limite com tooltip ""Limite máximo atingido"""
+F4.7;Checklist por imagem;"""Painel deve exibir lista/checklist de riscos identificados por imagem""";Lista de riscos genérica sem referência às fotos (p.10);⚠️ Não atende;"Não mostra ""Risco X veio da foto #2""";Adicionar ícone/miniatura da imagem de origem em cada item do checklist
+F5.1;Ciclo de vida visível;"""O usuário deve visualizar o estado atual da avaliação na listagem e no detalhe""";"Mostra ""Draft (AI)"" e ""Pending""; estados intermediários ocultos";⚠️ Parcial;CAPTURED, SYNCED, AI_REVIEWED não aparecem;Expandir para: Rascunho → Capturado → Enviando → Analisando → Aguardando Validação → Finalizado
+F9.2;Integração Portal Olimpia;"""Backend deve consumir serviços Perseu e Sofia""";"Só ""AI:Object Detection (Perseu)Enabled"" visível (p.5-6)";⚠️ Parcial;Sofia (NLP/RAG) não é mencionado na interface;"Adicionar ""Powered by Sofia NLP"" ou mostrar norma correlacionada como evidência do serviço"
+F17.4;Redefinição de credenciais;"""O usuário deve poder solicitar redefinição de senha via fluxo de recuperação""";"Link ""Forgot password?"" presente mas sem telas subsequentes";⚠️ Incompleto;"Jornada termina no link; sem tela de email/código/nova senha";Implementar fluxo mínimo: email → código → nova senha (ou remover link para MVP)
+;;;;;;
+;;;;;;
+;;;;;;
+;;;;;;
+Menores (Não Bloqueantes, mas Desvios);;;;;;
+ID;Requisito OS 19;O que o Protótipo Mostra;Observação;;;
+F7.3;WCAG: contraste 4.5:1, touch 44x44px;✅ Aparentemente OK, mas não validado;Requer verificação técnica, não só visual;;;
+F12.x;Integridade referencial dados;✅ Implícito, não explicitado;Modelo funciona, mas não é visível;;;
+F21.5;Notificação push de relatório pronto;"⚠️ ""Download PDF"" manual";Notificação vs. ação disponível — aceitável para MVP;;;
