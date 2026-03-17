@@ -83,7 +83,13 @@ class AIClientInterface(ABC):
         Returns:
             AIInferenceResult com os resultados da análise
         """
-        pass
+        return AIInferenceResult(
+            success=False,
+            findings=[],
+            confidence="",
+            model_version="",
+            error_message="Not implemented",
+        )
 
     @abstractmethod
     def health_check(self) -> bool:
@@ -93,7 +99,7 @@ class AIClientInterface(ABC):
         Returns:
             True se o serviço está saudável, False caso contrário
         """
-        pass
+        return False
 
 
 class MockAIClient(AIClientInterface):
@@ -175,7 +181,7 @@ class MockAIClient(AIClientInterface):
         """Busca risk types ativos do banco de dados."""
         try:
             # Importação lazy para evitar circular imports
-            from configurations.models import RiskType
+            from configurations.models import RiskType  # type: ignore[import-not-found]
             
             risk_types = RiskType.objects.filter(active=True)
             if risk_types.exists():

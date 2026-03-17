@@ -6,7 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const isProd = mode === 'production';
   return {
+    base: isProd ? '/worksafety/' : '/',
     plugins: [
       react(),
       tailwindcss(),
@@ -45,12 +47,12 @@ export default defineConfig(({ mode }) => {
           name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
           description: 'Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos',
-          start_url: '/',
+          start_url: isProd ? '/worksafety/' : '/',
           display: 'standalone',
           background_color: '#0F1729',
           theme_color: '#0F1729',
           orientation: 'portrait',
-          scope: '/',
+          scope: isProd ? '/worksafety/' : '/',
           lang: 'pt-BR',
           categories: ['business', 'productivity', 'utilities'],
           icons: [

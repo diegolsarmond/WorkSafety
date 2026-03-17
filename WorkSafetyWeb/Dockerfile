@@ -19,9 +19,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Compile TypeScript
-RUN npm ci --only=dev && npx tsc server.ts --target es2020 --module commonjs --moduleResolution node --skipLibCheck --strict false --esModuleInterop
+EXPOSE 3000
 
-EXPOSE 3001
-
-CMD ["node", "server.js"]
+CMD ["npx", "tsx", "server.ts"]

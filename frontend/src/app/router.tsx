@@ -17,8 +17,11 @@ import { AIQueuePage } from '@/features/ai-queue';
 import { ReportsPage } from '@/features/reports';
 
 export default function AppRouter() {
+  // Use /worksafety basename in production, / in development
+  const basename = import.meta.env.MODE === 'production' ? '/worksafety' : '/';
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

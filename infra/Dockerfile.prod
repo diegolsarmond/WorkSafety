@@ -1,0 +1,35 @@
+# Stage 1: Build Frontend App (Main App)
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Build WorkSafetyWeb (Admin)
+FROM node:20-alpine AS admin-builder
+WORKDIR /app
+COPY WorkSafetyWeb/package*.json ./
+RUN npm ci
+COPY WorkSafetyWeb/ .
+# Build the Vite app
+RUN npm run build
+
+# Stage 3: Serve com Nginx
+FROM nginx:alpine
+
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copia o Frontend App em /worksafety
+# Preserve the full directory structure from build
+RUN mkdir -p /usr/share/nginx/html/worksafety /usr/share/nginx/html/admin
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html/worksafety/
+COPY --from=admin-builder /app/dist /usr/share/nginx/html/admin/
+
+# Copia a configuração Nginx para produção
+COPY infra/nginx-prod.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 3000
+
+CMD ["nginx", "-g", "daemon off;"]

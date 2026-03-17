@@ -40,7 +40,7 @@ function useAuth() {
   
   const logout = () => {
     clearTokens();
-    window.location.href = '/admin/login';
+    window.location.href = '/login';
   };
   
   return { user, isAuthenticated, logout };
@@ -70,15 +70,15 @@ const Dashboard = () => {
 };
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { name: 'Fila de Processamento', href: '/admin/queue', icon: ListTodo },
-  { name: 'Relatórios', href: '/admin/reports', icon: FileText },
-  { name: 'Logs/Auditoria', href: '/admin/audit', icon: Activity },
-  { name: 'Usuários', href: '/admin/users', icon: Users },
-  { name: 'Tipos de Avaliação', href: '/admin/assessment-types', icon: Settings },
-  { name: 'Tipos de Ambiente', href: '/admin/environment-types', icon: MapPin },
-  { name: 'Tipos de Risco', href: '/admin/risk-types', icon: ShieldAlert },
-  { name: 'Configuração IA', href: '/admin/ai-config', icon: BrainCircuit },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Fila de Processamento', href: '/queue', icon: ListTodo },
+  { name: 'Relatórios', href: '/reports', icon: FileText },
+  { name: 'Logs/Auditoria', href: '/audit', icon: Activity },
+  { name: 'Usuários', href: '/users', icon: Users },
+  { name: 'Tipos de Avaliação', href: '/assessment-types', icon: Settings },
+  { name: 'Tipos de Ambiente', href: '/environment-types', icon: MapPin },
+  { name: 'Tipos de Risco', href: '/risk-types', icon: ShieldAlert },
+  { name: 'Configuração IA', href: '/ai-config', icon: BrainCircuit },
 ];
 
 function Sidebar() {
@@ -179,15 +179,18 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Use /admin basename in production, / in development
+  const basename = import.meta.env.MODE === 'production' ? '/admin' : '/';
+  
   return (
-    <Router>
+    <Router basename={basename}>
       <Routes>
         {/* Public Routes */}
-        <Route path="/admin/login" element={<Login />} />
+        <Route path="/login" element={<Login />} />
         
         {/* Protected Routes */}
         <Route
-          path="/admin/dashboard"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -197,7 +200,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/queue"
+          path="/queue"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -207,7 +210,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/reports"
+          path="/reports"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -217,7 +220,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/audit"
+          path="/audit"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -227,7 +230,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/users"
+          path="/users"
           element={
             <ProtectedRoute requireAdmin>
               <AppLayout>
@@ -237,7 +240,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/assessment-types"
+          path="/assessment-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -247,7 +250,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/environment-types"
+          path="/environment-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -257,7 +260,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/risk-types"
+          path="/risk-types"
           element={
             <ProtectedRoute>
               <AppLayout>
@@ -267,7 +270,7 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/ai-config"
+          path="/ai-config"
           element={
             <ProtectedRoute requireAdmin>
               <AppLayout>
@@ -278,7 +281,7 @@ export default function App() {
         />
         
         {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );

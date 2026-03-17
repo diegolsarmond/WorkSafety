@@ -409,12 +409,15 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     if not finding_cards:
         finding_cards = [Paragraph('<font color="#cbd5e1" size=9>No findings recorded</font>', styles['Normal'])]
     
-    findings_column = Table([[c] for c in finding_cards], colWidths=[6.8*cm])
+    # Use KeepTogether instead of nested Table to avoid ReportLab height calculation issues
+    findings_content = KeepTogether(finding_cards)
     
-    # Combine image and findings
+    # Combine image and findings using a two-column layout
+    # Use explicit rowHeights to avoid None values in ReportLab
     content_row = Table(
-        [[img_cell, findings_column]],
+        [[img_cell, findings_content]],
         colWidths=[7.2*cm, 7.8*cm],
+        rowHeights=[5*cm],
     )
     content_row.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
