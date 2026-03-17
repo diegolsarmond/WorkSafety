@@ -13,32 +13,72 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'manual',
-        injectRegister: null,
+        registerType: 'prompt',
+        injectRegister: 'auto',
+        strategies: 'generateSW',
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+              urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'images-cache',
                 expiration: {
                   maxEntries: 100,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                  maxAgeSeconds: 60 * 24 * 60 * 60, // 60 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
                 },
               },
             },
             {
-              urlPattern: /^https:\/\/.*\/api\/.*/i,
+              urlPattern: /^https:\/\/fonts\./i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'fonts-cache',
+                expiration: {
+                  maxEntries: 20,
+                  maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /\/api\/.*/i,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
                 expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+                networkTimeoutSeconds: 10,
+              },
+            },
+            {
+              urlPattern: /.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'app-shell-cache',
+                expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 24 * 60 * 60, // 24 hours
                 },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+                networkTimeoutSeconds: 3,
               },
             },
           ],

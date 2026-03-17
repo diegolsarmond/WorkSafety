@@ -9,41 +9,27 @@ import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { SplashScreen } from '@/features/splash';
+import { InstallPrompt, OfflineIndicator } from '@/features/pwa/components';
+import { syncManager } from '@/services/sync';
 
 export default function App() {
   const { checkAuth, isInitializing } = useAuthStore();
   const { initialize: initializeSync } = useSyncStore();
-  const { showSplash, isReady, handleSplashComplete } = useSplashScreen();
+  const { showSplash, handleSplashComplete } = useSplashScreen();
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Inicializa o sistema de sincronização
+  // Inicializa o sistema de sincronização legado
   useEffect(() => {
     initializeSync();
   }, [initializeSync]);
 
-  // Register PWA service worker after app is mounted and interactive
+  // Inicializa o novo SyncManager (PWA storage)
   useEffect(() => {
-    const registerPWA = async () => {
-      try {
-        if ('serviceWorker' in navigator) {
-          const { registerSW } = await import('virtual:pwa-register');
-          registerSW({ immediate: true });
-        }
-      } catch (error) {
-        // PWA registration is optional
-        console.debug('PWA unavailable:', error);
-      }
-    };
-
-    // Use requestIdleCallback if available, otherwise use setTimeout
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(() => registerPWA(), { timeout: 2000 });
-    } else {
-      setTimeout(registerPWA, 1000);
-    }
+    // Atualiza contagem de pendentes na inicialização
+    syncManager.updatePendingCount();
   }, []);
 
   // Show splash screen first
@@ -60,5 +46,11 @@ export default function App() {
     );
   }
 
-  return <AppRouter />;
+  return (
+    <>
+      <AppRouter />
+      <OfflineIndicator />
+      <InstallPrompt />
+    </>
+  );
 }

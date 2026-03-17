@@ -1,4 +1,5 @@
 {
+  "id": "worksafety-app",
   "name": "WorkSafety - Smart Safety",
   "short_name": "WorkSafety",
   "description": "Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos",
@@ -9,6 +10,8 @@
   "orientation": "portrait",
   "scope": "/",
   "lang": "pt-BR",
+  "dir": "ltr",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
