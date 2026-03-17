@@ -21,7 +21,7 @@ export default function AuditLogs() {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithToken('/api/admin/audit-logs/');
+      const res = await fetchWithToken('admin/audit-logs/');
       const data = await res.json();
       setLogs(data);
     } catch (error) {

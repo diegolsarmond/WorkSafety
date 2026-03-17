@@ -26,7 +26,7 @@ export default function AIConfiguration() {
     setLoading(true);
     try {
       // Buscar threshold atual
-      const res = await fetchWithToken('/api/admin/ai-thresholds/confidence/current/');
+      const res = await fetchWithToken('admin/ai-thresholds/confidence/current/');
       const data = await res.json();
       setThresholds([data]);
       setCurrentThreshold(parseFloat(data.threshold_value));
@@ -44,7 +44,7 @@ export default function AIConfiguration() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetchWithToken('/api/admin/ai-thresholds/confidence/', {
+      await fetchWithToken('admin/ai-thresholds/confidence/', {
         method: 'PUT',
         body: JSON.stringify({ threshold_value: currentThreshold }),
       });

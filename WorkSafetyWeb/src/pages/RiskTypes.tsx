@@ -22,7 +22,7 @@ export default function RiskTypes() {
   const fetchTypes = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithToken('/api/admin/risk-types/');
+      const res = await fetchWithToken('admin/risk-types/');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setTypes(data);
@@ -41,12 +41,12 @@ export default function RiskTypes() {
     e.preventDefault();
     try {
       if (editingType) {
-        await fetchWithToken(`/api/admin/risk-types/${editingType.id}/`, {
+        await fetchWithToken(`admin/risk-types/${editingType.id}/`, {
           method: 'PATCH',
           body: JSON.stringify(formData),
         });
       } else {
-        await fetchWithToken('/api/admin/risk-types/', {
+        await fetchWithToken('admin/risk-types/', {
           method: 'POST',
           body: JSON.stringify(formData),
         });
@@ -63,7 +63,7 @@ export default function RiskTypes() {
   const handleDeactivate = async (id: number) => {
     if (confirm(t('Tem certeza que deseja desativar este risco?'))) {
       try {
-        await fetchWithToken(`/api/admin/risk-types/${id}/deactivate/`, { method: 'POST' });
+        await fetchWithToken(`admin/risk-types/${id}/deactivate/`, { method: 'POST' });
         fetchTypes();
       } catch (error) {
         console.error('Failed to deactivate', error);

@@ -11,7 +11,7 @@ export default function Login() {
   const { login, isLoading, error, clearError, isAuthenticated } = useAuth();
   const { t } = useTranslation();
 
-  // Redireciona se já estiver autenticado
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/admin/dashboard', { replace: true });
@@ -21,13 +21,13 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    
+
     try {
       await login({ email, password });
-      // Redireciona para home após login bem-sucedido
+      // Redirect to home after successful login
       navigate('/admin/dashboard', { replace: true });
     } catch {
-      // Erro já está tratado no hook
+      // Error is already handled in the hook
     }
   };
 
@@ -41,14 +41,14 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900">{t('WorkSafety Admin')}</h1>
           <p className="text-slate-500 mt-1">
-            {t('Sistema de Gestão de Segurança do Trabalho')}
+            {t('Work Safety Management System')}
           </p>
         </div>
 
         {/* Login Card */}
         <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">
-            {t('Acesse sua conta')}
+            {t('Sign in to your account')}
           </h2>
 
           {error && (
@@ -60,11 +60,11 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label 
-                htmlFor="email" 
+              <label
+                htmlFor="email"
                 className="block text-sm font-medium text-slate-700"
               >
-                {t('E-mail')}
+                {t('Email')}
               </label>
               <input
                 type="email"
@@ -79,11 +79,11 @@ export default function Login() {
             </div>
 
             <div>
-              <label 
-                htmlFor="password" 
+              <label
+                htmlFor="password"
                 className="block text-sm font-medium text-slate-700"
               >
-                {t('Senha')}
+                {t('Password')}
               </label>
               <input
                 type="password"
@@ -105,24 +105,24 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  {t('Entrando...')}
+                  {t('Signing in...')}
                 </>
               ) : (
-                t('Entrar')
+                t('Sign in')
               )}
             </button>
           </form>
 
           <div className="mt-4 text-center">
-            <a 
-              href="#" 
+            <a
+              href="#"
               className="text-sm text-emerald-600 hover:text-emerald-500"
               onClick={(e) => {
                 e.preventDefault();
-                alert(t('Funcionalidade em desenvolvimento'));
+                alert(t('Feature in development'));
               }}
             >
-              {t('Esqueceu a senha?')}
+              {t('Forgot your password?')}
             </a>
           </div>
         </div>
@@ -130,8 +130,8 @@ export default function Login() {
         {/* Demo Credentials */}
         <div className="mt-6 text-center">
           <p className="text-xs text-slate-500">
-            {t('Credenciais de demonstração:')}<br />
-            <span className="font-mono">admin@worksafety.gov / admin123</span>
+            {t('Demo credentials:')}<br />
+            <span className="font-mono"></span>
           </p>
         </div>
       </div>

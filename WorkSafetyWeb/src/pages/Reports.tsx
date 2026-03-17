@@ -20,7 +20,7 @@ export default function Reports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithToken('/api/admin/reports/');
+      const res = await fetchWithToken('admin/reports/');
       
       // Check if response is successful
       if (!res.ok) {
@@ -53,7 +53,7 @@ export default function Reports() {
   const handleRegenerate = async (assessmentId: number) => {
     if (confirm(t('Deseja regenerar o relatório para esta avaliação?'))) {
       try {
-        await fetchWithToken(`/api/admin/assessments/${assessmentId}/generate-report/`, { method: 'POST' });
+        await fetchWithToken(`admin/assessments/${assessmentId}/generate-report/`, { method: 'POST' });
         fetchReports();
       } catch (error) {
         console.error('Failed to regenerate', error);

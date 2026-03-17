@@ -167,7 +167,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refresh) return null;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/token/refresh/`, {
+    const response = await fetch(`${API_BASE_URL}auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh }),
@@ -190,7 +190,7 @@ async function refreshAccessToken(): Promise<string | null> {
 // Serviço de Autenticação
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
+    const response = await fetch(`${API_BASE_URL}auth/login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -216,7 +216,7 @@ export const authService = {
     const refresh = getRefreshToken();
     if (refresh) {
       try {
-        await fetch(`${API_BASE_URL}/api/auth/logout/`, {
+        await fetch(`${API_BASE_URL}auth/logout/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh }),
@@ -229,7 +229,7 @@ export const authService = {
   },
 
   async me(): Promise<User> {
-    const response = await fetchWithAuth('/api/auth/me/');
+    const response = await fetchWithAuth('auth/me/');
     
     if (!response.ok) {
       throw new ApiError('Erro ao obter dados do usuário', response.status);
@@ -244,7 +244,7 @@ export const authService = {
 // Serviço de Usuários
 export const userService = {
   async list(): Promise<User[]> {
-    const response = await fetchWithAuth('/api/users/');
+    const response = await fetchWithAuth('users/');
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -259,7 +259,7 @@ export const userService = {
   },
 
   async get(id: number): Promise<User> {
-    const response = await fetchWithAuth(`/api/users/${id}/`);
+    const response = await fetchWithAuth(`users/${id}/`);
     
     if (!response.ok) {
       throw new ApiError('Erro ao buscar usuário', response.status);
@@ -269,7 +269,7 @@ export const userService = {
   },
 
   async create(data: CreateUserData): Promise<User> {
-    const response = await fetchWithAuth('/api/users/', {
+    const response = await fetchWithAuth('users/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -287,7 +287,7 @@ export const userService = {
   },
 
   async update(id: number, data: UpdateUserData): Promise<User> {
-    const response = await fetchWithAuth(`/api/users/${id}/`, {
+    const response = await fetchWithAuth(`users/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

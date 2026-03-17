@@ -28,7 +28,7 @@ export default function ProcessingQueue() {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const url = filter ? `/api/admin/processing-jobs/?status=${filter}` : '/api/admin/processing-jobs/';
+      const url = filter ? `admin/processing-jobs/?status=${filter}` : 'admin/processing-jobs/';
       const res = await fetchWithToken(url);
       const data = await res.json();
       
@@ -54,7 +54,7 @@ export default function ProcessingQueue() {
   const handleReprocess = async (id: number) => {
     if (confirm(t('Deseja reprocessar esta avaliação?'))) {
       try {
-        await fetchWithToken(`/api/admin/processing-jobs/${id}/reprocess/`, { method: 'POST' });
+        await fetchWithToken(`admin/processing-jobs/${id}/reprocess/`, { method: 'POST' });
         fetchJobs();
       } catch (error) {
         console.error('Failed to reprocess', error);

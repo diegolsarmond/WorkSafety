@@ -22,7 +22,7 @@ export default function EnvironmentTypes() {
   const fetchTypes = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithToken('/api/admin/environment-types/');
+      const res = await fetchWithToken('admin/environment-types/');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setTypes(data);
@@ -41,12 +41,12 @@ export default function EnvironmentTypes() {
     e.preventDefault();
     try {
       if (editingType) {
-        await fetchWithToken(`/api/admin/environment-types/${editingType.id}/`, {
+        await fetchWithToken(`admin/environment-types/${editingType.id}/`, {
           method: 'PATCH',
           body: JSON.stringify(formData),
         });
       } else {
-        await fetchWithToken('/api/admin/environment-types/', {
+        await fetchWithToken('admin/environment-types/', {
           method: 'POST',
           body: JSON.stringify(formData),
         });
@@ -63,7 +63,7 @@ export default function EnvironmentTypes() {
   const handleDeactivate = async (id: number) => {
     if (confirm(t('Tem certeza que deseja desativar este tipo?'))) {
       try {
-        await fetchWithToken(`/api/admin/environment-types/${id}/deactivate/`, { method: 'POST' });
+        await fetchWithToken(`admin/environment-types/${id}/deactivate/`, { method: 'POST' });
         fetchTypes();
       } catch (error) {
         console.error('Failed to deactivate', error);
