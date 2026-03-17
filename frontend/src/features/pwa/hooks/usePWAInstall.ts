@@ -24,10 +24,35 @@ interface UsePWAInstallReturn {
   dismiss: () => void;
   /** Se o banner foi dismissado */
   isDismissed: boolean;
+  /** Se é um dispositivo iOS (que precisa de instruções manuais) */
+  isIOS: boolean;
+  /** Se é um dispositivo Android */
+  isAndroid: boolean;
+  /** Se deve mostrar instruções de instalação manual */
+  showManualInstructions: boolean;
 }
 
 const DISMISS_KEY = 'pwa-install-dismissed';
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 dias
+
+// Detecta se é iOS
+const isIOSDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(userAgent) && !('MSStream' in window);
+};
+
+// Detecta se é Android
+const isAndroidDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /android/.test(userAgent);
+};
+
+// Detecta se é mobile
+const isMobileDevice = (): boolean => {
+  return isIOSDevice() || isAndroidDevice();
+};
 
 export function usePWAInstall(): UsePWAInstallReturn {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -35,6 +60,8 @@ export function usePWAInstall(): UsePWAInstallReturn {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isIOS] = useState(() => isIOSDevice());
+  const [isAndroid] = useState(() => isAndroidDevice());
 
   // Verifica se o app já está instalado
   useEffect(() => {
@@ -121,12 +148,33 @@ export function usePWAInstall(): UsePWAInstallReturn {
     localStorage.setItem(DISMISS_KEY, Date.now().toString());
   }, []);
 
+  // No iOS, sempre mostramos o banner (se não estiver instalado nem dismissado)
+  // pois não há evento beforeinstallprompt
+  // No Android, mostramos se tivermos o deferredPrompt ou como fallback manual
+  const effectiveCanInstall = (() => {
+    if (isInstalled || isDismissed) return false;
+    
+    // Se temos o prompt nativo (Chrome desktop/Android)
+    if (canInstall && deferredPrompt) return true;
+    
+    // No mobile, mostramos instruções manuais se não tiver o prompt nativo
+    if (isMobileDevice()) return true;
+    
+    return false;
+  })();
+
+  // Mostra instruções manuais quando não temos o prompt nativo (principalmente iOS)
+  const showManualInstructions = effectiveCanInstall && !deferredPrompt;
+
   return {
-    canInstall: canInstall && !isDismissed && !isInstalled,
+    canInstall: effectiveCanInstall,
     isInstalled,
     isInstalling,
     install,
     dismiss,
     isDismissed,
+    isIOS,
+    isAndroid,
+    showManualInstructions,
   };
 }
