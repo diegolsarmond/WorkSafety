@@ -9,7 +9,7 @@ class ReportSerializer(serializers.ModelSerializer):
     Campos expostos para compatibilidade com WorkSafetyWeb/src/pages/Reports.tsx:
     - id, assessment_id, status, file_url, created_at
     """
-    assessment_id = serializers.IntegerField(source='assessment.id', read_only=True)
+    assessment_id = serializers.IntegerField(read_only=True, allow_null=True)
     file_url = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 

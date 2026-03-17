@@ -224,7 +224,7 @@ export default function ReportsPage() {
                       </h3>
                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                         <span>
-                          Criado em: {new Date(report.created_at).toLocaleString('pt-BR')}
+                          Created at: {new Date(report.created_at).toLocaleString('en-US')}
                         </span>
                         {report.generation_time_seconds && (
                           <span>

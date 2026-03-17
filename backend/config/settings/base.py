@@ -169,7 +169,7 @@ SPECTACULAR_SETTINGS = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # i18n / static (minimal for API)
-LANGUAGE_CODE = "pt-br"
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
@@ -235,13 +235,13 @@ CELERY_ENABLE_UTC = True
 
 # AI Service Configuration
 AI_SERVICE_ENABLED = os.environ.get("AI_SERVICE_ENABLED", "true").lower() in ("1", "true", "yes")
-AI_SERVICE_TIMEOUT = int(os.environ.get("AI_SERVICE_TIMEOUT", "30"))
-AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "true").lower() in ("1", "true", "yes")
+AI_SERVICE_TIMEOUT = int(os.environ.get("AI_SERVICE_TIMEOUT", "60"))
+AI_SERVICE_MOCK_MODE = os.environ.get("AI_SERVICE_MOCK_MODE", "false").lower() in ("1", "true", "yes")
 AI_SERVICE_BASE_URL = os.environ.get("AI_SERVICE_BASE_URL", "")
 AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY", "")
 
 # Olímpia API Configuration (Dataprev Segurança por Imagem)
-OLIMPIA_API_ENABLED = os.environ.get("OLIMPIA_API_ENABLED", "false").lower() in ("1", "true", "yes")
+OLIMPIA_API_ENABLED = os.environ.get("OLIMPIA_API_ENABLED", "true").lower() in ("1", "true", "yes")
 OLIMPIA_API_URL = os.environ.get(
     "OLIMPIA_API_URL",
     "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
