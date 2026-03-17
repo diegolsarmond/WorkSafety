@@ -179,6 +179,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # [NEW] Produção: WhiteNoise para arquivos estáticos
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# HTTPS/Proxy settings - permite que o Django reconheça HTTPS atrás do nginx
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 

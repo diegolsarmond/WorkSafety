@@ -42,6 +42,8 @@ services:
       REDIS_PORT: 6379
     ports:
       - "8000:8000"
+    volumes:
+      - media_volume:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -60,6 +62,8 @@ services:
       dockerfile: infra/Dockerfile.prod
     ports:
       - "3000:3000"
+    volumes:
+      - media_volume:/app/media:ro
     depends_on:
       backend:
         condition: service_started
@@ -101,3 +105,4 @@ services:
 
 volumes:
   postgres_data:
+  media_volume:
