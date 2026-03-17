@@ -1,27 +1,47 @@
 /**
- * Indicador visual de status offline
+ * Indicador visual discreto de status offline
+ * Badge minimalista no canto superior direito
  */
 
-import { WifiOff, Wifi } from 'lucide-react';
+import { WifiOff, Wifi, X } from 'lucide-react';
 import { useNetworkStatus } from '../hooks';
+import { useState, useEffect } from 'react';
 
+/**
+ * Badge discreto de offline no canto superior direito
+ */
 export function OfflineIndicator() {
-  const { isOffline, isOnline } = useNetworkStatus();
+  const { isOffline } = useNetworkStatus();
+  const [isVisible, setIsVisible] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
-  // Mostra indicador quando ficar offline
-  if (isOffline) {
-    return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-[#DC2626]/90 px-4 py-2 text-center text-sm font-medium text-white backdrop-blur-sm animate-in slide-in-from-top">
-        <div className="flex items-center justify-center gap-2">
-          <WifiOff className="h-4 w-4" />
-          <span>Você está offline. Algumas funcionalidades podem estar limitadas.</span>
-        </div>
+  useEffect(() => {
+    if (isOffline && !isDismissed) {
+      setIsVisible(true);
+    } else if (!isOffline) {
+      setIsVisible(false);
+      setIsDismissed(false); // Reset quando volta online
+    }
+  }, [isOffline, isDismissed]);
+
+  if (!isVisible || !isOffline) return null;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 animate-in fade-in duration-300">
+      <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+        <WifiOff className="h-3.5 w-3.5 text-slate-400" />
+        <span className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+          Offline
+        </span>
+        <button 
+          onClick={() => setIsDismissed(true)}
+          className="ml-1 rounded-full p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-400"
+        >
+          <X className="h-3 w-3" />
+        </button>
       </div>
-    );
-  }
-
-  // Mostra brevemente quando voltar online
-  return null;
+    </div>
+  );
 }
 
 /**
@@ -30,23 +50,27 @@ export function OfflineIndicator() {
 export function ConnectionBadge() {
   const { isOnline } = useNetworkStatus();
 
+  if (isOnline) return null;
+
   return (
-    <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-      isOnline 
-        ? 'bg-emerald-500/20 text-emerald-400' 
-        : 'bg-red-500/20 text-red-400'
-    }`}>
-      {isOnline ? (
-        <>
-          <Wifi className="h-3 w-3" />
-          <span>Online</span>
-        </>
-      ) : (
-        <>
-          <WifiOff className="h-3 w-3" />
-          <span>Offline</span>
-        </>
-      )}
+    <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-500">
+      <WifiOff className="h-3 w-3 text-slate-400" />
+      <span>Offline</span>
+    </div>
+  );
+}
+
+/**
+ * Indicador minimalista apenas com ícone
+ */
+export function OfflineIcon() {
+  const { isOffline } = useNetworkStatus();
+  
+  if (!isOffline) return null;
+  
+  return (
+    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm">
+      <WifiOff className="h-3.5 w-3.5 text-slate-400" />
     </div>
   );
 }

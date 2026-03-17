@@ -133,8 +133,8 @@ class SyncManager {
     
     // Verifica se deve sincronizar apenas no WiFi
     if (prefs.syncOnWifiOnly) {
-      const connection = navigator.connection as { type?: string } | undefined;
-      if (connection?.type !== 'wifi') {
+      const connection = (navigator as { connection?: { type?: string } }).connection;
+      if (connection && connection.type && connection.type !== 'wifi') {
         console.log('SyncManager: Aguardando WiFi para sincronizar');
         return;
       }

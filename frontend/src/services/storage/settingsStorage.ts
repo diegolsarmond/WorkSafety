@@ -21,8 +21,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 const DEFAULT_CONFIG: AppConfig = {
   version: '1.0.0',
   apiUrl: '',
-  maxImageSize: 10 * 1024 * 1024, // 10MB
-  maxOfflineStorage: 500 * 1024 * 1024, // 500MB
+  maxImageSize: 10 * 1024 * 1024, // 10MB por imagem
+  maxOfflineStorage: 100 * 1024 * 1024, // 100MB total
   compressionQuality: 0.7,
   updatedAt: new Date().toISOString(),
 };

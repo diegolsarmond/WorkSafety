@@ -175,7 +175,7 @@ export async function getStorageStats(): Promise<StorageStats> {
     
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       const estimate = await navigator.storage.estimate();
-      available = estimate.usageDetails?.indexedDB || estimate.usage || 0;
+      available = (estimate as { usageDetails?: { indexedDB?: number } }).usageDetails?.indexedDB || estimate.usage || 0;
       total = estimate.quota || 0;
     }
 

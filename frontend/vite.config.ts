@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
         strategies: 'generateSW',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
-          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+          maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,

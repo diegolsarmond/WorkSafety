@@ -9,8 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { SplashScreen } from '@/features/splash';
-import { InstallPrompt, OfflineIndicator } from '@/features/pwa/components';
-import { syncManager } from '@/services/sync';
+import { PWAProvider } from '@/features/pwa';
 
 export default function App() {
   const { checkAuth, isInitializing } = useAuthStore();
@@ -21,16 +20,10 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
-  // Inicializa o sistema de sincronização legado
+  // Inicializa o sistema de sincronização
   useEffect(() => {
     initializeSync();
   }, [initializeSync]);
-
-  // Inicializa o novo SyncManager (PWA storage)
-  useEffect(() => {
-    // Atualiza contagem de pendentes na inicialização
-    syncManager.updatePendingCount();
-  }, []);
 
   // Show splash screen first
   if (showSplash) {
@@ -40,17 +33,15 @@ export default function App() {
   // Then show loading spinner while auth is initializing
   if (isInitializing) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FAFAFA]">
+      <div className="flex min-h-screen items-center justify-center bg-[#0F1729]">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#0B7A90] border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <>
+    <PWAProvider>
       <AppRouter />
-      <OfflineIndicator />
-      <InstallPrompt />
-    </>
+    </PWAProvider>
   );
 }
