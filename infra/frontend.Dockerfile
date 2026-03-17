@@ -20,7 +20,7 @@ FROM nginx:alpine
 COPY --from=frontend-builder /build/dist /usr/share/nginx/html/worksafety
 
 # Copia o Admin (WorkSafetyWeb) - /worksafety/admin
-COPY --from=admin-builder /build/dist /usr/share/nginx/html/admin
+COPY --from=admin-builder /build/dist /usr/share/nginx/html/worksafety/admin
 
 # Copia a configuração Nginx corrigida
 COPY infra/nginx-prod.conf /etc/nginx/conf.d/default.conf
