@@ -21,7 +21,8 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
+          skipWaiting: false, // Changed to false to prevent cache issues during dev
+          navigationPreload: true,
           runtimeCaching: [
             {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
@@ -157,6 +158,9 @@ export default defineConfig(({ mode }) => {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify-file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      port: 3000,
+      host: '0.0.0.0',
+      strictPort: true,
       proxy: {
         '/api': {
           target: 'http://200.152.38.136:8000',

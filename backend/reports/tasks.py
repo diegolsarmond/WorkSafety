@@ -228,9 +228,10 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     
     # --- HEADER SECTION ---
     created_dt = assessment.created_at
-    year = created_dt.year if created_dt else 2026
-    case_num = f"#INSP-{year}-{assessment.id:03d}"
-    gen_date = created_dt.strftime("%b %d, %Y") if created_dt else "Jan 10, 2026"
+    year = created_dt.year if created_dt else timezone.now().year
+    assessment_id = assessment.id or 0
+    case_num = f"#INSP-{year}-{assessment_id:03d}"
+    gen_date = created_dt.strftime("%b %d, %Y") if created_dt else timezone.now().strftime("%b %d, %Y")
     
     # Logo and title
     header_style = ParagraphStyle(
@@ -259,13 +260,13 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     case_date = Paragraph(f'<font size=8 color="#64748b">Generated: {gen_date}</font>', styles['Normal'])
     
     case_box_content = [case_label, Spacer(1, 2), case_value, Spacer(1, 4), case_date]
-    case_box = Table([[Table([[c] for c in case_box_content], colWidths=[4*cm])]], colWidths=[4.5*cm])
-    case_box.setStyle(TableStyle([
+    inner_case_box = Table([[Table([[c] for c in case_box_content], colWidths=[4*cm])]], colWidths=[4.5*cm], rowHeights=[float(2.5*cm)])
+    inner_case_box.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     
-    header_row = Table([[logo_text, title_text, '', case_box]], colWidths=[2*cm, 6*cm, 3*cm, 4.5*cm])
+    header_row = Table([[logo_text, title_text, '', inner_case_box]], colWidths=[2*cm, 6*cm, 3*cm, 4.5*cm], rowHeights=[float(3*cm)])
     header_row.setStyle(TableStyle([
         ('ALIGN', (0,0), (0,0), 'LEFT'),
         ('ALIGN', (1,0), (1,0), 'LEFT'),
@@ -277,12 +278,12 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     elements.append(Spacer(1, 0.5*cm))
     
     # --- INFO BOXES ---
-    env_name = assessment.environment_type.name if assessment.environment_type else 'North Sector - Construction'
+    env_name = assessment.environment_type.name if assessment.environment_type else 'Unspecified Location'
     user_name = "Inspector"
     user_id = "0"
     if assessment.created_by:
-        user_name = assessment.created_by.get_full_name() or assessment.created_by.email.split('@')[0]
-        user_id = str(assessment.created_by.id)
+        user_name = assessment.created_by.get_full_name() or (assessment.created_by.email.split('@')[0] if assessment.created_by.email else "Inspector")
+        user_id = str(assessment.created_by.id) if assessment.created_by.id else "0"
     
     # Info box style
     info_label_style = ParagraphStyle('InfoLabel', fontSize=7, textColor=slate_400, spaceAfter=2)
@@ -297,21 +298,21 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     insp_value = Paragraph(f'<b>{user_name} (ID: {user_id})</b>', info_value_style)
     
     # Create info boxes
-    loc_box = Table([[loc_label], [loc_value]], colWidths=[7*cm])
+    loc_box = Table([[loc_label], [loc_value]], colWidths=[7*cm], rowHeights=[float(0.8*cm), float(0.6*cm)])
     loc_box.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), slate_50),
         ('PADDING', (0,0), (-1,-1), 10),
         ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
     ]))
     
-    insp_box = Table([[insp_label], [insp_value]], colWidths=[7*cm])
+    insp_box = Table([[insp_label], [insp_value]], colWidths=[7*cm], rowHeights=[float(0.8*cm), float(0.6*cm)])
     insp_box.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), slate_50),
         ('PADDING', (0,0), (-1,-1), 10),
         ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
     ]))
     
-    info_row = Table([[loc_box, insp_box]], colWidths=[7.5*cm, 7.5*cm])
+    info_row = Table([[loc_box, insp_box]], colWidths=[7.5*cm, 7.5*cm], rowHeights=[float(1.6*cm)])
     info_row.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT')]))
     elements.append(info_row)
     elements.append(Spacer(1, 0.6*cm))
@@ -328,7 +329,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     section_header = Table([
         [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=teal_primary)),
          Paragraph('EVIDENCE & FINDINGS', section_title_style)]
-    ], colWidths=[0.3*cm, 14.7*cm])
+    ], colWidths=[0.8*cm, 14*cm], rowHeights=[float(0.5*cm)])
     section_header.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -347,7 +348,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             img_path = evidences[0].file.path
             img = Image(img_path, width=7*cm, height=5*cm)
             img_caption = Paragraph('<font size=8 color="#64748b">Fig 1. Site Capture - 10:42 AM</font>', styles['Normal'])
-            img_cell = Table([[img], [Spacer(1, 2)], [img_caption]], colWidths=[7*cm])
+            img_cell = Table([[img], [Spacer(1, 2)], [img_caption]], colWidths=[7*cm], rowHeights=[float(5*cm), float(0.2*cm), float(0.4*cm)])
             img_cell.setStyle(TableStyle([
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -381,7 +382,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
         badge_row = Table([
             [Paragraph(f'<font size=7 color="white"><b>{badge_text.upper()}</b></font>', styles['Normal']),
              Paragraph(f'<font size=7 color="#64748b"><b>{confidence} Confidence</b></font>', styles['Normal'])]
-        ], colWidths=[2*cm, 4.5*cm])
+        ], colWidths=[2*cm, 4.5*cm], rowHeights=[float(0.4*cm)])
         badge_row.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (0,-1), badge_color),
             ('PADDING', (0,0), (0,-1), 4),
@@ -397,7 +398,9 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             card_elements.append(Paragraph(f'<font size=8 color="#64748b">{body}</font>', styles['Normal']))
         
         # Wrap in table for styling
-        card = Table([[c] for c in card_elements], colWidths=[6.8*cm])
+        card_row_count = len(card_elements)
+        card_heights = [float(0.4*cm)] * card_row_count
+        card = Table([[c] for c in card_elements], colWidths=[6.8*cm], rowHeights=card_heights)
         card.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), bg_color),
             ('PADDING', (0,0), (-1,-1), 10),
@@ -409,15 +412,20 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     if not finding_cards:
         finding_cards = [Paragraph('<font color="#cbd5e1" size=9>No findings recorded</font>', styles['Normal'])]
     
-    # Use KeepTogether instead of nested Table to avoid ReportLab height calculation issues
-    findings_content = KeepTogether(finding_cards)
+    # Wrap findings in a container table to keep them together
+    findings_container = Table([finding_cards], colWidths=[6.8*cm], rowHeights=[float(5*cm)])
+    findings_container.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    findings_content = findings_container
     
     # Combine image and findings using a two-column layout
     # Use explicit rowHeights to avoid None values in ReportLab
+    # Ensure all values are explicitly converted to float to avoid type issues
     content_row = Table(
         [[img_cell, findings_content]],
-        colWidths=[7.2*cm, 7.8*cm],
-        rowHeights=[5*cm],
+        colWidths=[float(7.2*cm), float(7.8*cm)],
+        rowHeights=[float(5*cm)],
     )
     content_row.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
@@ -430,7 +438,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     ai_header = Table([
         [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=slate_400)),
          Paragraph('AI RECOMMENDATIONS', section_title_style)]
-    ], colWidths=[0.3*cm, 14.7*cm])
+    ], colWidths=[0.8*cm, 14*cm], rowHeights=[float(0.5*cm)])
     ai_header.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -484,7 +492,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     stamp_text = Paragraph('<font size=14 color="#4fd1c5"><i><b>APPROVED</b></i></font>', ParagraphStyle('StampText', alignment=TA_CENTER))
     stamp_date = Paragraph(f'<font size=7 color="#4fd1c5"><b>{gen_date}</b></font>', ParagraphStyle('StampDate', alignment=TA_CENTER))
     
-    stamp = Table([[stamp_label], [stamp_text], [stamp_date]], colWidths=[3.5*cm])
+    stamp = Table([[stamp_label], [stamp_text], [stamp_date]], colWidths=[3.5*cm], rowHeights=[float(0.5*cm), float(0.8*cm), float(0.5*cm)])
     stamp.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -499,7 +507,8 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
          [sig_line, '', stamp_date],
          [sig_info, '', ''],
          [sig_id, '', '']],
-        colWidths=[5.5*cm, 4*cm, 3.5*cm]
+        colWidths=[5.5*cm, 4*cm, 3.5*cm],
+        rowHeights=[float(0.6*cm), float(0.5*cm), float(0.3*cm), float(0.4*cm), float(0.3*cm)]
     )
     sig_block.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
@@ -509,7 +518,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     ]))
     
     # Dark footer background
-    footer = Table([[sig_block]], colWidths=[17*cm])
+    footer = Table([[sig_block]], colWidths=[17*cm], rowHeights=[float(2.2*cm)])
     footer.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), dark_bg),
         ('PADDING', (0,0), (-1,-1), 12),

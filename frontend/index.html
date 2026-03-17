@@ -68,5 +68,35 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Handle module loading errors (cache issues)
+      window.addEventListener('error', function(e) {
+        if (e.target && e.target.tagName === 'SCRIPT') {
+          console.error('Script loading error:', e.target.src);
+          // If it's a module script error, likely cache issue
+          if (e.target.type === 'module' || e.target.src.includes('.js')) {
+            // Check if we've already tried reloading
+            if (!sessionStorage.getItem('cache_cleared')) {
+              sessionStorage.setItem('cache_cleared', 'true');
+              console.log('Attempting to clear cache and reload...');
+              // Clear caches and reload
+              if ('caches' in window) {
+                caches.keys().then(function(cacheNames) {
+                  return Promise.all(
+                    cacheNames.map(function(cacheName) {
+                      return caches.delete(cacheName);
+                    })
+                  );
+                }).then(function() {
+                  window.location.reload(true);
+                });
+              } else {
+                window.location.reload(true);
+              }
+            }
+          }
+        }
+      }, true);
+    </script>
   </body>
 </html>

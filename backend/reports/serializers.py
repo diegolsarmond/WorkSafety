@@ -9,9 +9,22 @@ class ReportSerializer(serializers.ModelSerializer):
     Campos expostos para compatibilidade com WorkSafetyWeb/src/pages/Reports.tsx:
     - id, assessment_id, status, file_url, created_at
     """
-    assessment_id = serializers.IntegerField(read_only=True, allow_null=True)
+    assessment_id = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    generation_time_seconds = serializers.SerializerMethodField()
+    
+    def get_assessment_id(self, obj: Report) -> int | None:
+        """Retorna o ID da avaliação ou None se não existir."""
+        if obj.assessment_id:
+            return int(obj.assessment_id)
+        return None
+    
+    def get_generation_time_seconds(self, obj: Report) -> float | None:
+        """Retorna o tempo de geração ou None se não existir."""
+        if obj.generation_time_seconds is not None:
+            return float(obj.generation_time_seconds)
+        return None
 
     class Meta:
         model = Report
