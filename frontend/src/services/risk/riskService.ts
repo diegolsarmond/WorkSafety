@@ -9,7 +9,7 @@ import type {
   AssessmentStatus,
 } from '@/types/risk';
 
-const API_PREFIX = '/assessments';
+const API_PREFIX = 'assessments';
 
 /** Erro específico do serviço de riscos */
 export class RiskServiceError extends Error {

@@ -1,18 +1,58 @@
 # WorkSafety
 
-Monorepo do projeto WorkSafety (prevenção / segurança no trabalho).
+Monorepo do projeto WorkSafety (Plataforma de Prevenção e Segurança no Trabalho com IA).
 
-## Estrutura
+O WorkSafety é uma solução completa para análise de riscos utilizando IA, contando com aplicativo móvel (PWA), painel administrativo e um backend robusto em Django.
 
-- **backend/** — API Django (REST, JWT, auth, lockout). Ver [backend/README.md](backend/README.md).
-- **infra/** — Docker Compose (PostgreSQL + backend).
-- **documentacao/** — Documentos de visão e planejamento.
+## 📚 Documentação Completa
 
-## Subir o backend localmente
+Para um guia definitivo e unificado de todas as áreas do projeto, acesse:
+👉 **[DOCUMENTACAO_UNIFICADA.md](DOCUMENTACAO_UNIFICADA.md)**
 
-```bash
-cd infra
-docker compose up -d
-```
+## 🏗️ Estrutura do Projeto
 
-Depois crie um usuário e teste o login conforme [backend/README.md](backend/README.md).
+- **`backend/`** — API em Django (REST, JWT, auth), integração Celery/Redis para processamento assíncrono de IA (Integração Olímpia API).
+- **`frontend/`** — Aplicativo Móvel PWA (React + Vite) usado para inspeções e captura de imagens de riscos no local de trabalho.
+- **`WorkSafetyWeb/`** — Painel Administrativo Web (React + Vite) usado para gerenciar inspeções, usuários, visualizar relatórios e pagamentos.
+- **`infra/`** — Orquestração de containers com Docker Compose. Contém as configurações para ambiente local e de produção (PostgreSQL, Redis, Celery, Nginx proxy).
+
+## 🚀 Como Executar Localmente
+
+### Pré-requisitos
+- Docker e Docker Compose instalados.
+
+### Passo a Passo
+
+1. **Subir toda a infraestrutura (Backend, Banco de Dados, Redis, Celery Worker):**
+   ```bash
+   cd infra
+   docker-compose up -d --build
+   ```
+
+2. **Backend (API):**
+   A API estará rodando em `http://localhost:8000`. Crie um superusuário para acessar o sistema:
+   ```bash
+   docker-compose exec backend python manage.py createsuperuser
+   ```
+
+3. **Frontend App (PWA para os trabalhadores/inspetores):**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   # Acessível em http://localhost:3000
+   ```
+
+4. **WorkSafetyWeb (Painel Admin):**
+   ```bash
+   cd WorkSafetyWeb
+   npm install
+   npm run dev
+   # Acessível em http://localhost:3000 ou 3001 (dependendo da porta configurada localmente)
+   ```
+
+*(Nota: Em produção, ambos os frontends rodam sob a mesma porta controlados pelo Nginx em contextos separados `/worksafety/` e `/admin/`)*.
+
+---
+
+Para detalhes sobre deploy em produção, variáveis de ambiente ou funcionamento da submissão assíncrona de IA, consulte a [Documentação Unificada](DOCUMENTACAO_UNIFICADA.md).

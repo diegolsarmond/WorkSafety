@@ -22,7 +22,7 @@ export interface RiskTypeListResponse {
  */
 export async function listRiskTypes(): Promise<RiskType[]> {
   try {
-    const response = await apiClient.get<RiskTypeListResponse>('/admin/risk-types/', {
+    const response = await apiClient.get<RiskTypeListResponse>('admin/risk-types/', {
       params: { active: true },
     });
     return response.data.results || [];
@@ -38,7 +38,7 @@ export async function listRiskTypes(): Promise<RiskType[]> {
  */
 export async function getRiskType(id: number): Promise<RiskType | null> {
   try {
-    const response = await apiClient.get<RiskType>(`/admin/risk-types/${id}/`);
+    const response = await apiClient.get<RiskType>(`admin/risk-types/${id}/`);
     return response.data;
   } catch (error) {
     console.error(`[RiskTypeService] Failed to fetch risk type ${id}:`, error);
