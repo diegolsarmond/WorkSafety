@@ -146,23 +146,17 @@ export function useRiskAssessment(
       // Status draft ou captured (ainda não processado)
       if (data.status === 'draft' || data.status === 'captured') {
         setScreenState({
-          type: 'loading',
-          message: 'Waiting for image synchronization...',
+          type: 'data',
+          assessment: data,
         });
         return;
       }
       
-      if (data.risks.length === 0) {
-        setScreenState({
-          type: 'empty',
-          message: 'No risks detected for this assessment',
-        });
-      } else {
-        setScreenState({
-          type: 'data',
-          assessment: data,
-        });
-      }
+      // Sempre mostrar os dados se tivermos uma resposta válida da API
+      setScreenState({
+        type: 'data',
+        assessment: data,
+      });
     } catch (error) {
       if (error instanceof RiskServiceError) {
         setScreenState({
@@ -228,9 +222,11 @@ export function useRiskAssessment(
   useEffect(() => {
     if (!refreshInterval || !assessmentId) return;
     
+    // Só fazer polling se estiver aguardando processamento
+    if (screenState.type !== 'loading') return;
+    
     // Intervalo mais curto quando está processando IA
-    const isProcessing = screenState.type === 'loading' && 
-      screenState.message?.includes('AI');
+    const isProcessing = screenState.message?.includes('AI');
     const effectiveInterval = isProcessing ? 5000 : refreshInterval; // 5s quando processando
     
     const interval = setInterval(() => {

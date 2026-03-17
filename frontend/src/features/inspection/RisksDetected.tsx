@@ -248,7 +248,6 @@ function LoadingState({ message }: { message: string }) {
             <div className="absolute inset-0 border-4 border-teal-100 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-teal-500 rounded-full border-t-transparent animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl">🤖</span>
             </div>
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-2">AI Analysis in Progress</h3>

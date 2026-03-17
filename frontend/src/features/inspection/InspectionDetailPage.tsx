@@ -110,7 +110,7 @@ export function InspectionDetailPage() {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-lg font-bold text-gray-900">
-            #{assessment.id.slice(0, 8).toUpperCase()}
+            #{String(assessment.id).slice(0, 8).toUpperCase()}
           </h1>
           <p className="text-xs text-gray-500 mt-1">DRAFT (AI)</p>
         </div>
@@ -187,7 +187,7 @@ export function InspectionDetailPage() {
           {/* AI Analysis Header */}
           <div>
             <h2 className="text-lg font-bold text-[#0b6b82] flex items-center gap-2 mb-4">
-              <span className="text-xl">🤖</span> AI Analysis
+              AI Analysis
             </h2>
           </div>
 
