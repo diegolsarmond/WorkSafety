@@ -21,7 +21,7 @@ console.log('🧪 Running SyncStorage tests...\n');
 const createMockJob = (overrides: Partial<SyncJob> = {}): SyncJob => ({
   id: generateId(),
   assessmentDraft: {
-    title: 'Test Inspection',
+    title: 'Test Analysis',
     description: 'Test description',
     environment: 'construction',
     category: 'General Safety',

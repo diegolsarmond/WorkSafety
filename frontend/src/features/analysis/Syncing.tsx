@@ -12,7 +12,7 @@ import { Button } from '@/ui/components/Button';
 import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
 import { SyncJob } from '@/types/sync';
 import { SyncStorage } from '@/services/sync/syncStorage';
-import { useInspectionStore } from '@/store/inspectionStore';
+import { useAnalysisStore } from '@/store/analysisStore';
 
 /**
  * Página de sincronização
@@ -23,7 +23,7 @@ import { useInspectionStore } from '@/store/inspectionStore';
 export function Syncing() {
   const navigate = useNavigate();
   const { jobs, isProcessing, refresh } = useSyncQueue();
-  const { setAssessmentId } = useInspectionStore();
+  const { setAssessmentId } = useAnalysisStore();
   
   // Encontra o job mais recente (que acabamos de criar)
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
@@ -65,7 +65,7 @@ export function Syncing() {
         setAssessmentId(assessmentId);
         
         // Passa o assessmentId para a tela de riscos
-        navigate("/inspection/risks", {
+        navigate("/analysis/risks", {
           state: { 
             assessmentId: assessmentId
           }
@@ -258,7 +258,7 @@ export function Syncing() {
             onClick={() => {
               const assessmentId = currentJob?.assessmentId || currentJob?.id;
               setAssessmentId(assessmentId);
-              navigate("/inspection/risks", {
+              navigate("/analysis/risks", {
                 state: { 
                   assessmentId: assessmentId
                 }

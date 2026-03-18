@@ -77,7 +77,7 @@ if (userCount.count === 0) {
   db.prepare('INSERT INTO ai_thresholds (threshold_value, updated_by) VALUES (?, ?)').run(60, 1);
   
   // Sample data
-  db.prepare('INSERT INTO assessment_types (name, description) VALUES (?, ?)').run('Safety Inspection', 'General safety inspection');
+  db.prepare('INSERT INTO assessment_types (name, description) VALUES (?, ?)').run('Safety Analysis', 'General safety analysis');
   db.prepare('INSERT INTO environment_types (name, description) VALUES (?, ?)').run('Construction Site', 'Outdoor construction area');
   db.prepare('INSERT INTO risk_types (name, description) VALUES (?, ?)').run('Missing PPE', 'Worker not wearing required PPE');
   

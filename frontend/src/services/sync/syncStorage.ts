@@ -134,7 +134,7 @@ export class SyncStorage {
   }
 
   /**
-   * Migra dados legados do inspection-storage para a nova fila
+   * Migra dados legados do analysis-storage para a nova fila
    * Chamado uma vez na inicialização
    */
   static async migrateLegacyData(): Promise<void> {
@@ -159,8 +159,8 @@ export class SyncStorage {
         const newJob: SyncJob = {
           id: generateId(),
           assessmentDraft: {
-            title: `Inspection - ${environment || 'Unknown'} - ${category || 'General'}`,
-            description: `Automated inspection for ${environment || 'unknown'} concerning ${category || 'General'}.`,
+            title: `Analysis - ${environment || 'Unknown'} - ${category || 'General'}`,
+            description: `Automated analysis for ${environment || 'unknown'} concerning ${category || 'General'}.`,
             environment: environment || 'other',
             category: category || 'General Safety',
             status: 'draft',
@@ -181,7 +181,7 @@ export class SyncStorage {
         // Limpa o storage legado para evitar migração duplicada
         await del(LEGACY_INSPECTION_KEY);
         
-        console.log('[SyncStorage] Migrated legacy inspection data to sync queue');
+        console.log('[SyncStorage] Migrated legacy analysis data to sync queue');
       }
     } catch (error) {
       console.error('[SyncStorage] Error migrating legacy data:', error);

@@ -193,7 +193,7 @@ if not DEBUG:
 # HTTPS/Proxy settings - permite que o Django reconheça HTTPS atrás do nginx
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
-MEDIA_URL = "media/"
+MEDIA_URL = os.environ.get("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"
 
 TEMPLATES = [

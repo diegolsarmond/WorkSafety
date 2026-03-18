@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Eye, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
-import { useInspectionStore } from '../../store/inspectionStore';
+import { useAnalysisStore } from '../../store/analysisStore';
 import { useSyncStore } from '@/store/syncStore';
 
 export function ReviewPhotos() {
   const navigate = useNavigate();
-  const { photos, removePhoto, environment, category, reset } = useInspectionStore();
+  const { photos, removePhoto, environment, category, reset } = useAnalysisStore();
   const { addJob } = useSyncStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -20,8 +20,8 @@ export function ReviewPhotos() {
       // Adiciona à fila de sincronização
       await addJob(
         {
-          title: `Inspection - ${environment} - ${category}`,
-          description: `Automated inspection for ${environment} concerning ${category}.`,
+          title: `Analysis - ${environment} - ${category}`,
+          description: `Automated analysis for ${environment} concerning ${category}.`,
           environment,
           category,
           status: 'draft',
@@ -33,10 +33,10 @@ export function ReviewPhotos() {
       reset();
 
       // Navega para a página de sincronização
-      navigate('/inspection/syncing');
+      navigate('/analysis/syncing');
     } catch (error) {
-      console.error('Error submitting inspection:', error);
-      alert('Error submitting inspection. Please try again.');
+      console.error('Error submitting analysis:', error);
+      alert('Error submitting analysis. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -50,7 +50,7 @@ export function ReviewPhotos() {
         </button>
         <h1 className="text-xl font-bold text-gray-900">Review Photos ({photos.length})</h1>
         <button
-          onClick={() => navigate('/inspection/camera')}
+          onClick={() => navigate('/analysis/camera')}
           className="flex items-center gap-1 text-[#0b6b82] font-bold"
         >
           <Plus className="w-5 h-5" /> Add
@@ -83,7 +83,7 @@ export function ReviewPhotos() {
 
           {photos.length < 10 && (
             <button
-              onClick={() => navigate('/inspection/camera')}
+              onClick={() => navigate('/analysis/camera')}
               className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 hover:border-[#0b6b82] hover:text-[#0b6b82] transition-colors"
             >
               <Plus className="w-8 h-8" />

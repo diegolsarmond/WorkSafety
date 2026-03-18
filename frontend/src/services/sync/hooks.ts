@@ -13,7 +13,7 @@ interface UseSyncManagerReturn {
   lastSync?: string;
   error?: string;
   forceSync: () => Promise<void>;
-  queueInspection: (inspection: OfflineInspection) => Promise<void>;
+  queueAnalysis: (analysis: OfflineInspection) => Promise<void>;
 }
 
 export function useSyncManager(): UseSyncManagerReturn {
@@ -43,14 +43,14 @@ export function useSyncManager(): UseSyncManagerReturn {
     await syncManager.forceSync();
   }, []);
 
-  const queueInspection = useCallback(async (inspection: OfflineInspection) => {
-    await syncManager.queueInspection(inspection);
+  const queueAnalysis = useCallback(async (analysis: OfflineInspection) => {
+    await syncManager.queueAnalysis(analysis);
   }, []);
 
   return {
     ...state,
     forceSync,
-    queueInspection,
+    queueAnalysis,
   };
 }
 

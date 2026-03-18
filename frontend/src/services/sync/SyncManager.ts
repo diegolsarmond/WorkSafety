@@ -148,7 +148,7 @@ class SyncManager {
       await this.processSyncQueue();
       
       // Depois sincroniza inspeções pendentes
-      await this.syncPendingInspections();
+      await this.syncPendingAnalyses();
       
       this.setState({
         status: 'idle',
@@ -197,7 +197,7 @@ class SyncManager {
   private async processQueueItem(item: SyncQueueItem): Promise<void> {
     switch (item.type) {
       case 'inspection':
-        await this.syncInspectionToServer(item.data as OfflineInspection);
+        await this.syncAnalysisToServer(item.data as OfflineInspection);
         break;
       case 'image':
         await this.syncImageToServer(item.data as { imageId: string; url: string });
@@ -210,17 +210,17 @@ class SyncManager {
     }
   }
 
-  private async syncPendingInspections(): Promise<void> {
+  private async syncPendingAnalyses(): Promise<void> {
     const pending = await listOfflineInspections({ status: 'pending' });
     
-    for (const inspection of pending) {
+    for (const analysis of pending) {
       if (!navigator.onLine) break;
       
       try {
-        await updateOfflineInspection(inspection.localId, { status: 'syncing' });
-        await this.syncInspectionToServer(inspection);
+        await updateOfflineInspection(analysis.localId, { status: 'syncing' });
+        await this.syncAnalysisToServer(analysis);
       } catch (error) {
-        await updateOfflineInspection(inspection.localId, {
+        await updateOfflineInspection(analysis.localId, {
           status: 'error',
           lastError: error instanceof Error ? error.message : 'Erro ao sincronizar',
         });
@@ -228,20 +228,20 @@ class SyncManager {
     }
   }
 
-  private async syncInspectionToServer(inspection: OfflineInspection): Promise<void> {
+  private async syncAnalysisToServer(analysis: OfflineInspection): Promise<void> {
     // TODO: Implementar integração com API real
     // Por enquanto simula o envio
-    console.log('SyncManager: Enviando inspeção', inspection.localId);
+    console.log('SyncManager: Enviando análise', analysis.localId);
     
     // Simula delay de rede
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // Marca como sincronizado
     const serverId = `server_${Date.now()}`;
-    await markInspectionAsSynced(inspection.localId, serverId);
+    await markInspectionAsSynced(analysis.localId, serverId);
     
     // Marca imagens como sincronizadas
-    for (const imageId of inspection.data.images) {
+    for (const imageId of analysis.data.images) {
       await markImageAsSynced(imageId);
     }
   }
@@ -258,10 +258,10 @@ class SyncManager {
   // ========== PUBLIC API ==========
 
   /**
-   * Adiciona inspeção para sincronização
+   * Adiciona análise para sincronização
    */
-  async queueInspection(inspection: OfflineInspection): Promise<void> {
-    await addToSyncQueue('inspection', 'create', inspection, 'high');
+  async queueAnalysis(analysis: OfflineInspection): Promise<void> {
+    await addToSyncQueue('inspection', 'create', analysis, 'high');
     await this.updatePendingCount();
     
     // Tenta sincronizar imediatamente se online

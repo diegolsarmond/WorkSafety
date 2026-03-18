@@ -240,7 +240,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
         follow_up_date = assessment.created_at + timedelta(days=2) if assessment.created_at else timezone.now() + timedelta(days=2)
         
         # Número de caso
-        case_number = f"#INSP-{assessment.created_at.year if assessment.created_at else timezone.now().year}-{assessment.id:03d}"
+        case_number = f"#ANLY-{assessment.created_at.year if assessment.created_at else timezone.now().year}-{assessment.id:03d}"
         
         # Dados do inspetor
         inspector_name = "Inspector"

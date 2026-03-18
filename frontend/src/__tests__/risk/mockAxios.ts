@@ -32,8 +32,8 @@ export const mockRecommendations = [
   },
   {
     id: '2',
-    title: 'Schedule Inspection',
-    description: 'Perform detailed inspection within 24 hours',
+    title: 'Schedule Analysis',
+    description: 'Perform detailed analysis within 24 hours',
     priority: 'high' as const,
   },
 ];
@@ -97,8 +97,8 @@ export const mockRisks = [
 
 export const mockAssessmentDetail: RiskAssessmentDetail = {
   id: '123',
-  title: 'Construction Site Inspection',
-  description: 'Weekly safety inspection of building site',
+  title: 'Construction Site Analysis',
+  description: 'Weekly safety analysis of building site',
   status: 'ai_reviewed',
   status_display: 'Revisado por IA',
   created_by: '1',
@@ -132,8 +132,8 @@ export const mockAssessmentDetail: RiskAssessmentDetail = {
 
 export const mockAssessmentSummary: RiskAssessmentSummary = {
   id: '123',
-  title: 'Construction Site Inspection',
-  description: 'Weekly safety inspection of building site',
+  title: 'Construction Site Analysis',
+  description: 'Weekly safety analysis of building site',
   status: 'ai_reviewed',
   created_by_email: 'inspector@example.com',
   risk_count: 3,
