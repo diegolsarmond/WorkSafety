@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ChevronRight, X } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
-import { useInspectionStore } from '@/store/inspectionStore';
+import { useAnalysisStore } from '@/store/analysisStore';
 
 export function ReviewValidation() {
   const navigate = useNavigate();
-  const { photos, setStatus, assessmentId } = useInspectionStore();
+  const { photos, setStatus, assessmentId } = useAnalysisStore();
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const handleSave = () => {
@@ -50,7 +50,7 @@ export function ReviewValidation() {
           <h2 className="text-sm font-bold text-gray-500 tracking-wider mb-4">ANALYSIS RESULT</h2>
 
           <button
-            onClick={() => navigate('/inspection/risks', {
+            onClick={() => navigate('/analysis/risks', {
               state: { assessmentId }
             })}
             className="w-full bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between hover:bg-gray-50 transition-colors"

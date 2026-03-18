@@ -125,21 +125,23 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center pt-3 pb-3">
-              <div className="relative flex items-center justify-center w-5 h-5">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="peer appearance-none w-5 h-5 border-2 border-gray-300 rounded-full checked:bg-white checked:border-[#0B7A90] focus:ring-2 focus:ring-[#0B7A90] focus:ring-offset-2 transition-all cursor-pointer"
-                  checked={formData.keepSignedIn}
-                  onChange={(e) => setFormData({ ...formData, keepSignedIn: e.target.checked })}
-                  disabled={isLoading}
-                />
-                <div className="pointer-events-none absolute w-2.5 h-2.5 rounded-full bg-[#0B7A90] opacity-0 peer-checked:opacity-100 transition-opacity" />
-              </div>
-              <label htmlFor="remember-me" className="ml-3 block text-[15px] text-gray-700 cursor-pointer">
-                Keep me signed in
+            <div className="pt-3 pb-3">
+              <label htmlFor="remember-me" className="inline-flex items-center gap-3 cursor-pointer select-none py-1 pr-2">
+                <div className="relative flex items-center justify-center w-5 h-5">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="remember-me-checkbox peer appearance-none w-4 h-4 border-2 border-gray-300 rounded-full checked:bg-white checked:border-[#0B7A90] focus:ring-2 focus:ring-[#0B7A90] focus:ring-offset-2 transition-all cursor-pointer"
+                    checked={formData.keepSignedIn}
+                    onChange={(e) => setFormData({ ...formData, keepSignedIn: e.target.checked })}
+                    disabled={isLoading}
+                  />
+                  <div className="pointer-events-none absolute w-2 h-2 rounded-full bg-[#0B7A90] opacity-0 peer-checked:opacity-100 transition-opacity" />
+                </div>
+                <span className="block text-[15px] text-gray-700">
+                  Keep me signed in
+                </span>
               </label>
             </div>
 

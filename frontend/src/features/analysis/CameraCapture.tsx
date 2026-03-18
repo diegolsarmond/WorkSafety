@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera } from "lucide-react";
 
-import { useInspectionStore } from "../../store/inspectionStore";
+import { useAnalysisStore } from "../../store/analysisStore";
 
 // Gerador de UUID v4 compatível com todos os contextos (HTTP/HTTPS)
 function generateUUID(): string {
@@ -15,7 +15,7 @@ function generateUUID(): string {
 
 export function CameraCapture() {
   const navigate = useNavigate();
-  const { photos, addPhoto } = useInspectionStore();
+  const { photos, addPhoto } = useAnalysisStore();
   const [privacyMode, setPrivacyMode] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -74,7 +74,7 @@ export function CameraCapture() {
         setProcessing(false);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2000); // Visual confirmation hides after 2s
-        setTimeout(() => navigate('/inspection/review'), 300);
+        setTimeout(() => navigate('/analysis/review'), 300);
       } else {
         URL.revokeObjectURL(objectUrl);
         setProcessing(false);
@@ -93,7 +93,7 @@ export function CameraCapture() {
     const file = e.target.files?.[0];
     if (file) {
       if (photos.length >= 10) {
-        alert("Maximum 10 photos allowed per inspection.");
+        alert("Maximum 10 photos allowed per analysis.");
         return;
       }
       processAndSaveImage(file);
@@ -164,7 +164,7 @@ export function CameraCapture() {
           </label>
 
           <button
-            onClick={() => navigate("/inspection/review")}
+            onClick={() => navigate("/analysis/review")}
             className="relative p-4 rounded-full bg-white/10 text-white"
           >
             <ImageIcon className="w-6 h-6" />

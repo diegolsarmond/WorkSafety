@@ -5,13 +5,13 @@ import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
 import HomePage from '@/features/dashboard/pages/HomePage';
 import UsersPage from '@/features/admin/pages/UsersPage';
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute';
-import { NewInspection } from '@/features/inspection/NewInspection';
-import { CameraCapture } from '@/features/inspection/CameraCapture';
-import { ReviewPhotos } from '@/features/inspection/ReviewPhotos';
-import { Syncing } from '@/features/inspection/Syncing';
-import { RisksDetected } from '@/features/inspection/RisksDetected';
-import { ReviewValidation } from '@/features/inspection/ReviewValidation';
-import InspectionDetailPage from '@/features/inspection/InspectionDetailPage';
+import { NewAnalysis } from '@/features/analysis/NewAnalysis';
+import { CameraCapture } from '@/features/analysis/CameraCapture';
+import { ReviewPhotos } from '@/features/analysis/ReviewPhotos';
+import { Syncing } from '@/features/analysis/Syncing';
+import { RisksDetected } from '@/features/analysis/RisksDetected';
+import { ReviewValidation } from '@/features/analysis/ReviewValidation';
+import AnalysisDetailPage from '@/features/analysis/AnalysisDetailPage';
 import { SyncQueuePage } from '@/features/sync';
 import { AIQueuePage } from '@/features/ai-queue';
 import { ReportsPage } from '@/features/reports';
@@ -39,16 +39,16 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/new"
+          path="/analysis/new"
           element={
             <ProtectedRoute>
-              <NewInspection />
+              <NewAnalysis />
             </ProtectedRoute>
           }
         />
 
         <Route
-          path="/inspection/camera"
+          path="/analysis/camera"
           element={
             <ProtectedRoute>
               <CameraCapture />
@@ -57,7 +57,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/review"
+          path="/analysis/review"
           element={
             <ProtectedRoute>
               <ReviewPhotos />
@@ -66,7 +66,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/syncing"
+          path="/analysis/syncing"
           element={
             <ProtectedRoute>
               <Syncing />
@@ -75,7 +75,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/risks"
+          path="/analysis/risks"
           element={
             <ProtectedRoute>
               <RisksDetected />
@@ -84,7 +84,7 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/validation"
+          path="/analysis/validation"
           element={
             <ProtectedRoute>
               <ReviewValidation />
@@ -93,10 +93,10 @@ export default function AppRouter() {
         />
 
         <Route
-          path="/inspection/:assessmentId"
+          path="/analysis/:assessmentId"
           element={
             <ProtectedRoute>
-              <InspectionDetailPage />
+              <AnalysisDetailPage />
             </ProtectedRoute>
           }
         />

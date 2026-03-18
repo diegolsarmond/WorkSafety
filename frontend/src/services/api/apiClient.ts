@@ -72,7 +72,7 @@ apiClient.interceptors.response.use(
         console.error('[API] Token refresh failed, logging out');
         SecureStorage.removeItem(AUTH_TOKEN_KEY);
         SecureStorage.removeItem(REFRESH_TOKEN_KEY);
-        window.location.href = '/worksafety/login';
+        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
 
@@ -80,7 +80,7 @@ apiClient.interceptors.response.use(
       console.error('[API] No refresh token, clearing storage and redirecting to login');
       SecureStorage.removeItem(AUTH_TOKEN_KEY);
       SecureStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.location.href = '/worksafety/login';
+      window.location.href = '/login';
     }
 
     return Promise.reject(error);

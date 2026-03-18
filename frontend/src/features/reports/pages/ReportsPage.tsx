@@ -27,6 +27,35 @@ interface Report {
   error_message: string;
 }
 
+const getInspectionId = (report: Report): number | undefined => {
+  const inspectionId = report.assessment_id ?? report.assessment;
+  return typeof inspectionId === 'number' ? inspectionId : undefined;
+};
+
+const keepLatestReportPerInspection = (reportList: Report[]): Report[] => {
+  const seenInspectionIds = new Set<number>();
+  const latestReports: Report[] = [];
+
+  for (const report of reportList) {
+    const inspectionId = getInspectionId(report);
+
+    // If inspection id is missing, keep item visible instead of dropping data.
+    if (inspectionId === undefined) {
+      latestReports.push(report);
+      continue;
+    }
+
+    if (seenInspectionIds.has(inspectionId)) {
+      continue;
+    }
+
+    seenInspectionIds.add(inspectionId);
+    latestReports.push(report);
+  }
+
+  return latestReports;
+};
+
 // API base URL - remove trailing slash to avoid duplication
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://200.152.38.136:8000/api/').replace(/\/$/, '');
 
@@ -61,7 +90,8 @@ export default function ReportsPage() {
       }
 
       const data = await response.json();
-      setReports(data);
+      const latestReports = keepLatestReportPerInspection(Array.isArray(data) ? data : []);
+      setReports(latestReports);
     } catch (err) {
       setError('Unable to load reports. Please try again.');
     } finally {
@@ -75,7 +105,7 @@ export default function ReportsPage() {
       const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
       
       // Remove old failed report for this assessment before regenerating
-      setReports((prev) => prev.filter((r) => !(r.assessment_id === assessmentId && r.status === 'failed')));
+      setReports((prev) => prev.filter((r) => !(getInspectionId(r) === assessmentId && r.status === 'failed')));
       
       const response = await fetch(
         `${API_BASE}/admin/assessments/${assessmentId}/regenerate-report/`,
@@ -239,7 +269,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 text-sm truncate">
-                        Inspection #{report.assessment_id || report.assessment}
+                        Inspection #{getInspectionId(report)}
                       </h3>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {new Date(report.created_at).toLocaleString('en-US', {
@@ -286,12 +316,17 @@ export default function ReportsPage() {
                     
                     {report.status === 'failed' && (
                       <Button
-                        onClick={() => regenerateReport((report.assessment_id || report.assessment) as number)}
+                        onClick={() => {
+                          const inspectionId = getInspectionId(report);
+                          if (inspectionId !== undefined) {
+                            regenerateReport(inspectionId);
+                          }
+                        }}
                         variant="outline"
-                        disabled={regenerating === (report.assessment_id || report.assessment)}
+                        disabled={regenerating === getInspectionId(report)}
                         className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2"
                       >
-                        {regenerating === (report.assessment_id || report.assessment) ? (
+                        {regenerating === getInspectionId(report) ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <RefreshCw className="w-3.5 h-3.5" />
@@ -310,7 +345,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 text-sm lg:text-base">
-                        Inspection #{report.assessment_id || report.assessment}
+                        Inspection #{getInspectionId(report)}
                       </h3>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs lg:text-sm text-gray-500">
                         <span>
@@ -352,12 +387,17 @@ export default function ReportsPage() {
                       
                       {report.status === 'failed' && (
                         <Button
-                          onClick={() => regenerateReport((report.assessment_id || report.assessment) as number)}
+                          onClick={() => {
+                            const inspectionId = getInspectionId(report);
+                            if (inspectionId !== undefined) {
+                              regenerateReport(inspectionId);
+                            }
+                          }}
                           variant="outline"
-                          disabled={regenerating === (report.assessment_id || report.assessment)}
+                          disabled={regenerating === getInspectionId(report)}
                           className="flex items-center gap-1.5 text-xs lg:text-sm"
                         >
-                          {regenerating === (report.assessment_id || report.assessment) ? (
+                          {regenerating === getInspectionId(report) ? (
                             <Loader2 className="w-3.5 h-3.5 lg:w-4 lg:h-4 animate-spin" />
                           ) : (
                             <RefreshCw className="w-3.5 h-3.5 lg:w-4 lg:h-4" />

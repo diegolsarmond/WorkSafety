@@ -85,7 +85,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       {/* Header - responsive */}
-      <header className="bg-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+      <header className="bg-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-lg flex items-center justify-center shadow-sm">
@@ -127,7 +127,7 @@ export default function HomePage() {
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-8">
             <div>
               <button
-                onClick={() => navigate('/inspection/new')}
+                onClick={() => navigate('/analysis/new')}
                 className="w-11 h-11 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-6 hover:bg-white/30 transition-colors"
               >
                 <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -140,7 +140,7 @@ export default function HomePage() {
               </p>
             </div>
             <Button
-              onClick={() => navigate('/inspection/new')}
+              onClick={() => navigate('/analysis/new')}
               className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-none rounded-xl sm:rounded-2xl px-6 py-3 h-auto font-semibold w-full sm:w-auto"
             >
               Start Now <span className="ml-2">›</span>
@@ -277,7 +277,7 @@ export default function HomePage() {
                       {/* Responsive assessment cards grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {assessments.map((assessment) => {
-                          // Parse 'Inspection - Environment - Category'
+                          // Parse 'Analysis - Environment - Category'
                           const parts = assessment.title.split(' - ');
                           const environmentId = parts[1] || 'Unknown';
                           const categoryRaw = parts[2] || 'Unknown';
@@ -314,7 +314,7 @@ export default function HomePage() {
                           return (
                             <div 
                               key={assessment.id} 
-                              onClick={() => navigate(`/inspection/${assessment.id}`)}
+                              onClick={() => navigate(`/analysis/${assessment.id}`)}
                               className="bg-white rounded-2xl sm:rounded-[24px] p-4 sm:p-5 shadow-sm border border-gray-100 flex items-center justify-between transition-transform active:scale-[0.97] cursor-pointer hover:shadow-md hover:border-gray-200"
                             >
                               <div className="flex items-center gap-3 sm:gap-4 min-w-0">

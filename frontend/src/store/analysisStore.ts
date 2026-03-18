@@ -8,7 +8,7 @@ export interface Photo {
   timestamp: string;
 }
 
-export interface InspectionState {
+export interface AnalysisState {
   environment: string;
   category: string;
   photos: Photo[];
@@ -18,7 +18,7 @@ export interface InspectionState {
   setCategory: (cat: string) => void;
   addPhoto: (photo: Photo) => void;
   removePhoto: (id: string) => void;
-  setStatus: (status: InspectionState['status']) => void;
+  setStatus: (status: AnalysisState['status']) => void;
   setAssessmentId: (id: string | null) => void;
   reset: () => void;
 }
@@ -36,7 +36,7 @@ const idbStorage: StateStorage = {
   },
 };
 
-export const useInspectionStore = create<InspectionState>()(
+export const useAnalysisStore = create<AnalysisState>()(
   persist(
     (set) => ({
       environment: '',
@@ -53,7 +53,7 @@ export const useInspectionStore = create<InspectionState>()(
       reset: () => set({ environment: '', category: 'General Safety', photos: [], status: 'DRAFT', assessmentId: null }),
     }),
     {
-      name: 'inspection-storage',
+      name: 'analysis-storage',
       storage: createJSONStorage(() => idbStorage),
     }
   )

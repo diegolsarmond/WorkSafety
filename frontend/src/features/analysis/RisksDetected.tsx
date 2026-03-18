@@ -24,7 +24,7 @@ import {
 import { Button } from '@/ui/components/Button';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { canValidate } from '@/services/risk/riskService';
-import { useInspectionStore } from '@/store/inspectionStore';
+import { useAnalysisStore } from '@/store/analysisStore';
 import type { RiskItem, AssessmentStatus } from '@/types/risk';
 
 // =============================================================================
@@ -376,7 +376,7 @@ function LifecycleStatusBadge({ status }: { status: AssessmentStatus }) {
 export function RisksDetected() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { assessmentId: storeAssessmentId } = useInspectionStore();
+  const { assessmentId: storeAssessmentId } = useAnalysisStore();
   
   // Obter assessmentId da URL ou do state de navegação, com fallback para a store
   const assessmentId = location.state?.assessmentId || storeAssessmentId;
@@ -484,9 +484,9 @@ export function RisksDetected() {
           <h1 className="text-xl font-bold text-gray-900 ml-4">Risks Detected</h1>
         </header>
         <ErrorState
-          message="No assessment selected. Please start a new inspection."
+          message="No assessment selected. Please start a new analysis."
           canRetry={false}
-          onRetry={() => navigate('/inspection/new')}
+          onRetry={() => navigate('/analysis/new')}
         />
       </div>
     );
@@ -762,7 +762,7 @@ export function RisksDetected() {
         <Button
           variant="ghost"
           className="flex-1 h-12 sm:h-14 text-base sm:text-lg text-red-500 hover:bg-red-50 font-bold"
-          onClick={() => navigate('/inspection/validation')}
+          onClick={() => navigate('/analysis/validation')}
         >
           <XCircle className="w-6 h-6 mr-2" /> Reject
         </Button>
@@ -785,7 +785,7 @@ export function RisksDetected() {
           </Button>
         ) : (
           <Button
-            onClick={() => navigate('/inspection/validation')}
+            onClick={() => navigate('/analysis/validation')}
             className="flex-1 h-12 sm:h-14 text-base sm:text-lg bg-gray-100 text-gray-400 hover:bg-gray-200 font-bold border-none"
           >
             Confirm <Send className="w-5 h-5 ml-2" />

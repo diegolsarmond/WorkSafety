@@ -20,10 +20,10 @@ interface RiskDecision {
 }
 
 /**
- * Página de detalhe de inspeção
- * Exibe a imagem e resultados da análise de IA para uma inspeção específica
+ * Página de detalhe de análise
+ * Exibe a imagem e resultados da análise de IA para uma análise específica
  */
-export function InspectionDetailPage() {
+export function AnalysisDetailPage() {
   const navigate = useNavigate();
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -374,4 +374,4 @@ export function InspectionDetailPage() {
   );
 }
 
-export default InspectionDetailPage;
+export default AnalysisDetailPage;

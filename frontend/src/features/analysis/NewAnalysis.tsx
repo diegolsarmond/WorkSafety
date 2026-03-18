@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, Factory, HardHat, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
-import { useInspectionStore } from '../../store/inspectionStore';
+import { useAnalysisStore } from '../../store/analysisStore';
 import { cn } from '@/utils/cn';
 import { environmentService, assessmentService, AssessmentType } from '@/services/environment/environmentService';
 
@@ -39,9 +39,9 @@ const getColorsForIndex = (index: number): { color: string; bg: string } => {
   return colors[index % colors.length];
 };
 
-export function NewInspection() {
+export function NewAnalysis() {
   const navigate = useNavigate();
-  const { environment, setEnvironment, category, setCategory, photos } = useInspectionStore();
+  const { environment, setEnvironment, category, setCategory, photos } = useAnalysisStore();
   
   const [environments, setEnvironments] = useState<EnvironmentOption[]>([]);
   const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
@@ -95,7 +95,7 @@ export function NewInspection() {
 
   const handleContinue = () => {
     if (environment) {
-      navigate(photos.length > 0 ? '/inspection/review' : '/inspection/camera');
+      navigate(photos.length > 0 ? '/analysis/review' : '/analysis/camera');
     }
   };
 
