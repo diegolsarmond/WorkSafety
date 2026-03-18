@@ -55,23 +55,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-[#FAFAFA]">
-      <div className="w-full max-w-md flex flex-col items-center min-h-[calc(100vh-48px)]">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 bg-[#FAFAFA]">
+      <div className="w-full max-w-sm sm:max-w-md flex flex-col items-center min-h-[calc(100vh-32px)] sm:min-h-[calc(100vh-48px)]">
 
         {/* Logo */}
-        <div className="flex flex-col items-center mt-12 mb-10">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-[24px] flex items-center justify-center shadow-lg shadow-[#0B7A90]/20 mb-6">
-            <ShieldCheck className="text-white w-10 h-10" strokeWidth={2} />
+        <div className="flex flex-col items-center mt-8 sm:mt-12 mb-6 sm:mb-10">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-[20px] sm:rounded-[24px] flex items-center justify-center shadow-lg shadow-[#0B7A90]/20 mb-4 sm:mb-6">
+            <ShieldCheck className="text-white w-8 h-8 sm:w-10 sm:h-10" strokeWidth={2} />
           </div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827]">
+          <h1 className="text-[26px] sm:text-[32px] font-bold tracking-tight text-[#111827]">
             Work<span className="text-[#0B7A90]">Safety</span>
           </h1>
         </div>
 
         <div className="w-full space-y-8">
           <div className="text-center space-y-2">
-            <h2 className="text-[28px] font-bold text-[#111827]">Welcome Back</h2>
-            <p className="text-[#6B7280] text-[15px] px-8 leading-relaxed">
+            <h2 className="text-[22px] sm:text-[28px] font-bold text-[#111827]">Welcome Back</h2>
+            <p className="text-[#6B7280] text-[14px] sm:text-[15px] px-4 sm:px-8 leading-relaxed">
               Secure access
             </p>
           </div>

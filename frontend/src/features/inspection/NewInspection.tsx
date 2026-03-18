@@ -108,7 +108,7 @@ export function NewInspection() {
         <h1 className="flex-1 text-center text-xl font-bold text-gray-900 mr-8">New Analysis</h1>
       </header>
 
-      <main className="flex-1 p-4 flex flex-col gap-8 overflow-y-auto pb-24">
+      <main className="flex-1 p-4 sm:p-6 flex flex-col gap-6 sm:gap-8 overflow-y-auto pb-24 max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto w-full">
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-gray-500 tracking-wider">STEP 1: ENVIRONMENT</h2>
@@ -210,14 +210,16 @@ export function NewInspection() {
         </section>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-        <Button
-          onClick={handleContinue}
-          disabled={!environment}
-          className="w-full h-14 text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b]"
-        >
-          Continue <span className="ml-2">›</span>
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto">
+          <Button
+            onClick={handleContinue}
+            disabled={!environment}
+            className="w-full h-12 sm:h-14 text-base sm:text-lg rounded-xl bg-[#0b6b82] hover:bg-[#09586b]"
+          >
+            Continue <span className="ml-2">›</span>
+          </Button>
+        </div>
       </div>
     </div>
   );

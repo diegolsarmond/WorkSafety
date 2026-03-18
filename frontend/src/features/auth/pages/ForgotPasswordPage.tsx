@@ -57,8 +57,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-[#FAFAFA]">
-      <div className="w-full max-w-md flex flex-col items-center min-h-[calc(100vh-48px)]">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 bg-[#FAFAFA]">
+      <div className="w-full max-w-sm sm:max-w-md flex flex-col items-center min-h-[calc(100vh-32px)] sm:min-h-[calc(100vh-48px)]">
         <div className="flex flex-col items-center mt-12 mb-10">
           <div className="w-20 h-20 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-[24px] flex items-center justify-center shadow-lg shadow-[#0B7A90]/20 mb-6">
             <ShieldCheck className="text-white w-10 h-10" strokeWidth={2} />

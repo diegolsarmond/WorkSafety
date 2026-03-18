@@ -2,29 +2,41 @@
   "id": "worksafety-app",
   "name": "WorkSafety - Smart Safety",
   "short_name": "WorkSafety",
-  "description": "Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos",
-  "start_url": ".",
+  "description": "Smart workplace safety inspection app with AI-powered risk analysis",
+  "start_url": "/worksafety/",
   "display": "standalone",
   "background_color": "#0F1729",
   "theme_color": "#0F1729",
-  "orientation": "portrait",
-  "scope": "/",
-  "lang": "pt-BR",
+  "orientation": "any",
+  "scope": "/worksafety/",
+  "lang": "en",
   "dir": "ltr",
-  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "display_override": ["standalone", "minimal-ui"],
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "pwa-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "pwa-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "pwa-144x144.png",
@@ -41,17 +53,17 @@
   ],
   "shortcuts": [
     {
-      "name": "Nova Inspeção",
-      "short_name": "Inspeção",
-      "description": "Iniciar uma nova inspeção de segurança",
-      "url": "inspection/new",
+      "name": "New Inspection",
+      "short_name": "Inspect",
+      "description": "Start a new safety inspection",
+      "url": "/worksafety/inspection/new",
       "icons": [{ "src": "pwa-192x192.png", "sizes": "192x192" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
-      "description": "Ver dashboard principal",
-      "url": "home",
+      "description": "View main dashboard",
+      "url": "/worksafety/home",
       "icons": [{ "src": "pwa-192x192.png", "sizes": "192x192" }]
     }
   ],

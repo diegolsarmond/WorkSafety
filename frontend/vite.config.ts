@@ -88,47 +88,60 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
-          description: 'Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos',
+          description: 'Smart workplace safety inspection app with AI-powered risk analysis',
           start_url: '/worksafety/',
           display: 'standalone',
           background_color: '#0F1729',
           theme_color: '#0F1729',
-          orientation: 'portrait',
+          orientation: 'any',
           scope: '/worksafety/',
-          lang: 'pt-BR',
+          lang: 'en',
           categories: ['business', 'productivity', 'utilities'],
           icons: [
             {
               src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable'
             },
             {
               src: 'pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
             }
           ],
           shortcuts: [
             {
-              name: 'Nova Inspeção',
-              short_name: 'Inspeção',
-              description: 'Iniciar uma nova inspeção de segurança',
-              url: 'inspection/new',
+              name: 'New Inspection',
+              short_name: 'Inspect',
+              description: 'Start a new safety inspection',
+              url: '/worksafety/inspection/new',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             },
             {
               name: 'Dashboard',
               short_name: 'Dashboard',
-              description: 'Ver dashboard principal',
-              url: 'home',
+              description: 'View main dashboard',
+              url: '/worksafety/home',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             }
           ]
         },
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.png'],
+
       })
     ],
     define: {

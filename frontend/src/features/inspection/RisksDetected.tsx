@@ -624,7 +624,7 @@ export function RisksDetected() {
         </div>
       )}
 
-      <main className="flex-1 p-4 overflow-y-auto pb-32">
+      <main className="flex-1 p-4 sm:p-6 overflow-y-auto pb-36 sm:pb-40 max-w-3xl lg:max-w-4xl mx-auto w-full">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
           <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-2">
@@ -757,7 +757,8 @@ export function RisksDetected() {
       )}
 
       {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3 sm:gap-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3 sm:gap-4 z-20" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full max-w-3xl lg:max-w-4xl mx-auto">
         <Button
           variant="ghost"
           className="flex-1 h-12 sm:h-14 text-base sm:text-lg text-red-500 hover:bg-red-50 font-bold"
@@ -790,6 +791,7 @@ export function RisksDetected() {
             Confirm <Send className="w-5 h-5 ml-2" />
           </Button>
         )}
+        </div>
       </div>
     </div>
   );
