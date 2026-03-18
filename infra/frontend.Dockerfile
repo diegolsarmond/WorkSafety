@@ -35,8 +35,8 @@ FROM nginx:alpine
 COPY --from=frontend-builder /build/dist /usr/share/nginx/html
 COPY --from=admin-builder /build/dist /usr/share/nginx/html/admin
 
-# Copy Nginx config
-COPY infra/nginx-local.conf /etc/nginx/conf.d/default.conf
+# Use production Nginx config (tracked in git)
+COPY infra/nginx-prod.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
