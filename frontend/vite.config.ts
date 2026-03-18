@@ -6,9 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  // Use /worksafety/ both in dev and production for consistency
   const isProd = mode === 'production';
   return {
-    base: isProd ? '/worksafety/' : '/',
+    base: '/worksafety/',
     plugins: [
       react(),
       tailwindcss(),
@@ -21,7 +22,8 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
+          skipWaiting: false, // Changed to false to prevent cache issues during dev
+          navigationPreload: true,
           runtimeCaching: [
             {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
@@ -87,12 +89,12 @@ export default defineConfig(({ mode }) => {
           name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
           description: 'Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos',
-          start_url: isProd ? '/worksafety/' : '/',
+          start_url: '/worksafety/',
           display: 'standalone',
           background_color: '#0F1729',
           theme_color: '#0F1729',
           orientation: 'portrait',
-          scope: isProd ? '/worksafety/' : '/',
+          scope: '/worksafety/',
           lang: 'pt-BR',
           categories: ['business', 'productivity', 'utilities'],
           icons: [
@@ -107,22 +109,6 @@ export default defineConfig(({ mode }) => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
-            }
-          ],
-          screenshots: [
-            {
-              src: 'screenshot-narrow.png',
-              sizes: '750x1334',
-              type: 'image/png',
-              form_factor: 'narrow',
-              label: 'Tela de login do WorkSafety'
-            },
-            {
-              src: 'screenshot-wide.png',
-              sizes: '1280x800',
-              type: 'image/png',
-              form_factor: 'wide',
-              label: 'Dashboard do WorkSafety'
             }
           ],
           shortcuts: [
@@ -157,11 +143,19 @@ export default defineConfig(({ mode }) => {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify-file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      port: 3000,
+      host: '0.0.0.0',
+      strictPort: true,
       proxy: {
         '/api': {
           target: 'http://200.152.38.136:8000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '/worksafety/admin': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/worksafety\/admin/, ''),
         },
       },
     },

@@ -13,23 +13,10 @@ from celery import shared_task
 from django.utils import timezone
 from django.db import transaction
 from django.conf import settings
+from django.template.loader import render_to_string
 
-# ReportLab imports
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm, mm
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    Image,
-    PageBreak,
-    KeepTogether,
-)
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
+# WeasyPrint import
+from weasyprint import HTML, CSS
 
 from .models import Report
 from assessments.models import RiskAssessment, Evidence, RiskFinding
@@ -195,336 +182,96 @@ def _collect_assessment_data(assessment: RiskAssessment) -> dict:
 
 def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO:
     """
-    Generates the PDF document matching the modern design template.
-    Layout: Safety Inspection Report with professional styling
+    Generates the PDF document using WeasyPrint with modern HTML template.
+    Uses Tailwind CSS and professional styling.
     """
-    buffer = io.BytesIO()
-    
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=1.2*cm,
-        leftMargin=1.2*cm,
-        topMargin=1.2*cm,
-        bottomMargin=0.5*cm,
-    )
-    
-    styles = getSampleStyleSheet()
-    
-    # Define color palette (matching design template)
-    teal_primary = colors.HexColor('#00808e')  # Primary color from design
-    teal_light = colors.HexColor('#4fd1c5')    # Accent teal
-    dark_bg = colors.HexColor('#2d3748')       # Footer background
-    dark_text = colors.HexColor('#1a202c')     # Headings
-    slate_500 = colors.HexColor('#64748b')     # Secondary text
-    slate_400 = colors.HexColor('#94a3b8')     # Tertiary text
-    slate_50 = colors.HexColor('#f8fafc')      # Light background
-    red_critical = colors.HexColor('#dc2626')
-    red_bg = colors.HexColor('#fee2e2')
-    yellow_warning = colors.HexColor('#d97706')
-    yellow_bg = colors.HexColor('#fef3c7')
-    
-    elements = []
-    
-    # --- HEADER SECTION ---
-    created_dt = assessment.created_at
-    year = created_dt.year if created_dt else 2026
-    case_num = f"#INSP-{year}-{assessment.id:03d}"
-    gen_date = created_dt.strftime("%b %d, %Y") if created_dt else "Jan 10, 2026"
-    
-    # Logo and title
-    header_style = ParagraphStyle(
-        'Header',
-        fontSize=28,
-        fontName='Helvetica-Bold',
-        textColor=dark_text,
-        spaceAfter=6,
-    )
-    
-    logo_style = ParagraphStyle(
-        'Logo',
-        fontSize=14,
-        fontName='Helvetica-Bold',
-        textColor=slate_500,
-        spaceAfter=12,
-    )
-    
-    # Left side - Logo and Title
-    logo_text = Paragraph('<font color="#00808e">◆</font> <b><font color="#2d3748">Work</font><font color="#00808e">Safety</font></b>', logo_style)
-    title_text = Paragraph('<b><font size=20 color="#1a202c">Safety Inspection<br/>Report</font></b>', header_style)
-    
-    # Right side - Case info
-    case_label = Paragraph('<font size=7 color="#94a3b8"><b>CASE NUMBER</b></font>', styles['Normal'])
-    case_value = Paragraph(f'<font size=14 color="#0f172a"><b>{case_num}</b></font>', styles['Normal'])
-    case_date = Paragraph(f'<font size=8 color="#64748b">Generated: {gen_date}</font>', styles['Normal'])
-    
-    case_box_content = [case_label, Spacer(1, 2), case_value, Spacer(1, 4), case_date]
-    case_box = Table([[Table([[c] for c in case_box_content], colWidths=[4*cm])]], colWidths=[4.5*cm])
-    case_box.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-    ]))
-    
-    header_row = Table([[logo_text, title_text, '', case_box]], colWidths=[2*cm, 6*cm, 3*cm, 4.5*cm])
-    header_row.setStyle(TableStyle([
-        ('ALIGN', (0,0), (0,0), 'LEFT'),
-        ('ALIGN', (1,0), (1,0), 'LEFT'),
-        ('ALIGN', (3,0), (3,0), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-    ]))
-    
-    elements.append(header_row)
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # --- INFO BOXES ---
-    env_name = assessment.environment_type.name if assessment.environment_type else 'North Sector - Construction'
-    user_name = "Inspector"
-    user_id = "0"
-    if assessment.created_by:
-        user_name = assessment.created_by.get_full_name() or assessment.created_by.email.split('@')[0]
-        user_id = str(assessment.created_by.id)
-    
-    # Info box style
-    info_label_style = ParagraphStyle('InfoLabel', fontSize=7, textColor=slate_400, spaceAfter=2)
-    info_value_style = ParagraphStyle('InfoValue', fontSize=9, fontName='Helvetica-Bold', textColor=dark_text)
-    
-    # Location info
-    loc_label = Paragraph('<font color="#94a3b8"><b>LOCATION</b></font>', info_label_style)
-    loc_value = Paragraph(f'<b>{env_name}</b>', info_value_style)
-    
-    # Inspector info
-    insp_label = Paragraph('<font color="#94a3b8"><b>INSPECTOR</b></font>', info_label_style)
-    insp_value = Paragraph(f'<b>{user_name} (ID: {user_id})</b>', info_value_style)
-    
-    # Create info boxes
-    loc_box = Table([[loc_label], [loc_value]], colWidths=[7*cm])
-    loc_box.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), slate_50),
-        ('PADDING', (0,0), (-1,-1), 10),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
-    ]))
-    
-    insp_box = Table([[insp_label], [insp_value]], colWidths=[7*cm])
-    insp_box.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), slate_50),
-        ('PADDING', (0,0), (-1,-1), 10),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
-    ]))
-    
-    info_row = Table([[loc_box, insp_box]], colWidths=[7.5*cm, 7.5*cm])
-    info_row.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'LEFT')]))
-    elements.append(info_row)
-    elements.append(Spacer(1, 0.6*cm))
-    
-    # --- SECTION HEADER: EVIDENCE & FINDINGS ---
-    section_title_style = ParagraphStyle(
-        'SectionTitle',
-        fontSize=9,
-        fontName='Helvetica-Bold',
-        textColor=dark_text,
-        letterSpacing=1,
-    )
-    
-    section_header = Table([
-        [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=teal_primary)),
-         Paragraph('EVIDENCE & FINDINGS', section_title_style)]
-    ], colWidths=[0.3*cm, 14.7*cm])
-    section_header.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elements.append(section_header)
-    elements.append(Spacer(1, 0.4*cm))
-    
-    # --- EVIDENCE IMAGE & FINDINGS CARDS ---
-    evidences = list(assessment.evidences.all())
-    findings = list(assessment.findings.all())
-    
-    # Evidence image (main display)
-    img_cell = None
-    if evidences and evidences[0].file:
-        try:
-            img_path = evidences[0].file.path
-            img = Image(img_path, width=7*cm, height=5*cm)
-            img_caption = Paragraph('<font size=8 color="#64748b">Fig 1. Site Capture - 10:42 AM</font>', styles['Normal'])
-            img_cell = Table([[img], [Spacer(1, 2)], [img_caption]], colWidths=[7*cm])
-            img_cell.setStyle(TableStyle([
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ]))
-        except Exception as e:
-            logger.warning(f"Failed to load image: {e}")
-            img_cell = Paragraph('<font color="#cbd5e1" size=9>[Image not available]</font>', styles['Normal'])
-    else:
-        img_cell = Paragraph('<font color="#cbd5e1" size=9>[No images captured]</font>', styles['Normal'])
-    
-    # Finding cards
-    finding_cards = []
-    for finding in findings[:2]:  # Show top 2 findings
-        is_critical = finding.severity and 'CRITICAL' in finding.severity.upper()
+    try:
+        # Preparar dados para o template
+        findings_data = []
+        for finding in assessment.findings.all()[:2]:  # Mostrar top 2 findings
+            severity = finding.severity.lower() if finding.severity else ''
+            is_critical = 'critical' in severity
+            is_warning = 'warning' in severity or 'medium' in severity
+            
+            findings_data.append({
+                'title': finding.title or finding.description[:50],
+                'description': finding.description or 'No description provided',
+                'is_critical': is_critical,
+                'is_warning': is_warning,
+                'confidence': getattr(finding, 'confidence_score', 85)
+            })
         
-        # Determine styling
-        badge_color = red_critical if is_critical else yellow_warning
-        bg_color = red_bg if is_critical else yellow_bg
-        badge_text = 'Critical' if is_critical else 'Warning'
+        # Preparar dados da primeira evidência (imagem)
+        evidence_image_url = None
+        evidence_timestamp = None
+        evidences = assessment.evidences.all()
         
-        # Extract title and description
-        desc = finding.description or "No description provided"
-        lines = desc.split('. ')
-        title = lines[0][:50] + ('...' if len(lines[0]) > 50 else '')
-        body = '. '.join(lines[1:])[:100] + ('...' if len('. '.join(lines[1:])) > 100 else '') if len(lines) > 1 else ''
+        if evidences.exists():
+            first_evidence = evidences.first()
+            if first_evidence.file:
+                # Construir URL absoluta para a imagem
+                try:
+                    evidence_image_url = first_evidence.file.url
+                    if not evidence_image_url.startswith('http'):
+                        evidence_image_url = f"{settings.ALLOWED_HOSTS[0]}{evidence_image_url}" if settings.ALLOWED_HOSTS else f"file://{first_evidence.file.path}"
+                except Exception:
+                    evidence_image_url = None
+                
+                if first_evidence.captured_at:
+                    evidence_timestamp = first_evidence.captured_at.strftime("%I:%M %p")
         
-        # Calculate confidence (placeholder - can be enhanced with actual ML scores)
-        confidence = "94%" if is_critical else "88%"
+        # Preparar recomendações
+        recommendations = [
+            "Stop work in the affected area until critical hazards are resolved.",
+            "Issue formal warning to site supervisor regarding compliance issues.",
+        ]
         
-        # Build finding card
-        badge_row = Table([
-            [Paragraph(f'<font size=7 color="white"><b>{badge_text.upper()}</b></font>', styles['Normal']),
-             Paragraph(f'<font size=7 color="#64748b"><b>{confidence} Confidence</b></font>', styles['Normal'])]
-        ], colWidths=[2*cm, 4.5*cm])
-        badge_row.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (0,-1), badge_color),
-            ('PADDING', (0,0), (0,-1), 4),
-            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ]))
+        # Data de follow-up (2 dias após criação)
+        follow_up_date = assessment.created_at + timedelta(days=2) if assessment.created_at else timezone.now() + timedelta(days=2)
         
-        # Card content
-        card_elements = [badge_row, Spacer(1, 0.2*cm)]
-        card_elements.append(Paragraph(f'<b><font size=9 color="#1a202c">{title}</font></b>', styles['Normal']))
+        # Número de caso
+        case_number = f"#INSP-{assessment.created_at.year if assessment.created_at else timezone.now().year}-{assessment.id:03d}"
         
-        if body:
-            card_elements.append(Spacer(1, 0.15*cm))
-            card_elements.append(Paragraph(f'<font size=8 color="#64748b">{body}</font>', styles['Normal']))
+        # Dados do inspetor
+        inspector_name = "Inspector"
+        inspector_id = "0"
+        if assessment.created_by:
+            inspector_name = assessment.created_by.get_full_name() or assessment.created_by.username
+            inspector_id = str(assessment.created_by.id)
         
-        # Wrap in table for styling
-        card = Table([[c] for c in card_elements], colWidths=[6.8*cm])
-        card.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), bg_color),
-            ('PADDING', (0,0), (-1,-1), 10),
-            ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
-        ]))
-        finding_cards.append(card)
-        finding_cards.append(Spacer(1, 0.35*cm))
-    
-    if not finding_cards:
-        finding_cards = [Paragraph('<font color="#cbd5e1" size=9>No findings recorded</font>', styles['Normal'])]
-    
-    # Use KeepTogether instead of nested Table to avoid ReportLab height calculation issues
-    findings_content = KeepTogether(finding_cards)
-    
-    # Combine image and findings using a two-column layout
-    # Use explicit rowHeights to avoid None values in ReportLab
-    content_row = Table(
-        [[img_cell, findings_content]],
-        colWidths=[7.2*cm, 7.8*cm],
-        rowHeights=[5*cm],
-    )
-    content_row.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-    ]))
-    elements.append(content_row)
-    elements.append(Spacer(1, 0.5*cm))
-    
-    # --- SECTION HEADER: AI RECOMMENDATIONS ---
-    ai_header = Table([
-        [Paragraph('█', ParagraphStyle('Bullet', fontSize=8, textColor=slate_400)),
-         Paragraph('AI RECOMMENDATIONS', section_title_style)]
-    ], colWidths=[0.3*cm, 14.7*cm])
-    ai_header.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elements.append(ai_header)
-    elements.append(Spacer(1, 0.3*cm))
-    
-    # Recommendations
-    recommendations = [
-        "<b>IMMEDIATE ACTION:</b> Stop work in Sector until critical hazards are resolved.",
-    ]
-    
-    # Calcular data de follow-up (2 dias após criação) - com tratamento seguro para fim de mês
-    if created_dt:
-        try:
-            follow_up_dt = created_dt + timedelta(days=2)
-            follow_up_str = follow_up_dt.strftime('%b %d, %Y')
-        except Exception:
-            follow_up_str = "TBD"
-    else:
-        follow_up_str = datetime.now().strftime('%b %d, %Y')
-    
-    recommendations.append(f"Schedule follow-up inspection for {follow_up_str}")
-    recommendations.append("Issue formal warning to site supervisor regarding outstanding compliance issues.")
-    
-    for rec_text in recommendations:
-        rec_para = Paragraph(
-            f'<font size=8 color="#64748b">• {rec_text}</font>',
-            ParagraphStyle('Rec', spaceAfter=6, leading=11)
-        )
-        elements.append(rec_para)
-    
-    elements.append(Spacer(1, 0.8*cm))
-    
-    # --- FOOTER SECTION ---
-    # Page number
-    page_num = Paragraph(
-        '<font size=7 color="#94a3b8"><b>Page 1 of 1</b></font>',
-        ParagraphStyle('PageNum', alignment=TA_CENTER)
-    )
-    
-    # Signature block
-    sig_label = Paragraph('<font size=7 color="#94a3b8"><b>AUTHORIZED SIGNATURE</b></font>', styles['Normal'])
-    sig_name = Paragraph('<font size=12 color="#4fd1c5"><b>Sarah Manager</b></font>', styles['Normal'])
-    sig_line = Paragraph('<font size=8 color="#64748b">_____________________</font>', styles['Normal'])
-    sig_info = Paragraph('<font size=8 color="#cbd5e1"><b>Sarah Manager</b></font>', styles['Normal'])
-    sig_id = Paragraph('<font size=7 color="#94a3b8">Manager ID: 4421</font>', styles['Normal'])
-    
-    # Approval stamp
-    stamp_label = Paragraph('<font size=7 color="#4fd1c5"><b>WorkSafety</b></font>', ParagraphStyle('Stamp', alignment=TA_CENTER))
-    stamp_text = Paragraph('<font size=14 color="#4fd1c5"><i><b>APPROVED</b></i></font>', ParagraphStyle('StampText', alignment=TA_CENTER))
-    stamp_date = Paragraph(f'<font size=7 color="#4fd1c5"><b>{gen_date}</b></font>', ParagraphStyle('StampDate', alignment=TA_CENTER))
-    
-    stamp = Table([[stamp_label], [stamp_text], [stamp_date]], colWidths=[3.5*cm])
-    stamp.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOX', (0,0), (-1,-1), 2, teal_light),
-        ('PADDING', (0,0), (-1,-1), 8),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), 6),
-    ]))
-    
-    sig_block = Table(
-        [[sig_label, '', stamp_label],
-         [sig_name, '', stamp_text],
-         [sig_line, '', stamp_date],
-         [sig_info, '', ''],
-         [sig_id, '', '']],
-        colWidths=[5.5*cm, 4*cm, 3.5*cm]
-    )
-    sig_block.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('ALIGN', (1,0), (1,-1), 'CENTER'),
-        ('ALIGN', (2,0), (2,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-    ]))
-    
-    # Dark footer background
-    footer = Table([[sig_block]], colWidths=[17*cm])
-    footer.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), dark_bg),
-        ('PADDING', (0,0), (-1,-1), 12),
-        ('ROUNDEDCORNERS', (0,0), (-1,-1), [0, 0, 8, 8]),
-    ]))
-    
-    elements.append(footer)
-    elements.append(Spacer(1, 0.2*cm))
-    elements.append(page_num)
-    
-    # Build PDF
-    doc.build(elements)
-    buffer.seek(0)
-    
-    return buffer
+        # Localização
+        location = assessment.environment_type.name if assessment.environment_type else "Unspecified Location"
+        
+        # Context para o template
+        context = {
+            'case_number': case_number,
+            'generated_date': assessment.created_at or timezone.now(),
+            'location': location,
+            'inspector_name': inspector_name,
+            'inspector_id': inspector_id,
+            'evidence_image_url': evidence_image_url,
+            'evidence_timestamp': evidence_timestamp,
+            'findings': findings_data,
+            'recommendations': recommendations,
+            'follow_up_date': follow_up_date,
+            'signature_name': 'Safety Manager',
+            'manager_id': '4421',
+            'approved_date': assessment.created_at or timezone.now(),
+        }
+        
+        # Renderizar template HTML
+        html_string = render_to_string('reports/inspection_report.html', context)
+        
+        # Converter HTML para PDF usando WeasyPrint
+        pdf_document = HTML(string=html_string)
+        pdf_buffer = pdf_document.write_pdf()
+        
+        # Retornar como BytesIO
+        return io.BytesIO(pdf_buffer)
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF with WeasyPrint: {e}", exc_info=True)
+        raise
 
 
 def _log_performance_metrics(elapsed_time: float, evidence_count: int):

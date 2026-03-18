@@ -1,6 +1,7 @@
 import { apiClient } from '@/services/api/apiClient';
 import { SecureStorage } from '@/services/storage/secureStorage';
 import { LoginResponse, User } from '@/types/auth';
+import { REFRESH_TOKEN_KEY } from '@/services/auth/authKeys';
 
 export const authService = {
   async login(credentials: { email: string; password: string }): Promise<LoginResponse> {
@@ -14,7 +15,7 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    const refreshToken = SecureStorage.getItem('refresh_token');
+    const refreshToken = SecureStorage.getItem(REFRESH_TOKEN_KEY);
     if (refreshToken) {
       await apiClient.post('auth/logout/', { refresh: refreshToken });
     }

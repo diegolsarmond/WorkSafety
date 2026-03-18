@@ -27,7 +27,7 @@ import Reports from './pages/Reports';
 import UsersPage from './pages/Users';
 import Login from './pages/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { getCurrentUser, clearTokens } from './services/api';
+import { getCurrentUser, clearTokens, isAuthenticated as hasAuthSession } from './services/api';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,7 +36,7 @@ function cn(...inputs: ClassValue[]) {
 // Hook para verificar autenticação
 function useAuth() {
   const user = getCurrentUser();
-  const isAuthenticated = !!localStorage.getItem('access_token');
+  const isAuthenticated = hasAuthSession();
   
   const logout = () => {
     clearTokens();

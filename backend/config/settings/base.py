@@ -45,16 +45,21 @@ MIDDLEWARE = [
 ]
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://inovacao.dataprev.gov.br",
     "http://inovacao.dataprev.gov.br",
     "http://200.152.38.136:8000",
     "http://200.152.38.136:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 # CSRF trusted origins (necessário para frontend HTTPS -> backend HTTP)
@@ -63,9 +68,14 @@ CSRF_TRUSTED_ORIGINS = [
     "http://inovacao.dataprev.gov.br",
     "http://200.152.38.136:8000",
     "http://200.152.38.136:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 ROOT_URLCONF = "config.urls"

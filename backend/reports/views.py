@@ -47,7 +47,12 @@ class ReportListView(generics.ListAPIView):
         # Filtro por assessment_id
         assessment_id = self.request.query_params.get('assessment_id')
         if assessment_id:
-            queryset = queryset.filter(assessment_id=assessment_id)
+            try:
+                assessment_id_int = int(assessment_id)
+                queryset = queryset.filter(assessment_id=assessment_id_int)
+            except (ValueError, TypeError):
+                # Se o assessment_id não for um número válido, ignora o filtro
+                pass
         
         # Filtro por status
         status_param = self.request.query_params.get('status')

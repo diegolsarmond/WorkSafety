@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 import { useSplashScreen } from '@/hooks/useSplashScreen';
 import { SplashScreen } from '@/features/splash';
-import { PWAProvider } from '@/features/pwa';
 
 export default function App() {
   const { checkAuth, isInitializing } = useAuthStore();
@@ -17,8 +16,9 @@ export default function App() {
   const { showSplash, handleSplashComplete } = useSplashScreen();
 
   useEffect(() => {
+    console.log('[App] Initializing auth on mount');
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   // Inicializa o sistema de sincronização
   useEffect(() => {
@@ -39,9 +39,5 @@ export default function App() {
     );
   }
 
-  return (
-    <PWAProvider>
-      <AppRouter />
-    </PWAProvider>
-  );
+  return <AppRouter />;
 }

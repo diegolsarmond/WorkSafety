@@ -249,7 +249,7 @@ export function Syncing() {
           variant="outline"
           className="w-full h-14 text-lg rounded-xl flex items-center justify-center gap-2"
         >
-          <List className="w-5 h-5" /> Ver fila de sincronização
+          <List className="w-5 h-5" /> View sync queue
         </Button>
 
         {isCompleted && (

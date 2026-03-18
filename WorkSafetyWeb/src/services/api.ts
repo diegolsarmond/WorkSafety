@@ -1,6 +1,6 @@
 /**
  * API Client para integração com o backend Django
- * Base URL: http://localhost:3001
+ * Base URL local: http://localhost:8000/api/
  */
 
 import { SecureStorage } from './storage/secureStorage';
@@ -8,7 +8,16 @@ export { SecureStorage };
 
 // Use URL relativa para passar pelo proxy do server.ts
 // ou configure VITE_API_URL para apontar diretamente para o Django
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
+const RAW_API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '/api/';
+const API_BASE_URL = RAW_API_BASE_URL.endsWith('/') ? RAW_API_BASE_URL : `${RAW_API_BASE_URL}/`;
+const AUTH_TOKEN_KEY = 'ws_admin_auth_token';
+const REFRESH_TOKEN_KEY = 'ws_admin_refresh_token';
+const USER_KEY = 'ws_admin_user';
+
+function buildApiUrl(path: string): string {
+  const normalizedPath = path.replace(/^\/+/, '');
+  return `${API_BASE_URL}${normalizedPath}`;
+}
 
 // Tipos de dados da API
 export interface User {
@@ -61,23 +70,25 @@ export class ApiError extends Error {
 
 // Função para obter o token de acesso (usa SecureStorage - compatível com app principal)
 export function getAccessToken(): string | null {
-  return SecureStorage.getItem('auth_token');
+  return SecureStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 // Função para obter o refresh token (usa SecureStorage - compatível com app principal)
 export function getRefreshToken(): string | null {
-  return SecureStorage.getItem('refresh_token');
+  return SecureStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 // Função para salvar tokens (usa SecureStorage - compatível com app principal)
 export function setTokens(access: string, refresh: string, keepSignedIn: boolean = false): void {
-  SecureStorage.setItem('auth_token', access, keepSignedIn);
-  SecureStorage.setItem('refresh_token', refresh, keepSignedIn);
+  SecureStorage.setItem(AUTH_TOKEN_KEY, access, keepSignedIn);
+  SecureStorage.setItem(REFRESH_TOKEN_KEY, refresh, keepSignedIn);
 }
 
 // Função para limpar tokens (logout)
 export function clearTokens(): void {
-  SecureStorage.clear();
+  SecureStorage.removeItem(AUTH_TOKEN_KEY);
+  SecureStorage.removeItem(REFRESH_TOKEN_KEY);
+  SecureStorage.removeItem(USER_KEY);
 }
 
 // Função para verificar se está autenticado
@@ -87,7 +98,7 @@ export function isAuthenticated(): boolean {
 
 // Função para obter o usuário atual
 export function getCurrentUser(): User | null {
-  const userStr = SecureStorage.getItem('user');
+  const userStr = SecureStorage.getItem(USER_KEY);
   if (userStr) {
     try {
       return JSON.parse(userStr) as User;
@@ -100,7 +111,7 @@ export function getCurrentUser(): User | null {
 
 // Função para salvar o usuário atual
 export function setCurrentUser(user: User, keepSignedIn: boolean = false): void {
-  SecureStorage.setItem('user', JSON.stringify(user), keepSignedIn);
+  SecureStorage.setItem(USER_KEY, JSON.stringify(user), keepSignedIn);
 }
 
 // Função helper para fazer fetch com token de autenticação
@@ -119,7 +130,7 @@ export async function fetchWithToken(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(`${API_BASE_URL}${url}`, {
+  return fetch(buildApiUrl(url), {
     ...options,
     headers,
   });
@@ -141,7 +152,7 @@ async function fetchWithAuth(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const response = await fetch(buildApiUrl(url), {
     ...options,
     headers,
   });
@@ -151,7 +162,7 @@ async function fetchWithAuth(
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
-      return fetch(`${API_BASE_URL}${url}`, {
+      return fetch(buildApiUrl(url), {
         ...options,
         headers,
       });
@@ -167,7 +178,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refresh) return null;
 
   try {
-    const response = await fetch(`${API_BASE_URL}auth/token/refresh/`, {
+    const response = await fetch(buildApiUrl('auth/token/refresh/'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh }),
@@ -175,8 +186,8 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (response.ok) {
       const data = await response.json();
-      const keepSignedIn = localStorage.getItem('auth_token') !== null;
-      SecureStorage.setItem('auth_token', data.access, keepSignedIn);
+      const keepSignedIn = localStorage.getItem(AUTH_TOKEN_KEY) !== null;
+      SecureStorage.setItem(AUTH_TOKEN_KEY, data.access, keepSignedIn);
       return data.access;
     }
   } catch {
@@ -190,7 +201,7 @@ async function refreshAccessToken(): Promise<string | null> {
 // Serviço de Autenticação
 export const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}auth/login/`, {
+    const response = await fetch(buildApiUrl('auth/login/'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -216,7 +227,7 @@ export const authService = {
     const refresh = getRefreshToken();
     if (refresh) {
       try {
-        await fetch(`${API_BASE_URL}auth/logout/`, {
+        await fetch(buildApiUrl('auth/logout/'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh }),

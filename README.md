@@ -20,13 +20,37 @@ Para um guia definitivo e unificado de todas as áreas do projeto, acesse:
 
 ### Pré-requisitos
 - Docker e Docker Compose instalados.
+- Node.js 18+ (para rodar o frontend separadamente)
 
-### Passo a Passo
+### Opção 1: Scripts Automáticos (Recomendado)
+
+**Apenas Backend (Docker) + Frontend (Node):**
+```powershell
+# Terminal 1: Iniciar backend (PostgreSQL, Redis, Django, Celery)
+.\start-backend-docker.ps1
+
+# Terminal 2: Iniciar frontend
+ cd frontend
+ npm install
+ npm run dev
+```
+
+**Parar backend:**
+```powershell
+.\stop-backend-docker.ps1
+```
+
+### Opção 2: Comandos Manuais
 
 1. **Subir toda a infraestrutura (Backend, Banco de Dados, Redis, Celery Worker):**
    ```bash
    cd infra
    docker-compose up -d --build
+   ```
+
+   Ou apenas o backend (sem frontend):
+   ```bash
+   docker-compose up -d db redis backend worker
    ```
 
 2. **Backend (API):**
@@ -52,6 +76,15 @@ Para um guia definitivo e unificado de todas as áreas do projeto, acesse:
    ```
 
 *(Nota: Em produção, ambos os frontends rodam sob a mesma porta controlados pelo Nginx em contextos separados `/worksafety/` e `/admin/`)*.
+
+### Scripts Disponíveis
+
+| Script | Descrição |
+|--------|-----------|
+| `start-backend-docker.ps1` | Inicia apenas o backend via Docker |
+| `stop-backend-docker.ps1` | Para os containers do backend |
+| `status-docker.ps1` | Mostra status dos containers |
+| `clear-cache-restart.ps1` (frontend) | Limpa cache e reinicia o frontend |
 
 ---
 
