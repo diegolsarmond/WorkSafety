@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
-import { humanValidateAssessment } from '@/services/risk/riskService';
+import { humanValidateAssessment, processAIAssessment, reprocessAssessment } from '@/services/risk/riskService';
 
 interface RiskDecision {
   riskId: string;
@@ -29,12 +29,14 @@ export function InspectionDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [riskDecisions, setRiskDecisions] = useState<Map<string, RiskDecision['decision']>>(new Map());
   const [isValidating, setIsValidating] = useState(false);
+  const [isReprocessing, setIsReprocessing] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const {
     screenState,
     assessment,
     filteredRisks,
+    refresh,
   } = useRiskAssessment(assessmentId, {
     autoFetch: true,
     refreshInterval: 5000, // Poll every 5 seconds during loading, with 5-min timeout
@@ -61,7 +63,30 @@ export function InspectionDetailPage() {
     }
   };
 
+  const handleRedoAIAnalysis = async () => {
+    if (!assessmentId || !assessment) return;
+
+    setIsReprocessing(true);
+    setValidationError(null);
+
+    try {
+      if (assessment.status === 'error_ai') {
+        await reprocessAssessment(assessmentId);
+      } else {
+        await processAIAssessment(assessmentId);
+      }
+      await refresh();
+    } catch (error) {
+      setValidationError(
+        error instanceof Error ? error.message : 'Failed to reprocess AI analysis'
+      );
+    } finally {
+      setIsReprocessing(false);
+    }
+  };
+
   const currentEvidence = assessment ? assessment.evidences[currentImageIndex] : null;
+  const canRedoAIAnalysis = assessment?.status !== 'human_validated' && assessment?.status !== 'finalized';
 
   // Loading state
   if (screenState.type === 'loading') {
@@ -306,9 +331,28 @@ export function InspectionDetailPage() {
             <p className="text-sm text-red-600">{validationError}</p>
           </div>
         )}
+        {canRedoAIAnalysis && (
+          <button
+            onClick={handleRedoAIAnalysis}
+            disabled={isReprocessing || isValidating}
+            className="w-full mb-3 bg-white text-[#0b6b82] border border-[#0b6b82] font-semibold py-3 rounded-lg hover:bg-[#f0fbfd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isReprocessing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reprocessing AI...
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-4 h-4" />
+                Redo AI Analysis
+              </>
+            )}
+          </button>
+        )}
         <button
           onClick={handleFinishValidation}
-          disabled={isValidating}
+          disabled={isValidating || isReprocessing}
           className="w-full bg-[#0b6b82] text-white font-semibold py-3 rounded-lg hover:bg-[#0a5a70] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isValidating ? (

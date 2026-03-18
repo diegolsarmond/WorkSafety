@@ -21,6 +21,9 @@ export interface Recommendation {
 export interface RiskItem {
   id: string;
   description: string;
+  reason?: string;
+  rule_id?: string;
+  bounding_box?: number[];
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   location: string;
   evidence: EvidenceRef | null;

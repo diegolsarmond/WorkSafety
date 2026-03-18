@@ -212,7 +212,7 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
 class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
     """Serializer detalhado para avaliação com riscos e evidências."""
     created_by_email = serializers.SerializerMethodField()
-    risks = RiskItemSerializer(source='findings', many=True, read_only=True)
+    risks = serializers.SerializerMethodField()
     evidences = EvidenceSerializer(many=True, read_only=True)
     inferences = AIInferenceDetailSerializer(many=True, read_only=True)
     compliance_score = serializers.SerializerMethodField()
@@ -244,6 +244,89 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
 
     def get_created_by_email(self, obj: RiskAssessment) -> str:
         return obj.created_by.email if obj.created_by else ""
+
+    def get_risks(self, obj: RiskAssessment) -> list:
+        """
+        Retorna riscos priorizando o payload bruto da API Olímpia.
+
+        Formato esperado da Olímpia:
+        {
+          "rule_1_violation": [{"bounding_box": [...], "reason": "...", "confidence": 0.92}],
+          ...
+        }
+        """
+        latest_inference = obj.inferences.first()
+        raw_result = latest_inference.result_json if latest_inference else {}
+
+        if isinstance(raw_result, dict):
+            rule_keys = [k for k in raw_result.keys() if k.endswith('_violation')]
+            if rule_keys:
+                severity_by_rule = {
+                    'rule_1_violation': 'HIGH',
+                    'rule_2_violation': 'CRITICAL',
+                    'rule_3_violation': 'HIGH',
+                    'rule_4_violation': 'CRITICAL',
+                    'rule_5_violation': 'CRITICAL',
+                    'rule_6_violation': 'HIGH',
+                }
+
+                evidence = obj.evidences.first()
+                evidence_payload = None
+                if evidence:
+                    evidence_payload = EvidenceRefSerializer(evidence, context=self.context).data
+
+                risks = []
+                status_map = {
+                    'draft': 'pending',
+                    'captured': 'pending',
+                    'synced': 'pending',
+                    'ai_reviewed': 'ai_detected',
+                    'human_validated': 'validated',
+                    'finalized': 'validated',
+                    'error_ai': 'error',
+                }
+                risk_status = status_map.get(obj.status, 'pending')
+
+                for rule_key in sorted(rule_keys):
+                    detections = raw_result.get(rule_key)
+                    if not isinstance(detections, list):
+                        continue
+
+                    for detection_index, detection in enumerate(detections, start=1):
+                        if not isinstance(detection, dict):
+                            continue
+
+                        reason = detection.get('reason') or ''
+                        confidence = detection.get('confidence')
+                        try:
+                            confidence_pct = f"{float(confidence) * 100:.0f}%"
+                        except (TypeError, ValueError):
+                            confidence_pct = ''
+
+                        bounding_box = detection.get('bounding_box')
+                        if not isinstance(bounding_box, list):
+                            bounding_box = []
+
+                        risks.append({
+                            'id': f"{obj.id}-{rule_key}-{detection_index}",
+                            'description': reason,
+                            'reason': reason,
+                            'rule_id': rule_key,
+                            'bounding_box': bounding_box,
+                            'severity': severity_by_rule.get(rule_key, 'MEDIUM'),
+                            'location': '',
+                            'evidence': evidence_payload,
+                            'recommendations': [],
+                            'ai_confidence': confidence_pct,
+                            'risk_status': risk_status,
+                            'created_at': obj.created_at,
+                            'updated_at': obj.updated_at,
+                        })
+
+                return risks
+
+        # Fallback para formato legado baseado em RiskFinding
+        return RiskItemSerializer(obj.findings.all(), many=True, context=self.context).data
 
     def get_compliance_score(self, obj: RiskAssessment) -> int:
         """Calcula score de compliance baseado nos riscos."""

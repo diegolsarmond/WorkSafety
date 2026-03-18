@@ -1,7 +1,7 @@
 import { Button } from '@/ui/components/Button';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
-import { Menu, LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box, Brain, Loader2, Clock, CheckCircle2, FileText } from 'lucide-react';
+import { LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory, Box, Brain, Loader2, Clock, CheckCircle2, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
 import { SyncStatusBadge } from '@/features/sync';
@@ -86,9 +86,6 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white px-4 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button className="h-11 w-11 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
-            <Menu className="w-6 h-6" />
-          </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-lg flex items-center justify-center shadow-sm">
               <ShieldCheck className="text-white w-5 h-5" strokeWidth={2} />
@@ -99,14 +96,6 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/admin/reports')}
-            className="h-11 px-4 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors gap-2"
-            title="View Reports"
-          >
-            <FileText className="w-5 h-5" />
-            <span className="text-sm font-medium hidden sm:inline">Reports</span>
-          </button>
           <SyncStatusBadge onClick={() => navigate('/sync-queue')} />
           <button
             onClick={handleLogout}

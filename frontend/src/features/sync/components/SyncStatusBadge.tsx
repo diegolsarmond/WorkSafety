@@ -24,7 +24,7 @@ export function SyncStatusBadge({ onClick, className = '' }: SyncStatusBadgeProp
   let bgColor = 'bg-emerald-100';
   let textColor = 'text-emerald-700';
   let borderColor = 'border-emerald-200';
-  let label = 'Sincronizado';
+  let label = 'Synced';
 
   if (!isOnline) {
     icon = <CloudOff className="w-4 h-4" />;
