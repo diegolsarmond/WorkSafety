@@ -5,6 +5,7 @@ import { LogOut, ShieldCheck, Plus, CloudOff, AlertTriangle, Building2, Factory,
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api/apiClient';
 import { SyncStatusBadge } from '@/features/sync';
+import { ConnectionBadge } from '@/features/pwa';
 import { environmentService, assessmentService, EnvironmentType, AssessmentType } from '@/services/environment/environmentService';
 import { AIQueueCounts } from '@/features/ai-queue/hooks/useAIQueue';
 export default function HomePage() {
@@ -95,8 +96,9 @@ export default function HomePage() {
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
           <SyncStatusBadge onClick={() => navigate('/sync-queue')} />
+          <ConnectionBadge />
           <button
             onClick={handleLogout}
             className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors"
