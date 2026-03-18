@@ -85,7 +85,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       {/* Header - responsive */}
-      <header className="bg-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+      <header className="bg-white px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-[#1BC5BD] to-[#0B7A90] rounded-lg flex items-center justify-center shadow-sm">

@@ -219,11 +219,9 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
         if evidences.exists():
             first_evidence = evidences.first()
             if first_evidence.file:
-                # Construir URL absoluta para a imagem
+                # Usar caminho absoluto file:// para o WeasyPrint resolver localmente
                 try:
-                    evidence_image_url = first_evidence.file.url
-                    if not evidence_image_url.startswith('http'):
-                        evidence_image_url = f"{settings.ALLOWED_HOSTS[0]}{evidence_image_url}" if settings.ALLOWED_HOSTS else f"file://{first_evidence.file.path}"
+                    evidence_image_url = f"file://{first_evidence.file.path.replace(chr(92), '/')}"
                 except Exception:
                     evidence_image_url = None
                 
@@ -273,7 +271,9 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
         html_string = render_to_string('reports/inspection_report.html', context)
         
         # Converter HTML para PDF usando WeasyPrint
-        pdf_document = HTML(string=html_string)
+        # base_url aponta para MEDIA_ROOT para que URLs relativas de imagem sejam resolvidas
+        base_url = f"file://{settings.MEDIA_ROOT}/"
+        pdf_document = HTML(string=html_string, base_url=base_url)
         pdf_buffer = pdf_document.write_pdf()
         
         # Retornar como BytesIO

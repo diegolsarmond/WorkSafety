@@ -45,6 +45,14 @@ button, a, [role="button"], input[type="checkbox"], input[type="radio"] {
   min-width: 44px;
 }
 
+/* Keep login remember-me control compact while preserving global touch target defaults elsewhere */
+input[type="checkbox"].remember-me-checkbox {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+}
+
 /* Exception for inline/icon-only elements that manage their own sizing */
 button.inline-btn, a.inline-link {
   min-height: unset;
