@@ -143,7 +143,7 @@ export function CameraCapture() {
         </p>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-8 pb-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-6">
+      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-4 sm:gap-6" style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1rem))' }}>
         <div className="flex items-center justify-between w-full max-w-xs z-20">
           <button className="p-4 rounded-full bg-white/10 text-white opacity-50 cursor-not-allowed">
             <Eye className="w-6 h-6" />

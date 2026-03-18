@@ -54,8 +54,8 @@ export function PWAProvider({ children }: PWAProviderProps) {
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
             <span className="text-sm font-medium">
               {isSyncing 
-                ? `Sincronizando ${pendingCount} item(s)...` 
-                : `${pendingCount} item(s) pendente(s) de sincronização`}
+                ? `Syncing ${pendingCount} item(s)...` 
+                : `${pendingCount} item(s) pending sync`}
             </span>
           </div>
         </div>
@@ -66,8 +66,8 @@ export function PWAProvider({ children }: PWAProviderProps) {
         <div className="fixed bottom-20 left-4 right-4 z-40 mx-auto max-w-md animate-in slide-in-from-bottom">
           <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/20 px-4 py-3 text-yellow-400 backdrop-blur-sm">
             <p className="text-sm">
-              ⚠️ Espaço de armazenamento baixo. 
-              {(stats.available / 1024 / 1024).toFixed(0)} MB disponíveis.
+              ⚠️ Low storage space. 
+              {(stats.available / 1024 / 1024).toFixed(0)} MB available.
             </p>
           </div>
         </div>

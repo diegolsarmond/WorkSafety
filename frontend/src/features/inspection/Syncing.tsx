@@ -124,13 +124,13 @@ export function Syncing() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
         <Loader2 className="w-12 h-12 animate-spin text-[#0b6b82]" />
-        <p className="mt-4 text-gray-600">Carregando...</p>
+        <p className="mt-4 text-gray-600">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 relative">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 sm:p-8 relative">
       {/* ERROR NOTIFICATION */}
       {hasError && (
         <div className="fixed top-4 left-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
@@ -144,9 +144,9 @@ export function Syncing() {
               )}
             </p>
             <p className="text-sm mt-2">
-              Tentativa {currentJob.retryCount} de {currentJob.maxRetries}.
+              Attempt {currentJob.retryCount} of {currentJob.maxRetries}.
               {currentJob.status === 'FAILED' && (
-                <span className="block mt-1">Tentando novamente automaticamente...</span>
+                <span className="block mt-1">Retrying automatically...</span>
               )}
             </p>
           </div>
@@ -234,13 +234,14 @@ export function Syncing() {
       </div>
 
       {/* Botões de ação */}
-      <div className="fixed bottom-8 left-8 right-8 space-y-3">
+      <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-8 space-y-3" style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}>
+        <div className="max-w-sm mx-auto space-y-3">
         {hasError && currentJob.status === 'ERROR' && (
           <Button
             onClick={handleRetry}
             className="w-full h-14 text-lg rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2 transition-all active:scale-95"
           >
-            <RefreshCw className="w-5 h-5" /> Tentar novamente
+            <RefreshCw className="w-5 h-5" /> Try again
           </Button>
         )}
 
@@ -268,6 +269,7 @@ export function Syncing() {
             Continue
           </Button>
         )}
+        </div>
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ export function ReviewPhotos() {
       navigate('/inspection/syncing');
     } catch (error) {
       console.error('Error submitting inspection:', error);
-      alert('Erro ao enviar inspeção. Tente novamente.');
+      alert('Error submitting inspection. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -57,8 +57,8 @@ export function ReviewPhotos() {
         </button>
       </header>
 
-      <main className="flex-1 p-4 overflow-y-auto pb-24">
-        <div className="grid grid-cols-2 gap-4">
+      <main className="flex-1 p-4 sm:p-6 overflow-y-auto pb-24 max-w-3xl lg:max-w-4xl mx-auto w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {photos.map((photo, index) => (
             <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm group">
               <img src={photo.dataUrl} alt={`Captured ${index + 1}`} className="w-full h-full object-cover" />
@@ -93,7 +93,8 @@ export function ReviewPhotos() {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="max-w-3xl lg:max-w-4xl mx-auto">
         <Button
           onClick={handleSubmit}
           disabled={photos.length === 0 || isSubmitting}
@@ -101,7 +102,7 @@ export function ReviewPhotos() {
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" /> Enviando...
+              <Loader2 className="w-5 h-5 animate-spin" /> Submitting...
             </>
           ) : (
             <>
@@ -109,6 +110,7 @@ export function ReviewPhotos() {
             </>
           )}
         </Button>
+        </div>
       </div>
     </div>
   );

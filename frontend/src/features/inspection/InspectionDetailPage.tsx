@@ -143,7 +143,7 @@ export function InspectionDetailPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-28">
+      <main className="flex-1 overflow-y-auto pb-32 sm:pb-36 max-w-3xl lg:max-w-4xl mx-auto w-full">
         {/* Image Section */}
         {assessment.evidences.length > 0 && (
           <div className="relative bg-black">
@@ -208,7 +208,7 @@ export function InspectionDetailPage() {
         )}
 
         {/* Analysis Results */}
-        <div className="p-4 bg-white space-y-4">
+        <div className="p-4 sm:p-6 bg-white space-y-4">
           {/* AI Analysis Header */}
           <div>
             <h2 className="text-lg font-bold text-[#0b6b82] flex items-center gap-2 mb-4">
@@ -325,7 +325,8 @@ export function InspectionDetailPage() {
       </main>
 
       {/* Footer with CTA */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="max-w-3xl lg:max-w-4xl mx-auto">
         {validationError && (
           <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-600">{validationError}</p>
@@ -367,6 +368,7 @@ export function InspectionDetailPage() {
             </>
           )}
         </button>
+        </div>
       </footer>
     </div>
   );
