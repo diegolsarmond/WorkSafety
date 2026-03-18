@@ -171,6 +171,70 @@ export async function humanValidateAssessment(
 }
 
 /**
+ * Reprocessa a avaliação com IA
+ * @param assessmentId - ID da avaliação
+ * @param reason - Motivo opcional do reprocessamento
+ */
+export async function reprocessAssessment(
+  assessmentId: string | number,
+  reason?: string
+): Promise<{ status: AssessmentStatus; previous_status: string; message: string }> {
+  try {
+    const response = await apiClient.post(`${API_PREFIX}/${assessmentId}/reprocess-ai/`, {
+      reason,
+    });
+    return response.data;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+
+      // Compatibilidade com backends antigos que ainda expõem /reprocess/
+      if (axiosError.response?.status === 404) {
+        try {
+          const legacyResponse = await apiClient.post(`${API_PREFIX}/${assessmentId}/reprocess/`, {
+            reason,
+          });
+          return legacyResponse.data;
+        } catch {
+          // Continua para o tratamento de erro padrão abaixo
+        }
+      }
+    }
+
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+      const message = axiosError.response?.data?.error || 'Failed to reprocess assessment';
+      throw new RiskServiceError(message, 'TRANSITION_ERROR', axiosError.response?.status);
+    }
+    throw new RiskServiceError('Network error', 'NETWORK_ERROR');
+  }
+}
+
+/**
+ * Força novo processamento de IA da avaliação
+ * @param assessmentId - ID da avaliação
+ * @param reason - Motivo opcional do processamento
+ */
+export async function processAIAssessment(
+  assessmentId: string | number,
+  reason?: string
+): Promise<{ status: AssessmentStatus; previous_status: string; message: string }> {
+  try {
+    const response = await apiClient.post(`${API_PREFIX}/${assessmentId}/process-ai/`, {
+      reason,
+    });
+    return response.data;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+      const message = axiosError.response?.data?.error || 'Failed to process AI assessment';
+      throw new RiskServiceError(message, 'TRANSITION_ERROR', axiosError.response?.status);
+    }
+    throw new RiskServiceError('Network error', 'NETWORK_ERROR');
+  }
+}
+
+/**
  * Finaliza a avaliação (FINALIZED)
  * @param assessmentId - ID da avaliação
  * @param reason - Motivo opcional da transição

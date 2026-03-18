@@ -74,6 +74,7 @@ export function CameraCapture() {
         setProcessing(false);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2000); // Visual confirmation hides after 2s
+        setTimeout(() => navigate('/inspection/review'), 300);
       } else {
         URL.revokeObjectURL(objectUrl);
         setProcessing(false);

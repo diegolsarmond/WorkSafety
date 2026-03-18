@@ -41,7 +41,7 @@ const getColorsForIndex = (index: number): { color: string; bg: string } => {
 
 export function NewInspection() {
   const navigate = useNavigate();
-  const { environment, setEnvironment, category, setCategory } = useInspectionStore();
+  const { environment, setEnvironment, category, setCategory, photos } = useInspectionStore();
   
   const [environments, setEnvironments] = useState<EnvironmentOption[]>([]);
   const [assessmentTypes, setAssessmentTypes] = useState<AssessmentType[]>([]);
@@ -95,7 +95,7 @@ export function NewInspection() {
 
   const handleContinue = () => {
     if (environment) {
-      navigate('/inspection/camera');
+      navigate(photos.length > 0 ? '/inspection/review' : '/inspection/camera');
     }
   };
 
