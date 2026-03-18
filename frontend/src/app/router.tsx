@@ -15,14 +15,16 @@ import InspectionDetailPage from '@/features/inspection/InspectionDetailPage';
 import { SyncQueuePage } from '@/features/sync';
 import { AIQueuePage } from '@/features/ai-queue';
 import { ReportsPage } from '@/features/reports';
+import { PWAProvider } from '@/features/pwa';
 
 export default function AppRouter() {
-  // Use /worksafety basename in production, / in development
-  const basename = import.meta.env.MODE === 'production' ? '/worksafety' : '/';
+  // Use /worksafety/ in both dev and production for local testing consistency
+  const basename = '/worksafety/';
   
   return (
     <BrowserRouter basename={basename}>
-      <Routes>
+      <PWAProvider>
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -137,6 +139,7 @@ export default function AppRouter() {
 
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>
+      </PWAProvider>
     </BrowserRouter>
   );
 }

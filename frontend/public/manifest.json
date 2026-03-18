@@ -39,22 +39,6 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "screenshot-narrow.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Tela de login do WorkSafety"
-    },
-    {
-      "src": "screenshot-wide.png",
-      "sizes": "1280x800",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Dashboard do WorkSafety"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Nova Inspeção",

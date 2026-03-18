@@ -3,12 +3,19 @@
  */
 
 import { Download, X, Smartphone, Share2, MoreVertical, PlusSquare } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { usePWAInstall } from '../hooks';
 
 export function InstallPrompt() {
   const { canInstall, isInstalling, install, dismiss, isIOS, isAndroid, showManualInstructions } = usePWAInstall();
+  const location = useLocation();
 
-  if (!canInstall) return null;
+  // Don't show during login/auth pages
+  const isAuthPage = location.pathname.includes('/login') || 
+                     location.pathname.includes('/forgot-password') ||
+                     location.pathname.includes('/reset-password');
+
+  if (!canInstall || isAuthPage) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">

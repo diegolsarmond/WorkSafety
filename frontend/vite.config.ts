@@ -6,9 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  // Use /worksafety/ both in dev and production for consistency
   const isProd = mode === 'production';
   return {
-    base: isProd ? '/worksafety/' : '/',
+    base: '/worksafety/',
     plugins: [
       react(),
       tailwindcss(),
@@ -88,12 +89,12 @@ export default defineConfig(({ mode }) => {
           name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
           description: 'Aplicativo de Segurança do Trabalho para inspeções e gestão de riscos',
-          start_url: isProd ? '/worksafety/' : '/',
+          start_url: '/worksafety/',
           display: 'standalone',
           background_color: '#0F1729',
           theme_color: '#0F1729',
           orientation: 'portrait',
-          scope: isProd ? '/worksafety/' : '/',
+          scope: '/worksafety/',
           lang: 'pt-BR',
           categories: ['business', 'productivity', 'utilities'],
           icons: [
@@ -108,22 +109,6 @@ export default defineConfig(({ mode }) => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any maskable'
-            }
-          ],
-          screenshots: [
-            {
-              src: 'screenshot-narrow.png',
-              sizes: '750x1334',
-              type: 'image/png',
-              form_factor: 'narrow',
-              label: 'Tela de login do WorkSafety'
-            },
-            {
-              src: 'screenshot-wide.png',
-              sizes: '1280x800',
-              type: 'image/png',
-              form_factor: 'wide',
-              label: 'Dashboard do WorkSafety'
             }
           ],
           shortcuts: [
