@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
 import { SecureStorage } from '@/services/storage/secureStorage';
+import { AUTH_TOKEN_KEY } from '@/services/auth/authKeys';
 
 interface Report {
   id: number;
@@ -39,7 +40,7 @@ export default function ReportsPage() {
   const fetchReports = async () => {
     try {
       setError(null);
-      const token = SecureStorage.getItem('auth_token');
+      const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
       if (!token) {
         navigate('/login');
         return;
@@ -71,7 +72,7 @@ export default function ReportsPage() {
   const regenerateReport = async (assessmentId: number) => {
     try {
       setRegenerating(assessmentId);
-      const token = SecureStorage.getItem('auth_token');
+      const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
       
       // Remove old failed report for this assessment before regenerating
       setReports((prev) => prev.filter((r) => !(r.assessment_id === assessmentId && r.status === 'failed')));

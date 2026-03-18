@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SecureStorage } from '@/services/storage/secureStorage';
 import { User, LoginResponse } from '@/types/auth';
 import { authService } from '@/services/auth/authService';
+import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/services/auth/authKeys';
 
 interface AuthState {
   user: User | null;
@@ -27,8 +28,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // Store tokens securely
       console.log('[AuthStore] Storing auth tokens (keepSignedIn:', keepSignedIn, ')');
-      SecureStorage.setItem('auth_token', response.token, keepSignedIn);
-      SecureStorage.setItem('refresh_token', response.refreshToken, keepSignedIn);
+      SecureStorage.setItem(AUTH_TOKEN_KEY, response.token, keepSignedIn);
+      SecureStorage.setItem(REFRESH_TOKEN_KEY, response.refreshToken, keepSignedIn);
 
       console.log('[AuthStore] Login successful, user:', response.user.email);
       set({
@@ -45,14 +46,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     authService.logout(); // Fire and forget
-    SecureStorage.clear();
+    SecureStorage.removeItem(AUTH_TOKEN_KEY);
+    SecureStorage.removeItem(REFRESH_TOKEN_KEY);
     set({ user: null, isAuthenticated: false });
   },
 
   checkAuth: async () => {
     console.log('[AuthStore] checkAuth called');
     set({ isInitializing: true });
-    const token = SecureStorage.getItem('auth_token');
+    const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
 
     if (!token) {
       console.log('[AuthStore] No auth token found - user not authenticated');
@@ -69,7 +71,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error: any) {
       console.warn('[AuthStore] checkAuth failed:', error.status || error.message);
       // Clear corrupted/invalid tokens
-      SecureStorage.clear();
+      SecureStorage.removeItem(AUTH_TOKEN_KEY);
+      SecureStorage.removeItem(REFRESH_TOKEN_KEY);
       set({ user: null, isAuthenticated: false, isInitializing: false });
     }
   },

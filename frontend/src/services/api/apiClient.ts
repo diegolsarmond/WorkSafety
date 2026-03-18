@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { env } from '@/config/env';
 import { SecureStorage } from '@/services/storage/secureStorage';
+import { AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/services/auth/authKeys';
 
 export const apiClient = axios.create({
   baseURL: env.API_URL,
@@ -13,7 +14,7 @@ export const apiClient = axios.create({
 // Request interceptor for adding the auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = SecureStorage.getItem('auth_token');
+    const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url} - Auth header added`);
@@ -45,7 +46,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = SecureStorage.getItem('refresh_token');
+        const refreshToken = SecureStorage.getItem(REFRESH_TOKEN_KEY);
         if (refreshToken) {
           // Attempt to refresh token
           const refreshUrl = env.API_URL.endsWith('/') ? `${env.API_URL}auth/token/refresh/` : `${env.API_URL}/auth/token/refresh/`;
@@ -56,8 +57,8 @@ apiClient.interceptors.response.use(
             console.log('[API] Token refreshed successfully');
 
             // Re-store keeping the same storage type as before
-            const keepSignedIn = localStorage.getItem('auth_token') !== null;
-            SecureStorage.setItem('auth_token', newAccessToken, keepSignedIn);
+            const keepSignedIn = localStorage.getItem(AUTH_TOKEN_KEY) !== null;
+            SecureStorage.setItem(AUTH_TOKEN_KEY, newAccessToken, keepSignedIn);
 
             // Update the failed request auth header
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -69,14 +70,16 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // If refresh fails, clear and logout
         console.error('[API] Token refresh failed, logging out');
-        SecureStorage.clear();
+        SecureStorage.removeItem(AUTH_TOKEN_KEY);
+        SecureStorage.removeItem(REFRESH_TOKEN_KEY);
         window.location.href = '/worksafety/login';
         return Promise.reject(refreshError);
       }
 
       // Default behavior if no refresh token or it fails
       console.error('[API] No refresh token, clearing storage and redirecting to login');
-      SecureStorage.clear();
+      SecureStorage.removeItem(AUTH_TOKEN_KEY);
+      SecureStorage.removeItem(REFRESH_TOKEN_KEY);
       window.location.href = '/worksafety/login';
     }
 

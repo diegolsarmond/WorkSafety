@@ -14,7 +14,7 @@ export default function Login() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/admin/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -25,7 +25,7 @@ export default function Login() {
     try {
       await login({ email, password });
       // Redirect to home after successful login
-      navigate('/admin/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch {
       // Error is already handled in the hook
     }
