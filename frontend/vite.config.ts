@@ -17,13 +17,14 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         injectRegister: 'auto',
         strategies: 'generateSW',
+        manifestFilename: 'manifest.json',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
           maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, // 100MB
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: false, // Changed to false to prevent cache issues during dev
-          navigationPreload: true,
+          navigationPreload: false,
           runtimeCaching: [
             {
               urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
