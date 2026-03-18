@@ -309,7 +309,8 @@ class OlimpiaAIClient(AIClientInterface):
         )
         self.api_token = api_token or getattr(settings, "OLIMPIA_API_TOKEN", "")
         self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
-        self.language = language or getattr(settings, "OLIMPIA_API_LANGUAGE", "en_us")
+        # Requisito de produto: payload da Olímpia deve sempre ser retornado em inglês.
+        self.language = "en_us"
         self.min_confidence = getattr(settings, "OLIMPIA_MIN_CONFIDENCE", 0.70)
 
     def _get_headers(self) -> Dict[str, str]:
@@ -373,9 +374,9 @@ class OlimpiaAIClient(AIClientInterface):
         findings = []
         for v in violations:
             findings.append({
-                "description": f"[{v.rule_name}] {v.description}",
+                "description": v.description,
                 "severity": v.severity,
-                "location": f"Área detectada (confiança: {v.confidence:.0%})",
+                "location": "",
                 "category": v.category,
                 "confidence": v.confidence,
                 "bounding_box": v.bounding_box.to_list(),
@@ -538,30 +539,21 @@ class OlimpiaAIClient(AIClientInterface):
         else:
             confidence_level = "HIGH"  # Sem violações
         
-        # Remover duplicatas baseadas na descrição (mesmo risco em múltiplas imagens)
-        seen_descriptions = set()
-        unique_findings = []
-        for finding in all_findings:
-            desc = finding["description"]
-            if desc not in seen_descriptions:
-                seen_descriptions.add(desc)
-                unique_findings.append(finding)
-        
         logger.info(
-            f"Análise concluída: {len(unique_findings)} findings únicos "
+            f"Análise concluída: {len(all_findings)} findings "
             f"de {len(all_findings)} total"
         )
         
         return AIInferenceResult(
             success=True,
-            findings=unique_findings,
+            findings=all_findings,
             confidence=confidence_level,
             model_version="olimpia-v2",
             error_message="",
             raw_response={
                 "processed_images": len(request.evidence_urls),
                 "total_violations": len(all_violations),
-                "unique_findings": len(unique_findings),
+                "unique_findings": len(all_findings),
                 "individual_responses": all_raw_responses,
             },
             violations=all_violations,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ImageOff,
   AlertCircle,
+  X,
   ChevronDown,
   ChevronUp,
   Filter,
@@ -122,6 +123,7 @@ interface RiskCardProps {
   onToggle: () => void;
   isSelected: boolean;
   onSelect: () => void;
+  onPreviewEvidence: (url: string, alt: string) => void;
 }
 
 function RiskCard({
@@ -130,6 +132,7 @@ function RiskCard({
   onToggle,
   isSelected,
   onSelect,
+  onPreviewEvidence,
 }: RiskCardProps) {
   return (
     <div className="p-4 hover:bg-gray-50/50 transition-colors">
@@ -154,17 +157,29 @@ function RiskCard({
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
           {/* Header */}
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-gray-900 text-lg mb-1 truncate">
-              {risk.description}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <h3 className="font-bold text-gray-900 text-lg mb-1 break-words">
+              {risk.reason || risk.description}
             </h3>
             <StatusBadge status={risk.risk_status} />
           </div>
 
+          {risk.rule_id && (
+            <div className="mb-2">
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                {risk.rule_id}
+              </span>
+            </div>
+          )}
+
           {/* Localização */}
           <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
             <MapPin className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">{risk.location || 'Unknown location'}</span>
+            <span className="truncate">
+              {risk.bounding_box && risk.bounding_box.length === 4
+                ? `bbox: [${risk.bounding_box.join(', ')}]`
+                : risk.location || 'No bounding box'}
+            </span>
           </div>
 
           {/* Severidade e Confiança */}
@@ -181,12 +196,19 @@ function RiskCard({
           </div>
 
           {/* Evidência e Recomendações */}
-          <div className="mt-3 flex gap-3">
+          <div className="mt-3 flex flex-col sm:flex-row gap-3">
             {risk.evidence && (
               <EvidenceThumbnail
                 url={risk.evidence.thumbnail_url}
                 alt={`Evidence for ${risk.description}`}
-                onClick={() => window.open(risk.evidence?.thumbnail_url || '', '_blank')}
+                onClick={() => {
+                  if (risk.evidence?.thumbnail_url) {
+                    onPreviewEvidence(
+                      risk.evidence.thumbnail_url,
+                      `Evidence for ${risk.description}`
+                    );
+                  }
+                }}
               />
             )}
 
@@ -363,6 +385,7 @@ export function RisksDetected() {
   const [selectedRisks, setSelectedRisks] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [evidenceModal, setEvidenceModal] = useState<{ url: string; alt: string } | null>(null);
   
   const {
     screenState,
@@ -431,6 +454,21 @@ export function RisksDetected() {
   const totalRisks = assessment?.risks.length || 0;
   const complianceScore = assessment?.compliance_score || 100;
   const canValidateAssessment = assessment ? canValidate(assessment.status) : false;
+
+  useEffect(() => {
+    if (!evidenceModal) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEvidenceModal(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [evidenceModal]);
   
   // Se não tem assessmentId válido, mostra erro
   if (!assessmentId || assessmentId === 'risks') {
@@ -514,27 +552,27 @@ export function RisksDetected() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between p-4 bg-white shadow-sm sticky top-0 z-10">
-        <div className="flex items-center">
+      <header className="flex items-start sm:items-center justify-between gap-3 p-4 bg-white shadow-sm sticky top-0 z-10">
+        <div className="flex items-start min-w-0">
           <button
             onClick={() => navigate('/home')}
             className="p-2 -ml-2 rounded-full hover:bg-gray-100"
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
-          <div className="ml-4">
-            <h1 className="text-xl font-bold text-gray-900 leading-tight">
+          <div className="ml-4 min-w-0">
+            <h1 className="text-xl font-bold text-gray-900 leading-tight break-words">
               Risks Detected
             </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-sm text-gray-500">
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-sm text-gray-500 break-words">
                 {assessment?.title || 'Assessment'} • {filteredRisks.length} risks
               </p>
               {assessment && <LifecycleStatusBadge status={assessment.status} />}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-2 rounded-full transition-colors ${
@@ -588,20 +626,20 @@ export function RisksDetected() {
 
       <main className="flex-1 p-4 overflow-y-auto pb-32">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-2">
-            <div className="flex items-center gap-2 text-red-500 font-bold text-sm tracking-widest uppercase">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+          <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-2 text-red-500 font-bold text-xs sm:text-sm tracking-widest uppercase text-center">
               <AlertTriangle className="w-4 h-4" /> Total Risks
             </div>
-            <span className="text-5xl font-black text-gray-900">
+            <span className="text-4xl sm:text-5xl font-black text-gray-900">
               {String(totalRisks).padStart(2, '0')}
             </span>
           </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-2">
-            <div className="flex items-center gap-2 text-teal-600 font-bold text-sm tracking-widest uppercase">
+          <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-2">
+            <div className="flex items-center gap-2 text-teal-600 font-bold text-xs sm:text-sm tracking-widest uppercase text-center">
               <ShieldCheck className="w-4 h-4" /> Compliance
             </div>
-            <span className="text-5xl font-black text-gray-900">{complianceScore}%</span>
+            <span className="text-4xl sm:text-5xl font-black text-gray-900">{complianceScore}%</span>
           </div>
         </div>
 
@@ -671,6 +709,7 @@ export function RisksDetected() {
                     onToggle={() => toggleRiskExpanded(risk.id)}
                     isSelected={selectedRisks.has(risk.id)}
                     onSelect={() => toggleRiskSelected(risk.id)}
+                    onPreviewEvidence={(url, alt) => setEvidenceModal({ url, alt })}
                   />
                 </div>
               ))
@@ -687,11 +726,41 @@ export function RisksDetected() {
         )}
       </main>
 
+      {evidenceModal && (
+        <div
+          className="fixed inset-0 z-30 bg-black/70 p-4 sm:p-8 flex items-center justify-center"
+          onClick={() => setEvidenceModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Evidence image preview"
+        >
+          <div
+            className="relative w-full max-w-3xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setEvidenceModal(null)}
+              className="absolute -top-12 right-0 sm:top-3 sm:right-3 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-gray-800 flex items-center justify-center"
+              aria-label="Close image preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <img
+              src={evidenceModal.url}
+              alt={evidenceModal.alt}
+              className="w-full max-h-[80vh] object-contain rounded-xl bg-black"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex gap-4 z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row gap-3 sm:gap-4 z-20">
         <Button
           variant="ghost"
-          className="flex-1 h-14 text-lg text-red-500 hover:bg-red-50 font-bold"
+          className="flex-1 h-12 sm:h-14 text-base sm:text-lg text-red-500 hover:bg-red-50 font-bold"
           onClick={() => navigate('/inspection/validation')}
         >
           <XCircle className="w-6 h-6 mr-2" /> Reject
@@ -701,7 +770,7 @@ export function RisksDetected() {
           <Button
             onClick={() => validateAssessment()}
             disabled={isValidating}
-            className="flex-1 h-14 text-lg bg-teal-600 text-white hover:bg-teal-700 font-bold border-none"
+            className="flex-1 h-12 sm:h-14 text-base sm:text-lg bg-teal-600 text-white hover:bg-teal-700 font-bold border-none"
           >
             {isValidating ? (
               <>
@@ -716,7 +785,7 @@ export function RisksDetected() {
         ) : (
           <Button
             onClick={() => navigate('/inspection/validation')}
-            className="flex-1 h-14 text-lg bg-gray-100 text-gray-400 hover:bg-gray-200 font-bold border-none"
+            className="flex-1 h-12 sm:h-14 text-base sm:text-lg bg-gray-100 text-gray-400 hover:bg-gray-200 font-bold border-none"
           >
             Confirm <Send className="w-5 h-5 ml-2" />
           </Button>

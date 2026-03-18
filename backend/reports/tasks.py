@@ -192,13 +192,23 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             severity = finding.severity.lower() if finding.severity else ''
             is_critical = 'critical' in severity
             is_warning = 'warning' in severity or 'medium' in severity
+
+            if getattr(finding, 'ai_confidence', None) is not None:
+                confidence = int(float(finding.ai_confidence) * 100)
+            else:
+                confidence = 85
+
+            title_text = (finding.description or 'Risk finding').strip()
+            short_title = title_text[:50]
+            if len(title_text) > 50:
+                short_title += '...'
             
             findings_data.append({
-                'title': finding.title or finding.description[:50],
+                'title': short_title,
                 'description': finding.description or 'No description provided',
                 'is_critical': is_critical,
                 'is_warning': is_warning,
-                'confidence': getattr(finding, 'confidence_score', 85)
+                'confidence': confidence,
             })
         
         # Preparar dados da primeira evidência (imagem)

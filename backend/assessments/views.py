@@ -374,7 +374,7 @@ class AssessmentValidTransitionsView(views.APIView):
         summary="Force AI Processing",
         description=(
             "Força o reprocessamento da avaliação pelo serviço de IA. "
-            "Disponível para avaliações com status SYNCED ou ERROR_AI. "
+            "Disponível para avaliações com status SYNCED, AI_REVIEWED ou ERROR_AI. "
             "Users can only process their own RiskAssessments."
         ),
         responses={
@@ -405,12 +405,13 @@ class AssessmentProcessAIView(views.APIView):
         # Verificar se a avaliação pode ser processada
         if assessment.status not in [
             RiskAssessment.STATUS_SYNCED,
+            RiskAssessment.STATUS_AI_REVIEWED,
             RiskAssessment.STATUS_ERROR_AI,
         ]:
             return Response(
                 {
                     'error': f"Cannot process assessment with status '{assessment.status}'. "
-                            f"Expected 'synced' or 'error_ai'."
+                            f"Expected 'synced', 'ai_reviewed' or 'error_ai'."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
