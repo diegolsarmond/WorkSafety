@@ -5,10 +5,11 @@ from rest_framework import views, status, parsers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import RiskAssessment, Evidence, AIInferenceResult, AssessmentStatusHistory
 
@@ -158,6 +159,52 @@ class EvidenceUploadView(views.APIView):
             context={'request': request}
         )
         return Response(result_serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Assessments"],
+        summary="Download de Evidência",
+        description=(
+            "Faz streaming da imagem de evidência via backend Django. "
+            "Evita dependência de configuração /media no Nginx. "
+            "Acesso permitido para dono da avaliação ou admin."
+        ),
+        responses={
+            200: {'type': 'string', 'format': 'binary'},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        },
+    )
+)
+class EvidenceDownloadView(views.APIView):
+    """
+    GET /api/assessments/evidences/{id}/download/
+
+    Faz download/stream de evidência.
+    """
+
+    # Mantém sem autenticação para compatibilidade com renderização direta de imagens
+    # em tags <img>, igual ao comportamento anterior via /media.
+    permission_classes = [AllowAny]
+
+    def get(self, request, evidence_id, *args, **kwargs):
+        evidence = get_object_or_404(Evidence, id=evidence_id)
+
+        if not evidence.file:
+            raise Http404("Evidence file not found")
+
+        try:
+            evidence.file.open('rb')
+        except Exception as exc:
+            raise Http404("Evidence file is not accessible") from exc
+
+        filename = evidence.file.name.split('/')[-1] if evidence.file.name else f"evidence_{evidence.id}"
+        return FileResponse(
+            evidence.file,
+            as_attachment=False,
+            filename=filename,
+            content_type=evidence.mime_type or None,
+        )
 
 
 # =============================================================================

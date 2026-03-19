@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.urls import reverse
 from .models import Report
 
 
@@ -43,12 +44,13 @@ class ReportSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_file_url(self, obj: Report) -> str | None:
-        """Retorna a URL completa do arquivo PDF."""
+        """Retorna URL da API para download do PDF sem depender de alias /media no proxy."""
         if obj.file:
             request = self.context.get('request')
+            download_path = reverse('report-download', kwargs={'report_id': obj.id})
             if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
+                return request.build_absolute_uri(download_path)
+            return download_path
         return None
 
 

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.urls import reverse
 from .models import (
     Evidence,
     RiskAssessment,
@@ -47,12 +48,13 @@ class EvidenceSerializer(serializers.ModelSerializer):
         ]
 
     def get_url(self, obj: Evidence) -> str:
-        """Retorna a URL completa do arquivo."""
+        """Retorna URL de download da API sem depender de /media no proxy."""
         if obj.file:
             request = self.context.get('request')
+            download_path = reverse('evidence-download', kwargs={'evidence_id': obj.id})
             if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
+                return request.build_absolute_uri(download_path)
+            return download_path
         return ""
 
     def get_privacy_status(self, obj: Evidence) -> dict:
@@ -74,12 +76,13 @@ class EvidenceRefSerializer(serializers.ModelSerializer):
         fields = ['id', 'thumbnail_url', 'captured_at']
     
     def get_thumbnail_url(self, obj: Evidence) -> str:
-        """Retorna a URL da evidência para exibição."""
+        """Retorna URL de evidência para exibição via API."""
         if obj.file:
             request = self.context.get('request')
+            download_path = reverse('evidence-download', kwargs={'evidence_id': obj.id})
             if request:
-                return request.build_absolute_uri(obj.file.url)
-            return obj.file.url
+                return request.build_absolute_uri(download_path)
+            return download_path
         return ""
 
 

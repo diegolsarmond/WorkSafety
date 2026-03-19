@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     ReportListView,
     ReportDetailView,
+    ReportDownloadView,
     GenerateReportView,
     RegenerateReportView,
 )
@@ -10,6 +11,7 @@ urlpatterns = [
     # Listagem de relatórios
     path("reports/", ReportListView.as_view(), name="report-list"),
     path("reports/<int:report_id>/", ReportDetailView.as_view(), name="report-detail"),
+    path("reports/<int:report_id>/download/", ReportDownloadView.as_view(), name="report-download"),
     
     # Geração de relatórios
     path(
