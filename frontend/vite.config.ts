@@ -89,12 +89,12 @@ export default defineConfig(({ mode }) => {
           name: 'WorkSafety - Smart Safety',
           short_name: 'WorkSafety',
           description: 'Smart workplace safety inspection app with AI-powered risk analysis',
-          start_url: '/worksafety/',
+          start_url: '.',
           display: 'standalone',
           background_color: '#0F1729',
           theme_color: '#0F1729',
           orientation: 'any',
-          scope: '/worksafety/',
+          scope: '.',
           lang: 'en',
           categories: ['business', 'productivity', 'utilities'],
           icons: [
@@ -128,14 +128,14 @@ export default defineConfig(({ mode }) => {
               name: 'New Inspection',
               short_name: 'Inspect',
               description: 'Start a new safety inspection',
-              url: '/worksafety/inspection/new',
+              url: '/inspection/new',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             },
             {
               name: 'Dashboard',
               short_name: 'Dashboard',
               description: 'View main dashboard',
-              url: '/worksafety/home',
+              url: '/home',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             }
           ]
