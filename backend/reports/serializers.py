@@ -47,7 +47,7 @@ class ReportSerializer(serializers.ModelSerializer):
         """Retorna URL da API para download do PDF sem depender de alias /media no proxy."""
         if obj.file:
             request = self.context.get('request')
-            download_path = reverse('report-download', kwargs={'report_id': obj.id})
+            download_path = reverse('report-download-public', kwargs={'report_id': obj.id})
             if request:
                 return request.build_absolute_uri(download_path)
             return download_path

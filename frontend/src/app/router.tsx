@@ -18,10 +18,20 @@ import { ReportsPage } from '@/features/reports';
 import { PWAProvider } from '@/features/pwa';
 
 export default function AppRouter() {
-  // Detect basename based on current location
-  // If running from /worksafety/, use that; otherwise use root
+  // Normalize accidental duplicated prefix: /worksafety/worksafety/* -> /worksafety/*
+  const duplicatedPrefix = '/worksafety/worksafety/';
   const currentPath = window.location.pathname;
-  const basename = currentPath.startsWith('/worksafety/') ? '/worksafety/' : '/';
+  if (currentPath.startsWith(duplicatedPrefix)) {
+    const normalizedPath = currentPath.replace('/worksafety/worksafety/', '/worksafety/');
+    const normalizedUrl = `${normalizedPath}${window.location.search}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', normalizedUrl);
+  }
+
+  // If running from /worksafety/, use that basename; otherwise root.
+  const pathname = window.location.pathname;
+  const basename = pathname === '/worksafety' || pathname.startsWith('/worksafety/')
+    ? '/worksafety/'
+    : '/';
   
   return (
     <BrowserRouter basename={basename}>
