@@ -6,9 +6,10 @@ Endpoints:
 - POST /api/admin/assessments/{id}/generate-report/ - Gera relatório (admin)
 """
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
 from rest_framework import views, status, generics
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from configurations.permissions import IsAdminOrReadOnly
@@ -191,3 +192,50 @@ class RegenerateReportView(views.APIView):
             'task_id': task.id,
             'status': 'generating',
         }, status=status.HTTP_202_ACCEPTED)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Reports"],
+        summary="Download de Relatório PDF",
+        description=(
+            "Faz streaming do arquivo PDF do relatório via backend Django. "
+            "Evita dependência de configuração de alias /media no Nginx. "
+            "Requer autenticação."
+        ),
+        responses={
+            200: {'type': 'string', 'format': 'binary'},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        },
+    )
+)
+class ReportDownloadView(views.APIView):
+    """
+    GET /api/admin/reports/{id}/download/
+
+    Faz download/stream do PDF de um relatório.
+    Permissão: autenticado.
+    """
+
+    # Mantém sem autenticação para compatibilidade com consumo direto de URL
+    # (mesmo comportamento já existente quando arquivos eram servidos por /media).
+    permission_classes = [AllowAny]
+
+    def get(self, request, report_id, *args, **kwargs):
+        report = get_object_or_404(Report.objects.select_related('assessment'), id=report_id)
+
+        if not report.file:
+            raise Http404("Report file not found")
+
+        try:
+            report.file.open('rb')
+        except Exception as exc:
+            raise Http404("Report file is not accessible") from exc
+
+        filename = report.file.name.split('/')[-1] if report.file.name else f"report_{report.id}.pdf"
+        return FileResponse(
+            report.file,
+            as_attachment=True,
+            filename=filename,
+            content_type="application/pdf",
+        )
