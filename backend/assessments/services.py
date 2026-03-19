@@ -44,6 +44,7 @@ class AssessmentLifecycleService:
             RiskAssessment.STATUS_ERROR_AI,
         ],
         RiskAssessment.STATUS_AI_REVIEWED: [
+            RiskAssessment.STATUS_SYNCED,  # Permite reprocessamento de IA
             RiskAssessment.STATUS_HUMAN_VALIDATED,
             RiskAssessment.STATUS_ERROR_AI,
         ],

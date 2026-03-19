@@ -258,6 +258,25 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         latest_inference = obj.inferences.first()
         raw_result = latest_inference.result_json if latest_inference else {}
 
+        # If the raw result wraps individual responses (legacy format),
+        # merge them so rule_*_violation keys are accessible at top level.
+        if isinstance(raw_result, dict) and 'individual_responses' in raw_result:
+            merged: dict = {}
+            for resp in (raw_result.get('individual_responses') or []):
+                if not isinstance(resp, dict):
+                    continue
+                for k, v in resp.items():
+                    if not k.endswith('_violation'):
+                        continue
+                    if v is None:
+                        merged.setdefault(k, None)
+                    elif isinstance(v, list):
+                        if not isinstance(merged.get(k), list):
+                            merged[k] = []
+                        merged[k].extend(v)
+            if merged:
+                raw_result = merged
+
         if isinstance(raw_result, dict):
             rule_keys = [k for k in raw_result.keys() if k.endswith('_violation')]
             if rule_keys:
@@ -325,8 +344,9 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
 
                 return risks
 
-        # Fallback para formato legado baseado em RiskFinding
-        return RiskItemSerializer(obj.findings.all(), many=True, context=self.context).data
+        # No raw violations from Olimpia API — return empty list
+        # (do not fall back to parameterised risk types)
+        return []
 
     def get_compliance_score(self, obj: RiskAssessment) -> int:
         """Calcula score de compliance baseado nos riscos."""

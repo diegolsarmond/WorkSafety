@@ -208,6 +208,7 @@ def process_assessment(self, assessment_id: int):
         # Verificar se a avaliação pode ser processada
         if assessment.status not in [
             RiskAssessment.STATUS_SYNCED,
+            RiskAssessment.STATUS_AI_REVIEWED,
             RiskAssessment.STATUS_ERROR_AI,
         ]:
             logger.warning(
@@ -218,7 +219,14 @@ def process_assessment(self, assessment_id: int):
                 "message": f"Invalid status: {assessment.status}",
             }
         
-        # Buscar ou criar registro de inferência
+        # Reset assessment to synced when reprocessing from ai_reviewed
+        if assessment.status == RiskAssessment.STATUS_AI_REVIEWED:
+            AssessmentLifecycleService.transition(
+                assessment, RiskAssessment.STATUS_SYNCED,
+                actor=None, reason="Reprocessing AI analysis",
+            )
+        
+        # Buscar ou criar registro de inferência — reset if reprocessing
         inference, created = AIInferenceResult.objects.get_or_create(
             assessment=assessment,
             defaults={
@@ -227,10 +235,13 @@ def process_assessment(self, assessment_id: int):
             },
         )
         
-        # Atualizar status para running
+        # Reset inference for reprocessing
         inference.status = AIInferenceResult.STATUS_RUNNING
-        inference.started_at = timezone.now()
+        inference.result_json = {}
+        inference.confidence = ""
         inference.error_message = ""
+        inference.started_at = timezone.now()
+        inference.finished_at = None
         inference.save()
         
         # Coletar URLs das evidências

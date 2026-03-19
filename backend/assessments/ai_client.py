@@ -511,6 +511,7 @@ class OlimpiaAIClient(AIClientInterface):
         all_findings = []
         all_raw_responses = []
         total_confidences = []
+        errors = []
         
         logger.info(f"Analisando avaliação {request.assessment_id} com {len(request.evidence_urls)} evidências")
         
@@ -528,6 +529,7 @@ class OlimpiaAIClient(AIClientInterface):
                 
                 if not os.path.exists(file_path):
                     logger.warning(f"Arquivo não encontrado: {file_path}")
+                    errors.append(f"File not found: {file_path}")
                     continue
                 
                 # Analisar imagem
@@ -543,10 +545,22 @@ class OlimpiaAIClient(AIClientInterface):
                         total_confidences.append(avg_conf)
                 else:
                     logger.warning(f"Falha ao analisar {file_path}: {result.error_message}")
+                    errors.append(result.error_message)
                     
             except Exception as e:
                 logger.exception(f"Erro processando evidência {evidence_url}: {e}")
+                errors.append(str(e))
                 continue
+        
+        # If no image was successfully processed, propagate the error
+        if not all_raw_responses and errors:
+            return AIInferenceResult(
+                success=False,
+                findings=[],
+                confidence="",
+                model_version="olimpia-v2",
+                error_message="; ".join(errors),
+            )
         
         # Calcular confiança geral
         if total_confidences:
@@ -565,18 +579,29 @@ class OlimpiaAIClient(AIClientInterface):
             f"de {len(all_findings)} total"
         )
         
+        # Merge individual responses so rule_*_violation keys are at the
+        # top level – this is what the serializer expects.
+        merged_raw: Dict[str, Any] = {}
+        for individual_response in all_raw_responses:
+            if not isinstance(individual_response, dict):
+                continue
+            for key, detections in individual_response.items():
+                if not key.endswith("_violation"):
+                    continue
+                if detections is None:
+                    merged_raw.setdefault(key, None)
+                elif isinstance(detections, list):
+                    if not isinstance(merged_raw.get(key), list):
+                        merged_raw[key] = []
+                    merged_raw[key].extend(detections)
+
         return AIInferenceResult(
             success=True,
             findings=all_findings,
             confidence=confidence_level,
             model_version="olimpia-v2",
             error_message="",
-            raw_response={
-                "processed_images": len(request.evidence_urls),
-                "total_violations": len(all_violations),
-                "unique_findings": len(all_findings),
-                "individual_responses": all_raw_responses,
-            },
+            raw_response=merged_raw,
             violations=all_violations,
         )
 

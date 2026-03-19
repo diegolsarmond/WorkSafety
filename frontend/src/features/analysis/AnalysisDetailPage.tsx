@@ -75,6 +75,9 @@ export function AnalysisDetailPage() {
       } else {
         await processAIAssessment(assessmentId);
       }
+      // Wait briefly for the task to start and reset the status to synced,
+      // then refresh so the hook enters the polling "AI is analyzing..." state.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await refresh();
     } catch (error) {
       setValidationError(
@@ -267,22 +270,20 @@ export function AnalysisDetailPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleRiskDecision(risk.id, 'approved')}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${
-                          decision === 'approved'
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${decision === 'approved'
                             ? 'bg-green-500 text-white'
                             : 'border-2 border-green-500 text-green-600 hover:bg-green-50'
-                        }`}
+                          }`}
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Accept
                       </button>
                       <button
                         onClick={() => handleRiskDecision(risk.id, 'rejected')}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${
-                          decision === 'rejected'
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${decision === 'rejected'
                             ? 'bg-red-500 text-white'
                             : 'border-2 border-red-500 text-red-600 hover:bg-red-50'
-                        }`}
+                          }`}
                       >
                         <XCircle className="w-4 h-4" />
                         Reject
@@ -327,47 +328,47 @@ export function AnalysisDetailPage() {
       {/* Footer with CTA */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="max-w-3xl lg:max-w-4xl mx-auto">
-        {validationError && (
-          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-600">{validationError}</p>
-          </div>
-        )}
-        {canRedoAIAnalysis && (
+          {validationError && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{validationError}</p>
+            </div>
+          )}
+          {canRedoAIAnalysis && (
+            <button
+              onClick={handleRedoAIAnalysis}
+              disabled={isReprocessing || isValidating}
+              className="w-full mb-3 bg-white text-[#0b6b82] border border-[#0b6b82] font-semibold py-3 rounded-lg hover:bg-[#f0fbfd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isReprocessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Reprocessing AI...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4" />
+                  Redo AI Analysis
+                </>
+              )}
+            </button>
+          )}
           <button
-            onClick={handleRedoAIAnalysis}
-            disabled={isReprocessing || isValidating}
-            className="w-full mb-3 bg-white text-[#0b6b82] border border-[#0b6b82] font-semibold py-3 rounded-lg hover:bg-[#f0fbfd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={handleFinishValidation}
+            disabled={isValidating || isReprocessing}
+            className="w-full bg-[#0b6b82] text-white font-semibold py-3 rounded-lg hover:bg-[#0a5a70] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isReprocessing ? (
+            {isValidating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Reprocessing AI...
+                Validating...
               </>
             ) : (
               <>
-                <AlertTriangle className="w-4 h-4" />
-                Redo AI Analysis
+                <CheckCircle2 className="w-4 h-4" />
+                Finish Validation
               </>
             )}
           </button>
-        )}
-        <button
-          onClick={handleFinishValidation}
-          disabled={isValidating || isReprocessing}
-          className="w-full bg-[#0b6b82] text-white font-semibold py-3 rounded-lg hover:bg-[#0a5a70] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {isValidating ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Validating...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              Finish Validation
-            </>
-          )}
-        </button>
         </div>
       </footer>
     </div>
