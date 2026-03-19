@@ -180,8 +180,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  // Use /worksafety/admin basename in production, / in development
-  const basename = import.meta.env.MODE === 'production' ? '/worksafety/admin' : '/';
+  // Use /admin basename in production, / in development
+  const basename = import.meta.env.MODE === 'production' ? '/admin' : '/';
   
   return (
     <Router basename={basename}>

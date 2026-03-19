@@ -5,20 +5,15 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-# O WorkSafetyWeb precisa ser buildado (Vite)
 RUN npm run build
 
-# Stage 2: Serve
-FROM node:20-alpine
+FROM nginx:alpine
 
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
+RUN rm /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server.ts ./server.ts
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html/
 
-EXPOSE 3000
+EXPOSE 3001
 
-CMD ["npx", "tsx", "server.ts"]
+CMD ["nginx", "-g", "daemon off;"]
