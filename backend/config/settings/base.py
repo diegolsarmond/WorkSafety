@@ -198,6 +198,14 @@ USE_X_FORWARDED_HOST = False  # Ativa apenas em produção com SECURE_HTTPS
 MEDIA_URL = os.environ.get("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Prefixo público da API usado para construir URLs retornadas ao frontend
+# (ex.: "/worksafety/api/" quando há gateway/proxy com path prefix).
+_public_api_prefix_env = os.environ.get("PUBLIC_API_PREFIX", "").strip()
+if _public_api_prefix_env:
+    PUBLIC_API_PREFIX = _public_api_prefix_env
+else:
+    PUBLIC_API_PREFIX = "/worksafety/api/" if MEDIA_URL.startswith("/worksafety/") else "/api/"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
