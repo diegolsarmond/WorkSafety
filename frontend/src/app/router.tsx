@@ -18,8 +18,10 @@ import { ReportsPage } from '@/features/reports';
 import { PWAProvider } from '@/features/pwa';
 
 export default function AppRouter() {
-  // Use /worksafety/ in both dev and production for local testing consistency
-  const basename = '/worksafety/';
+  // Detect basename based on current location
+  // If running from /worksafety/, use that; otherwise use root
+  const currentPath = window.location.pathname;
+  const basename = currentPath.startsWith('/worksafety/') ? '/worksafety/' : '/';
   
   return (
     <BrowserRouter basename={basename}>

@@ -402,6 +402,17 @@ export function RisksDetected() {
     autoFetch: true,
     refreshInterval: 30000, // Refresh a cada 30s para atualizações da IA
   });
+
+  // Debug logs
+  useEffect(() => {
+    console.log('[RisksDetected] State:', {
+      assessmentId,
+      screenState,
+      risksCount: assessment?.risks.length,
+      filteredRisksCount: filteredRisks.length,
+      assessmentStatus: assessment?.status,
+    });
+  }, [screenState, assessment, filteredRisks, assessmentId]);
   
   const toggleRiskExpanded = (riskId: string) => {
     setExpandedRisks((prev) => {

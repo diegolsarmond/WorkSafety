@@ -6,10 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  // Use /worksafety/ both in dev and production for consistency
   const isProd = mode === 'production';
   return {
-    base: '/worksafety/',
+    base: isProd ? '/worksafety/' : '/',
     plugins: [
       react(),
       tailwindcss(),

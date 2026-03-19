@@ -140,28 +140,54 @@ class MockAIClient(AIClientInterface):
                 raw_response=None,
             )
 
-        # Buscar risk types do banco de dados
-        risk_types = self._get_risk_types_from_db()
-        
-        # Simular detecção de riscos baseada no número de evidências
+        # Gerar detecções no formato esperado pela Olímpia (rule_*_violation)
+        raw_response = {}
         findings = []
-        if request.evidence_urls and risk_types:
-            for i, url in enumerate(request.evidence_urls):
-                # Selecionar risk type baseado no índice (ciclico)
-                risk_type = risk_types[i % len(risk_types)]
-                # Gerar confiança individual aleatória (0.70 a 0.95)
-                individual_confidence = 0.70 + (i * 0.05) % 0.25  # Entre 0.70 e 0.95
-                findings.append({
-                    "description": risk_type["description"],
-                    "severity": risk_type["severity"],
-                    "location": f"Area {i+1}",
-                    "confidence": individual_confidence,  # Confiança individual
-                    "category": "GENERAL",
-                })
+        
+        if request.evidence_urls:
+            # Simular 2-4 regras ativadas por evidência
+            num_rules = min(len(request.evidence_urls) + 1, 4)
+            rules_to_detect = [f"rule_{i+1}_violation" for i in range(num_rules)]
+            
+            for rule_idx, rule_key in enumerate(rules_to_detect):
+                detections = []
+                # Simular 1-2 detecções por regra
+                num_detections = 1 + (rule_idx % 2)
+                
+                for det_idx in range(num_detections):
+                    # Variação de confiança
+                    confidence = 0.70 + (rule_idx * 0.05 + det_idx * 0.1) % 0.25
+                    
+                    # Bounding box simulado (x, y, w, h)
+                    bounding_box = [
+                        10 + (rule_idx * 20) % 400,  # x
+                        10 + (det_idx * 30) % 300,   # y
+                        100 + (rule_idx * 15) % 200, # w
+                        80 + (det_idx * 20) % 150,   # h
+                    ]
+                    
+                    detection = {
+                        "confidence": round(confidence, 2),
+                        "bounding_box": bounding_box,
+                        "reason": f"Safety violation detected in area {det_idx + 1}",
+                    }
+                    detections.append(detection)
+                
+                raw_response[rule_key] = detections
+                
+                # Criar findings para compatibilidade
+                for detection in detections:
+                    findings.append({
+                        "description": detection.get("reason", f"Violation in {rule_key}"),
+                        "severity": ["HIGH", "CRITICAL", "HIGH", "CRITICAL", "CRITICAL", "HIGH"][rule_idx % 6],
+                        "location": f"Detection {det_idx + 1}",
+                        "confidence": detection.get("confidence", 0.75),
+                        "category": rule_key,
+                    })
 
-        # Calcular confiança baseada na quantidade de evidências
+        # Calcular confiança geral
         confidence_levels = ["LOW", "MEDIUM", "HIGH"]
-        confidence = confidence_levels[min(len(request.evidence_urls), 3) - 1] if request.evidence_urls else "LOW"
+        confidence = confidence_levels[min(len(request.evidence_urls) if request.evidence_urls else 0, 2)]
 
         return AIInferenceResult(
             success=True,
@@ -169,12 +195,7 @@ class MockAIClient(AIClientInterface):
             confidence=confidence,
             model_version="mock-v1.0",
             error_message="",
-            raw_response={
-                "processed_images": len(request.evidence_urls),
-                "analysis_duration_ms": 1500,
-                "model_confidence": confidence,
-                "risk_types_used": len(risk_types),
-            },
+            raw_response=raw_response,
         )
 
     def _get_risk_types_from_db(self) -> list:
