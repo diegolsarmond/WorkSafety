@@ -74,6 +74,22 @@ services:
       timeout: 10s
       retries: 3
 
+  admin-web:
+    build:
+      context: ../WorkSafetyWeb
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   worker:
     build:
       context: ../backend

@@ -14,14 +14,25 @@ import {
 import { useAIQueue, AIQueueItem } from '../hooks/useAIQueue';
 import { Button } from '@/ui/components/Button';
 
+// Mapper to translate ai_status to English display label
+const getStatusLabel = (item: AIQueueItem) => {
+  switch (item.ai_status) {
+    case 'running': return 'Processing';
+    case 'pending': return 'Pending';
+    case 'succeeded': return 'Completed';
+    case 'failed': return 'Failed';
+    default: return item.ai_status_display?.toLowerCase().includes('erro') ? 'Error' : (item.ai_status_display || item.ai_status);
+  }
+};
+
 /**
- * Página de fila de processamento de IA
+ * AI Processing Queue Page
  * 
- * Exibe todas as avaliações em processamento de IA vindo do backend:
- * - Pendentes (synced, aguardando processamento)
- * - Em processamento (running)
- * - Completados (succeeded)
- * - Com erro (error_ai / failed)
+ * Displays all assessments in AI processing from the backend:
+ * - Pending (synced, waiting for processing)
+ * - Processing (running)
+ * - Completed (succeeded)
+ * - Error (error_ai / failed)
  */
 export function AIQueuePage() {
   const navigate = useNavigate();
@@ -97,50 +108,50 @@ export function AIQueuePage() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Brain className="w-6 h-6 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">Fila de Processamento IA</h1>
+              <h1 className="text-xl font-bold text-gray-900">AI Processing Queue</h1>
             </div>
             <p className="text-sm text-gray-500">
-              {counts.processing > 0 && `${counts.processing} processando`}
-              {counts.pending > 0 && `, ${counts.pending} pendente${counts.pending > 1 ? 's' : ''}`}
-              {counts.error > 0 && `, ${counts.error} erro${counts.error > 1 ? 's' : ''}`}
-              {!hasAnyItems && 'Nenhum processamento ativo'}
+              {counts.processing > 0 && `${counts.processing} processing`}
+              {counts.pending > 0 && `, ${counts.pending} pending`}
+              {counts.error > 0 && `, ${counts.error} error${counts.error > 1 ? 's' : ''}`}
+              {!hasAnyItems && 'No active processing'}
             </p>
           </div>
 
-          {/* Botão refresh */}
+          {/* Refresh button */}
           <button
             onClick={refresh}
             disabled={isLoading}
             className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
-            title="Atualizar"
+            title="Refresh"
           >
             <RefreshCw className={`w-5 h-5 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
-        {/* Resumo de contadores */}
+        {/* Counter summary */}
         {hasAnyItems && (
           <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full text-sm">
               <Loader2 className="w-3.5 h-3.5 text-blue-600" />
               <span className="text-blue-700 font-medium">{counts.processing}</span>
-              <span className="text-blue-600">Processando</span>
+              <span className="text-blue-600">Processing</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 rounded-full text-sm">
               <Clock className="w-3.5 h-3.5 text-yellow-600" />
               <span className="text-yellow-700 font-medium">{counts.pending}</span>
-              <span className="text-yellow-600">Pendentes</span>
+              <span className="text-yellow-600">Pending</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-full text-sm">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span className="text-emerald-700 font-medium">{counts.completed}</span>
-              <span className="text-emerald-600">Concluídos</span>
+              <span className="text-emerald-600">Completed</span>
             </div>
             {counts.error > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 rounded-full text-sm">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
                 <span className="text-red-700 font-medium">{counts.error}</span>
-                <span className="text-red-600">Erros</span>
+                <span className="text-red-600">Errors</span>
               </div>
             )}
           </div>
@@ -161,34 +172,34 @@ export function AIQueuePage() {
               <AlertCircle className="w-10 h-10 text-red-500" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Erro ao carregar
+              Error loading
             </h3>
             <p className="text-gray-500 max-w-xs mb-4">{error}</p>
             <Button onClick={refresh} variant="outline">
-              Tentar novamente
+              Try again
             </Button>
           </div>
         ) : !hasAnyItems ? (
-          // Estado vazio
+          // Empty state
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <Brain className="w-10 h-10 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Fila vazia
+              Empty Queue
             </h3>
             <p className="text-gray-500 max-w-xs">
-              Não há avaliações em processamento de IA no momento.
+              There are no assessments in AI processing at the moment.
             </p>
           </div>
         ) : (
           // Lista de itens agrupados por status
           <div className="space-y-6">
-            {/* Processando agora */}
+            {/* Processing now */}
             {processingItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Processando agora ({processingItems.length})
+                  Processing now ({processingItems.length})
                 </h2>
                 <div className="space-y-3">
                   {processingItems.map(item => (
@@ -198,17 +209,18 @@ export function AIQueuePage() {
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
+                      getStatusLabel={getStatusLabel}
                     />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Pendentes */}
+            {/* Pending */}
             {pendingItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Aguardando processamento ({pendingItems.length})
+                  Waiting for processing ({pendingItems.length})
                 </h2>
                 <div className="space-y-3">
                   {pendingItems.map(item => (
@@ -218,17 +230,18 @@ export function AIQueuePage() {
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
+                      getStatusLabel={getStatusLabel}
                     />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Completados */}
+            {/* Completed */}
             {completedItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Concluídos ({completedItems.length})
+                  Completed ({completedItems.length})
                 </h2>
                 <div className="space-y-3">
                   {completedItems.map(item => (
@@ -238,17 +251,18 @@ export function AIQueuePage() {
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
+                      getStatusLabel={getStatusLabel}
                     />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Erros */}
+            {/* Errors */}
             {errorItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Com erro ({errorItems.length})
+                  With error ({errorItems.length})
                 </h2>
                 <div className="space-y-3">
                   {errorItems.map(item => (
@@ -258,6 +272,7 @@ export function AIQueuePage() {
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
+                      getStatusLabel={getStatusLabel}
                     />
                   ))}
                 </div>
@@ -270,15 +285,17 @@ export function AIQueuePage() {
   );
 }
 
-// Componente de card para cada item da fila
+// Component card for each item in the queue
 interface AIQueueItemCardProps {
+  key?: number | string;
   item: AIQueueItem;
   getStatusIcon: (item: AIQueueItem) => React.ReactNode;
   getStatusBadgeClass: (item: AIQueueItem) => string;
   formatTime: (dateString: string | null) => string;
+  getStatusLabel: (item: AIQueueItem) => string;
 }
 
-function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime }: AIQueueItemCardProps) {
+function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime, getStatusLabel }: AIQueueItemCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
       <div className="flex gap-4">
@@ -297,7 +314,7 @@ function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime 
           )}
         </div>
 
-        {/* Conteúdo */}
+        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-medium text-gray-900 truncate">
@@ -305,36 +322,36 @@ function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime 
             </h3>
             <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(item)}`}>
               {getStatusIcon(item)}
-              <span>{item.ai_status_display}</span>
+              <span>{getStatusLabel(item)}</span>
             </div>
           </div>
 
           <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-1">
               <ImageIcon className="w-4 h-4" />
-              <span>{item.evidence_count} foto{item.evidence_count > 1 ? 's' : ''}</span>
+              <span>{item.evidence_count} photo{item.evidence_count > 1 ? 's' : ''}</span>
             </div>
             <div>
-              Criado em {formatTime(item.created_at)}
+              Created at {formatTime(item.created_at)}
             </div>
           </div>
 
-          {/* Informações adicionais baseadas no status */}
+          {/* Additional info based on status */}
           {item.ai_status === 'running' && item.started_at && (
             <div className="mt-2 text-sm text-blue-600">
-              Iniciado em {formatTime(item.started_at)}
+              Started at {formatTime(item.started_at)}
             </div>
           )}
           
           {item.ai_status === 'succeeded' && item.confidence && (
             <div className="mt-2 text-sm text-emerald-600">
-              Confiança: {item.confidence}
+              Confidence: {item.confidence}
             </div>
           )}
 
           {item.error_message && (
             <div className="mt-2 text-sm text-red-600 line-clamp-2">
-              Erro: {item.error_message}
+              Error: {item.error_message}
             </div>
           )}
         </div>

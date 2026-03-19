@@ -69,8 +69,7 @@ export function useAIQueue(): UseAIQueueReturn {
         total: 0,
       });
     } catch (err) {
-      console.error('[useAIQueue] Error fetching queue:', err);
-      setError('Erro ao carregar fila de processamento');
+      setError('Error loading AI processing queue');
     } finally {
       setIsLoading(false);
     }

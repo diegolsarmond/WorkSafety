@@ -191,8 +191,10 @@ if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # HTTPS/Proxy settings - permite que o Django reconheça HTTPS atrás do nginx
+# Nota: USE_X_FORWARDED_HOST pode causar DisallowedHost em desenvolvimento
+# se o proxy enviar headers inválidos. Desabilitar por padrão.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_HOST = False  # Ativa apenas em produção com SECURE_HTTPS
 MEDIA_URL = os.environ.get("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"
 

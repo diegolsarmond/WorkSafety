@@ -216,7 +216,7 @@ export default function ReportsPage() {
                   Reports
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-500 hidden sm:block truncate">
-                  View and download PDF inspection reports
+                  View and download PDF report analysis
                 </p>
               </div>
             </div>
@@ -249,8 +249,8 @@ export default function ReportsPage() {
               No reports found
             </h3>
             <p className="text-sm text-gray-500 max-w-md mx-auto">
-              Reports are automatically generated when an inspection is completed,
-              or you can generate them manually from the inspection details page.
+              Reports are automatically generated when an analysis is completed,
+              or you can generate them manually from the analysis details page.
             </p>
           </div>
         ) : (
@@ -269,7 +269,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 text-sm truncate">
-                        Inspection #{getInspectionId(report)}
+                        Report Analysis #{getInspectionId(report)}
                       </h3>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {new Date(report.created_at).toLocaleString('en-US', {
@@ -345,7 +345,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 text-sm lg:text-base">
-                        Inspection #{getInspectionId(report)}
+                        Report Analysis #{getInspectionId(report)}
                       </h3>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs lg:text-sm text-gray-500">
                         <span>

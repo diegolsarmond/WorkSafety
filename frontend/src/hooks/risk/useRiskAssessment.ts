@@ -16,7 +16,6 @@ import {
   RiskServiceError,
   countRisksBySeverity,
 } from '@/services/risk/riskService';
-import { listRiskTypes } from '@/services/risk/riskTypeService';
 
 interface UseRiskAssessmentOptions {
   autoFetch?: boolean;
@@ -48,24 +47,7 @@ interface UseRiskAssessmentReturn {
   validationError: string | null;
 }
 
-function buildAdminFallbackRisks(createdAt: string, updatedAt: string) {
-  return async () => {
-    const riskTypes = await listRiskTypes();
 
-    return riskTypes.map((riskType) => ({
-      id: `admin-risk-type-${riskType.id}`,
-      description: riskType.description || riskType.name,
-      severity: 'MEDIUM' as const,
-      location: 'Manual review required',
-      evidence: null,
-      recommendations: [],
-      ai_confidence: 'N/A',
-      risk_status: 'pending' as const,
-      created_at: createdAt,
-      updated_at: updatedAt,
-    }));
-  };
-}
 
 /**
  * Hook para gerenciar o estado da avaliação de riscos
@@ -117,7 +99,6 @@ export function useRiskAssessment(
     
     try {
       const data = await getAssessmentById(assessmentId);
-      const fetchFallbackRisks = buildAdminFallbackRisks(data.created_at, data.updated_at);
       
       // Verificar se está em processamento de IA (synced ou error_ai)
       if (data.status === 'synced') {
@@ -131,21 +112,10 @@ export function useRiskAssessment(
         if (timeElapsed > PROCESSING_TIMEOUT) {
           // Timeout: mostrar dados mesmo com processamento pendente
           console.warn('AI processing timeout exceeded, showing data with pending analysis');
-          if (data.risks.length === 0) {
-            const fallbackRisks = await fetchFallbackRisks();
-            setScreenState({
-              type: 'data',
-              assessment: {
-                ...data,
-                risks: fallbackRisks,
-              },
-            });
-          } else {
-            setScreenState({
-              type: 'data',
-              assessment: data,
-            });
-          }
+          setScreenState({
+            type: 'data',
+            assessment: data,
+          });
           return;
         }
         
@@ -160,18 +130,12 @@ export function useRiskAssessment(
       setProcessingStartTime(null);
       
       if (data.status === 'error' || data.status === 'error_ai') {
-        if (data.risks.length === 0) {
-          const fallbackRisks = await fetchFallbackRisks();
-          if (fallbackRisks.length > 0) {
-            setScreenState({
-              type: 'data',
-              assessment: {
-                ...data,
-                risks: fallbackRisks,
-              },
-            });
-            return;
-          }
+        if (data.risks.length > 0) {
+          setScreenState({
+            type: 'data',
+            assessment: data,
+          });
+          return;
         }
 
         setScreenState({
@@ -180,20 +144,6 @@ export function useRiskAssessment(
           canRetry: true,
         });
         return;
-      }
-
-      if (data.risks.length === 0 && (data.status === 'ai_reviewed' || data.status === 'human_validated' || data.status === 'finalized')) {
-        const fallbackRisks = await fetchFallbackRisks();
-        if (fallbackRisks.length > 0) {
-          setScreenState({
-            type: 'data',
-            assessment: {
-              ...data,
-              risks: fallbackRisks,
-            },
-          });
-          return;
-        }
       }
       
       // Status draft ou captured (ainda não processado)

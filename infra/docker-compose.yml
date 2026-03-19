@@ -48,31 +48,6 @@ services:
     volumes:
       - ../backend:/app
 
-  frontend:
-    build:
-      context: ..
-      dockerfile: infra/frontend.Dockerfile
-    ports:
-      - "3000:3000"
-    depends_on:
-      backend:
-        condition: service_started
-    restart: unless-stopped
-
-  admin:
-    build:
-      context: ../WorkSafetyWeb
-      dockerfile: Dockerfile
-    # Não expor porta - admin apenas para testes locais
-    # ports:
-    #   - "3001:3000"
-    depends_on:
-      backend:
-        condition: service_started
-    restart: unless-stopped
-    environment:
-      NODE_ENV: development
-
   worker:
     build:
       context: ../backend
