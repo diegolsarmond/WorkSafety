@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera } from "lucide-react";
+import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera, Images } from "lucide-react";
 
 import { useAnalysisStore } from "../../store/analysisStore";
 
@@ -19,6 +19,8 @@ export function CameraCapture() {
   const [privacyMode, setPrivacyMode] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const processAndSaveImage = (file: File) => {
     setProcessing(true);
@@ -145,14 +147,26 @@ export function CameraCapture() {
 
       <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-4 sm:gap-6" style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1rem))' }}>
         <div className="flex items-center justify-between w-full max-w-xs z-20">
-          <button className="p-4 rounded-full bg-white/10 text-white opacity-50 cursor-not-allowed">
-            <Eye className="w-6 h-6" />
-          </button>
-
-          <label className="relative cursor-pointer transition-transform active:scale-95">
+          {/* Gallery Button */}
+          <label className={`relative cursor-pointer transition-transform active:scale-95 p-4 rounded-full bg-white/10 text-white ${processing || photos.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <input
+              ref={galleryInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/jpg,image/webp"
+              disabled={processing || photos.length >= 10}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              onChange={handleFileChange}
+            />
+            <Images className="w-6 h-6" />
+          </label>
+
+          {/* Camera Button (main) */}
+          <label className={`relative cursor-pointer transition-transform active:scale-95 ${processing || photos.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/jpg,image/webp"
+              capture="environment"
               disabled={processing || photos.length >= 10}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               onChange={handleFileChange}
@@ -176,7 +190,7 @@ export function CameraCapture() {
         </div>
 
         <p className="text-sm text-white/80 font-medium z-20">
-          {processing ? 'Processing image...' : 'AI: Object Detection (Perseu) Enabled'}
+          {processing ? 'Processing image...' : 'Tap camera to capture or gallery to select'}
         </p>
       </div>
     </div>
