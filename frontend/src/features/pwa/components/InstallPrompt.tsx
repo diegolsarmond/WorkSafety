@@ -4,11 +4,13 @@
 
 import { Download, X, Smartphone, Share2, MoreVertical, PlusSquare } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { usePWAInstall } from '../hooks';
 
 export function InstallPrompt() {
-  const { canInstall, isInstalling, install, dismiss, isIOS, isAndroid, showManualInstructions } = usePWAInstall();
+  const { canInstall, isInstalling, install, dismiss, dismissForever, isIOS, isAndroid, showManualInstructions } = usePWAInstall();
   const location = useLocation();
+  const [showNeverOption, setShowNeverOption] = useState(false);
 
   // Don't show during login/auth pages
   const isAuthPage = location.pathname.includes('/login') || 
@@ -89,22 +91,49 @@ export function InstallPrompt() {
         )}
 
         {/* Action buttons */}
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={dismiss}
-            className="flex-1 rounded-xl border border-[#1E3A5F] bg-transparent px-4 py-2.5 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-[#1E3A5F]/30"
-          >
-            Not now
-          </button>
-          {!showManualInstructions && (
-            <button
-              onClick={install}
-              disabled={isInstalling}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0B7A90] to-[#0891B2] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0B7A90]/25 transition-all hover:from-[#0891B2] hover:to-[#0B7A90] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="h-4 w-4" />
-              {isInstalling ? 'Installing...' : 'Install'}
-            </button>
+        <div className="mt-3 flex flex-col gap-2">
+          {!showNeverOption ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowNeverOption(true)}
+                className="flex-1 rounded-xl border border-[#1E3A5F] bg-transparent px-4 py-2.5 text-sm font-medium text-[#94A3B8] transition-colors hover:bg-[#1E3A5F]/30"
+              >
+                Not now
+              </button>
+              {!showManualInstructions && (
+                <button
+                  onClick={install}
+                  disabled={isInstalling}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0B7A90] to-[#0891B2] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0B7A90]/25 transition-all hover:from-[#0891B2] hover:to-[#0B7A90] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="h-4 w-4" />
+                  {isInstalling ? 'Installing...' : 'Install'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-[#94A3B8] text-center">
+                Hide this banner for this browser?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowNeverOption(false)}
+                  className="flex-1 rounded-xl border border-[#1E3A5F] bg-transparent px-4 py-2 text-xs font-medium text-[#94A3B8] transition-colors hover:bg-[#1E3A5F]/30"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    dismissForever();
+                    setShowNeverOption(false);
+                  }}
+                  className="flex-1 rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/30 hover:border-red-500/50"
+                >
+                  Never ask again
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

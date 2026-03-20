@@ -153,7 +153,6 @@ export function CameraCapture() {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               disabled={processing || photos.length >= 10}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
               onChange={handleFileChange}

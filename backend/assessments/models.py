@@ -325,8 +325,8 @@ class EvidenceAnonymizationLog(models.Model):
         verbose_name_plural = "logs de anonimização"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["evidence", "-created_at"]),
-            models.Index(fields=["operation", "status"]),
+            models.Index(fields=["evidence", "-created_at"], name="idx_ev_anon_evid_cat"),
+            models.Index(fields=["operation", "status"], name="idx_ev_anon_op_stat"),
         ]
 
     def __str__(self):

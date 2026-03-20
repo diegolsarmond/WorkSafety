@@ -1,12 +1,15 @@
 import hashlib
 import json
 import logging
+from urllib.parse import urljoin
 from rest_framework import views, status, parsers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
 from django.utils import timezone
+from django.conf import settings
+from django.urls import reverse
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -698,7 +701,12 @@ class AIProcessingQueueView(views.APIView):
             thumbnail_url = ""
             first_evidence = assessment.evidences.first()
             if first_evidence and first_evidence.file:
-                thumbnail_url = request.build_absolute_uri(first_evidence.file.url)
+                download_path = reverse('evidence-download', kwargs={'evidence_id': first_evidence.id})
+                public_prefix = getattr(settings, 'PUBLIC_API_PREFIX', '/api/')
+                normalized_prefix = '/' + public_prefix.strip('/') + '/'
+                if download_path.startswith('/api/'):
+                    download_path = normalized_prefix + download_path[len('/api/'):]
+                thumbnail_url = request.build_absolute_uri(download_path)
 
             queue.append({
                 'assessment_id': assessment.id,

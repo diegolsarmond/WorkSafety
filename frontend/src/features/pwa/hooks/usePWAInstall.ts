@@ -20,8 +20,10 @@ interface UsePWAInstallReturn {
   isInstalling: boolean;
   /** Função para abrir o prompt de instalação */
   install: () => Promise<void>;
-  /** Função para dismiss o banner de instalação */
+  /** Função para dismiss o banner de instalação (temporário - 7 dias) */
   dismiss: () => void;
+  /** Função para dismiss permanente (nunca mais mostrar) */
+  dismissForever: () => void;
   /** Se o banner foi dismissado */
   isDismissed: boolean;
   /** Se é um dispositivo iOS (que precisa de instruções manuais) */
@@ -33,6 +35,7 @@ interface UsePWAInstallReturn {
 }
 
 const DISMISS_KEY = 'pwa-install-dismissed';
+const DISMISS_FOREVER_KEY = 'pwa-install-dismissed-forever';
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
 // Detecta se é iOS
@@ -60,6 +63,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isDismissedForever, setIsDismissedForever] = useState(false);
   const [isIOS] = useState(() => isIOSDevice());
   const [isAndroid] = useState(() => isAndroidDevice());
 
@@ -81,8 +85,16 @@ export function usePWAInstall(): UsePWAInstallReturn {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Verifica se o banner foi dismissado recentemente
+  // Verifica se o banner foi dismissado (temporário ou permanente)
   useEffect(() => {
+    // Verifica dismiss permanente
+    const dismissedForever = localStorage.getItem(DISMISS_FOREVER_KEY);
+    if (dismissedForever) {
+      setIsDismissedForever(true);
+      return;
+    }
+
+    // Verifica dismiss temporário
     const dismissedAt = localStorage.getItem(DISMISS_KEY);
     if (dismissedAt) {
       const timePassed = Date.now() - parseInt(dismissedAt, 10);
@@ -148,11 +160,16 @@ export function usePWAInstall(): UsePWAInstallReturn {
     localStorage.setItem(DISMISS_KEY, Date.now().toString());
   }, []);
 
+  const dismissForever = useCallback(() => {
+    setIsDismissedForever(true);
+    localStorage.setItem(DISMISS_FOREVER_KEY, 'true');
+  }, []);
+
   // No iOS, sempre mostramos o banner (se não estiver instalado nem dismissado)
   // pois não há evento beforeinstallprompt
   // No Android, mostramos se tivermos o deferredPrompt ou como fallback manual
   const effectiveCanInstall = (() => {
-    if (isInstalled || isDismissed) return false;
+    if (isInstalled || isDismissed || isDismissedForever) return false;
     
     // Se temos o prompt nativo (Chrome desktop/Android)
     if (canInstall && deferredPrompt) return true;
@@ -172,6 +189,7 @@ export function usePWAInstall(): UsePWAInstallReturn {
     isInstalling,
     install,
     dismiss,
+    dismissForever,
     isDismissed,
     isIOS,
     isAndroid,
