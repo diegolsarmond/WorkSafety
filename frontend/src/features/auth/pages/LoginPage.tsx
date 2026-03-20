@@ -32,6 +32,13 @@ export default function LoginPage() {
       navigate('/home');
     } catch (err: any) {
       const data = err.response?.data;
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.toLowerCase?.().includes('timeout');
+
+      if (isTimeout) {
+        setError('A autenticacao demorou mais que o esperado. Tente novamente em alguns segundos.');
+        return;
+      }
+
       if (data) {
         if (data.detail) {
           setError(data.detail);

@@ -2,16 +2,39 @@ import { apiClient } from '@/services/api/apiClient';
 import { SecureStorage } from '@/services/storage/secureStorage';
 import { LoginResponse, User } from '@/types/auth';
 import { REFRESH_TOKEN_KEY } from '@/services/auth/authKeys';
+import axios from 'axios';
+
+const LOGIN_TIMEOUT_MS = 30000;
+const LOGIN_RETRY_DELAY_MS = 1500;
 
 export const authService = {
   async login(credentials: { email: string; password: string }): Promise<LoginResponse> {
-    const response = await apiClient.post('auth/login/', credentials);
-    const data = response.data;
-    return {
-      user: data.user,
-      token: data.access,
-      refreshToken: data.refresh,
-    };
+    try {
+      const response = await apiClient.post('auth/login/', credentials, {
+        timeout: LOGIN_TIMEOUT_MS,
+      });
+      const data = response.data;
+      return {
+        user: data.user,
+        token: data.access,
+        refreshToken: data.refresh,
+      };
+    } catch (error) {
+      // First request after idle/redeploy may be slower; retry once on timeout only.
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        await new Promise((resolve) => setTimeout(resolve, LOGIN_RETRY_DELAY_MS));
+        const retryResponse = await apiClient.post('auth/login/', credentials, {
+          timeout: LOGIN_TIMEOUT_MS,
+        });
+        const retryData = retryResponse.data;
+        return {
+          user: retryData.user,
+          token: retryData.access,
+          refreshToken: retryData.refresh,
+        };
+      }
+      throw error;
+    }
   },
 
   async logout(): Promise<void> {
