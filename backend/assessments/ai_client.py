@@ -5,6 +5,8 @@ Esta interface permite mockar o cliente de IA para testes e
 proporciona uma abstração sobre o serviço real de inferência.
 """
 import logging
+import threading
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
@@ -317,28 +319,84 @@ class OlimpiaAIClient(AIClientInterface):
         "ELETRICO": "Verificar bloqueio/etiquetagem, usar EPI específico e manter distância mínima.",
     }
 
+    # Thread-safe OAuth2 token cache (shared across all instances)
+    _token_lock = threading.Lock()
+    _cached_token: Optional[str] = None
+    _token_expires_at: float = 0.0
+
     def __init__(
         self,
         api_url: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 60,
         language: str = "en_us",
+        token_url: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
     ):
         self.api_url = api_url or getattr(
             settings, "OLIMPIA_API_URL", 
             "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
         )
-        self.api_token = api_token or getattr(settings, "OLIMPIA_API_TOKEN", "")
         self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
         # Requisito de produto: payload da Olímpia deve sempre ser retornado em inglês.
         self.language = "en_us"
         self.min_confidence = getattr(settings, "OLIMPIA_MIN_CONFIDENCE", 0.70)
 
+        # OAuth2 Client Credentials (preferred)
+        self.token_url = token_url or getattr(settings, "OLIMPIA_TOKEN_URL", "")
+        self.client_id = client_id or getattr(settings, "OLIMPIA_CLIENT_ID", "")
+        self.client_secret = client_secret or getattr(settings, "OLIMPIA_CLIENT_SECRET", "")
+        # Legacy: static token fallback
+        self._static_token = api_token or getattr(settings, "OLIMPIA_API_TOKEN", "")
+
+    @property
+    def _use_oauth2(self) -> bool:
+        return bool(self.token_url and self.client_id and self.client_secret)
+
+    def _fetch_oauth2_token(self) -> str:
+        """Obtém novo access_token via OAuth2 Client Credentials."""
+        import requests
+
+        logger.info("Requesting new OAuth2 token from Olímpia Keycloak")
+        resp = requests.post(
+            self.token_url,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        access_token = body["access_token"]
+        expires_in = int(body.get("expires_in", 300))
+        # Renew 60s before expiry to avoid edge-case failures
+        OlimpiaAIClient._cached_token = access_token
+        OlimpiaAIClient._token_expires_at = time.monotonic() + expires_in - 60
+        logger.info(f"OAuth2 token obtained, expires in {expires_in}s")
+        return access_token
+
+    def _get_token(self) -> str:
+        """Retorna um Bearer token válido (OAuth2 com cache ou static fallback)."""
+        if not self._use_oauth2:
+            return self._static_token
+
+        with OlimpiaAIClient._token_lock:
+            if (
+                OlimpiaAIClient._cached_token
+                and time.monotonic() < OlimpiaAIClient._token_expires_at
+            ):
+                return OlimpiaAIClient._cached_token
+            return self._fetch_oauth2_token()
+
     def _get_headers(self) -> Dict[str, str]:
         """Retorna headers para requisição à API Olímpia."""
         return {
             "accept": "application/json",
-            "Authorization": f"Bearer {self.api_token}",
+            "Authorization": f"Bearer {self._get_token()}",
         }
 
     def _build_url(self) -> str:
@@ -419,77 +477,85 @@ class OlimpiaAIClient(AIClientInterface):
         import requests
         
         url = self._build_url()
-        headers = self._get_headers()
         
-        try:
-            with open(image_path, "rb") as image_file:
-                files = {"file": (image_path.split("/")[-1], image_file, "image/jpeg")}
+        # Retry once on 401 in case cached token just expired
+        for attempt in range(2):
+            headers = self._get_headers()
+            try:
+                with open(image_path, "rb") as image_file:
+                    files = {"file": (image_path.split("/")[-1], image_file, "image/jpeg")}
+                    
+                    logger.info(f"Enviando imagem para API Olímpia: {image_path}")
+                    response = requests.post(
+                        url,
+                        headers=headers,
+                        files=files,
+                        timeout=self.timeout,
+                    )
+                    
+                    if response.status_code == 401 and attempt == 0 and self._use_oauth2:
+                        logger.warning("Got 401 from Olímpia, refreshing OAuth2 token and retrying")
+                        with OlimpiaAIClient._token_lock:
+                            OlimpiaAIClient._token_expires_at = 0.0
+                        continue
+                    
+                    response.raise_for_status()
+                    data = response.json()
                 
-                logger.info(f"Enviando imagem para API Olímpia: {image_path}")
-                response = requests.post(
-                    url,
-                    headers=headers,
-                    files=files,
-                    timeout=self.timeout,
-                )
-                
-                response.raise_for_status()
-                data = response.json()
-                
-                logger.info(f"Resposta da API Olímpia recebida: {len(data)} regras")
-                
-                violations = self._parse_violations(data)
-                findings = self._violations_to_findings(violations)
-                
-                # Calcular confiança geral
-                if violations:
-                    avg_confidence = sum(v.confidence for v in violations) / len(violations)
-                    if avg_confidence >= 0.85:
-                        confidence_level = "HIGH"
-                    elif avg_confidence >= 0.70:
-                        confidence_level = "MEDIUM"
+                    logger.info(f"Resposta da API Olímpia recebida: {len(data)} regras")
+                    
+                    violations = self._parse_violations(data)
+                    findings = self._violations_to_findings(violations)
+                    
+                    # Calcular confiança geral
+                    if violations:
+                        avg_confidence = sum(v.confidence for v in violations) / len(violations)
+                        if avg_confidence >= 0.85:
+                            confidence_level = "HIGH"
+                        elif avg_confidence >= 0.70:
+                            confidence_level = "MEDIUM"
+                        else:
+                            confidence_level = "LOW"
                     else:
-                        confidence_level = "LOW"
-                else:
-                    confidence_level = "HIGH"  # Sem violações = boa confiança
+                        confidence_level = "HIGH"  # Sem violações = boa confiança
+                    
+                    return AIInferenceResult(
+                        success=True,
+                        findings=findings,
+                        confidence=confidence_level,
+                        model_version="olimpia-v2",
+                        error_message="",
+                        raw_response=data,
+                        violations=violations,
+                    )
                 
+            except requests.exceptions.Timeout:
+                logger.error("Timeout na API Olímpia")
                 return AIInferenceResult(
-                    success=True,
-                    findings=findings,
-                    confidence=confidence_level,
+                    success=False,
+                    findings=[],
+                    confidence="",
                     model_version="olimpia-v2",
-                    error_message="",
-                    raw_response=data,
-                    violations=violations,
+                    error_message="Timeout ao conectar com API Olímpia",
                 )
-                
-        except requests.exceptions.Timeout:
-            logger.error("Timeout na API Olímpia")
-            return AIInferenceResult(
-                success=False,
-                findings=[],
-                confidence="",
-                model_version="olimpia-v2",
-                error_message="Timeout ao conectar com API Olímpia",
-            )
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"Erro HTTP na API Olímpia: {e}")
-            return AIInferenceResult(
-                success=False,
-                findings=[],
-                confidence="",
-                model_version="olimpia-v2",
-                error_message=f"Erro API Olímpia: {response.status_code} - {response.text}",
-            )
-        except Exception as e:
-            logger.exception(f"Erro inesperado na API Olímpia: {e}")
-            return AIInferenceResult(
-                success=False,
-                findings=[],
-                confidence="",
-                model_version="olimpia-v2",
-                error_message=f"Erro inesperado: {str(e)}",
-            )
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"Erro HTTP na API Olímpia: {e}")
+                return AIInferenceResult(
+                    success=False,
+                    findings=[],
+                    confidence="",
+                    model_version="olimpia-v2",
+                    error_message=f"Erro API Olímpia: {response.status_code} - {response.text}",
+                )
+            except Exception as e:
+                logger.exception(f"Erro inesperado na API Olímpia: {e}")
+                return AIInferenceResult(
+                    success=False,
+                    findings=[],
+                    confidence="",
+                    model_version="olimpia-v2",
+                    error_message=f"Erro inesperado: {str(e)}",
+                )
 
     def analyze_assessment(self, request: AIInferenceRequest) -> AIInferenceResult:
         """
@@ -650,15 +716,25 @@ def get_ai_client() -> AIClientInterface:
     
     # Cliente Olímpia - integração real com API Dataprev
     olimpia_enabled = getattr(settings, 'OLIMPIA_API_ENABLED', False)
-    olimpia_token = getattr(settings, 'OLIMPIA_API_TOKEN', '')
-    
-    if olimpia_enabled and olimpia_token:
-        logger.info("Using OlimpiaAIClient (Dataprev API integration)")
+    client_id = getattr(settings, 'OLIMPIA_CLIENT_ID', '')
+    client_secret = getattr(settings, 'OLIMPIA_CLIENT_SECRET', '')
+    token_url = getattr(settings, 'OLIMPIA_TOKEN_URL', '')
+    static_token = getattr(settings, 'OLIMPIA_API_TOKEN', '')
+
+    has_oauth2 = bool(client_id and client_secret and token_url)
+    has_static = bool(static_token)
+
+    if olimpia_enabled and (has_oauth2 or has_static):
+        auth_mode = "OAuth2 Client Credentials" if has_oauth2 else "static token"
+        logger.info(f"Using OlimpiaAIClient ({auth_mode})")
         return OlimpiaAIClient(
             api_url=getattr(settings, 'OLIMPIA_API_URL', None),
-            api_token=olimpia_token,
+            api_token=static_token if not has_oauth2 else None,
             timeout=getattr(settings, 'OLIMPIA_API_TIMEOUT', 60),
             language=getattr(settings, 'OLIMPIA_API_LANGUAGE', 'en_us'),
+            token_url=token_url if has_oauth2 else None,
+            client_id=client_id if has_oauth2 else None,
+            client_secret=client_secret if has_oauth2 else None,
         )
     
     # Fallback para mock se nenhum cliente real estiver configurado

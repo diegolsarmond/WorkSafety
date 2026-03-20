@@ -271,6 +271,14 @@ OLIMPIA_API_URL = os.environ.get(
     "OLIMPIA_API_URL",
     "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
 )
+# OAuth2 Client Credentials (preferred - token is fetched automatically)
+OLIMPIA_TOKEN_URL = os.environ.get(
+    "OLIMPIA_TOKEN_URL",
+    "https://login-olimpia-sb-oci.dataprev.gov.br/realms/dataprev/protocol/openid-connect/token"
+)
+OLIMPIA_CLIENT_ID = os.environ.get("OLIMPIA_CLIENT_ID", "")
+OLIMPIA_CLIENT_SECRET = os.environ.get("OLIMPIA_CLIENT_SECRET", "")
+# Legacy: static token fallback (used only if OAuth2 credentials are empty)
 OLIMPIA_API_TOKEN = os.environ.get("OLIMPIA_API_TOKEN", "")
 OLIMPIA_API_TIMEOUT = int(os.environ.get("OLIMPIA_API_TIMEOUT", "60"))
 OLIMPIA_API_LANGUAGE = os.environ.get("OLIMPIA_API_LANGUAGE", "en_us")
