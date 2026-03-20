@@ -104,6 +104,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     command: celery -A config worker --loglevel=info --concurrency=4
+    volumes:
+      - media_volume:/app/media
     depends_on:
       db:
         condition: service_healthy
