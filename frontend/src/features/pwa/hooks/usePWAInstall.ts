@@ -32,6 +32,8 @@ interface UsePWAInstallReturn {
   isAndroid: boolean;
   /** Se deve mostrar instruções de instalação manual */
   showManualInstructions: boolean;
+  /** Se o browser suporta instalação PWA nativa */
+  isNativeInstallSupported: boolean;
 }
 
 const DISMISS_KEY = 'pwa-install-dismissed';
@@ -57,6 +59,13 @@ const isMobileDevice = (): boolean => {
   return isIOSDevice() || isAndroidDevice();
 };
 
+// Detecta se é um navegador que suporta PWA
+const isPWASupported = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  // Verifica se o navegador suporta service workers
+  return 'serviceWorker' in navigator;
+};
+
 export function usePWAInstall(): UsePWAInstallReturn {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
@@ -66,6 +75,8 @@ export function usePWAInstall(): UsePWAInstallReturn {
   const [isDismissedForever, setIsDismissedForever] = useState(false);
   const [isIOS] = useState(() => isIOSDevice());
   const [isAndroid] = useState(() => isAndroidDevice());
+  const [isNativeInstallSupported, setIsNativeInstallSupported] = useState(false);
+  const [hasCheckedInstallability, setHasCheckedInstallability] = useState(false);
 
   // Verifica se o app já está instalado
   useEffect(() => {
@@ -84,6 +95,23 @@ export function usePWAInstall(): UsePWAInstallReturn {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+  // Verifica se o navegador suporta instalação nativa (beforeinstallprompt)
+  useEffect(() => {
+    // Se o evento beforeinstallprompt não foi disparado em 3 segundos,
+    // assumimos que o navegador não suporta instalação nativa
+    const timer = setTimeout(() => {
+      if (!deferredPrompt && !isInstalled) {
+        setHasCheckedInstallability(true);
+        // Em dispositivos móveis, sempre mostramos o banner mesmo sem o evento nativo
+        if (isMobileDevice() && isPWASupported()) {
+          setCanInstall(true);
+        }
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [deferredPrompt, isInstalled]);
 
   // Verifica se o banner foi dismissado (temporário ou permanente)
   useEffect(() => {
@@ -113,6 +141,8 @@ export function usePWAInstall(): UsePWAInstallReturn {
       e.preventDefault();
       // Armazena o evento para poder usá-lo depois
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+      setIsNativeInstallSupported(true);
+      setHasCheckedInstallability(true);
       setCanInstall(true);
     };
 
@@ -165,22 +195,27 @@ export function usePWAInstall(): UsePWAInstallReturn {
     localStorage.setItem(DISMISS_FOREVER_KEY, 'true');
   }, []);
 
-  // No iOS, sempre mostramos o banner (se não estiver instalado nem dismissado)
-  // pois não há evento beforeinstallprompt
-  // No Android, mostramos se tivermos o deferredPrompt ou como fallback manual
+  // Lógica de quando mostrar o banner de instalação
   const effectiveCanInstall = (() => {
     if (isInstalled || isDismissed || isDismissedForever) return false;
     
-    // Se temos o prompt nativo (Chrome desktop/Android)
-    if (canInstall && deferredPrompt) return true;
+    // Se temos o prompt nativo (Chrome desktop/Android moderno)
+    if (deferredPrompt) return true;
     
-    // No mobile, mostramos instruções manuais se não tiver o prompt nativo
-    if (isMobileDevice()) return true;
+    // Se ainda não verificamos a capacidade de instalação, não mostramos ainda
+    if (!hasCheckedInstallability && !isNativeInstallSupported) return false;
+    
+    // No mobile com suporte a PWA, mostramos instruções manuais
+    // mesmo sem o evento beforeinstallprompt
+    if (isMobileDevice() && isPWASupported()) return true;
+    
+    // Desktop com suporte nativo confirmado mas sem prompt ainda
+    if (canInstall) return true;
     
     return false;
   })();
 
-  // Mostra instruções manuais quando não temos o prompt nativo (principalmente iOS)
+  // Mostra instruções manuais quando não temos o prompt nativo
   const showManualInstructions = effectiveCanInstall && !deferredPrompt;
 
   return {
@@ -194,5 +229,6 @@ export function usePWAInstall(): UsePWAInstallReturn {
     isIOS,
     isAndroid,
     showManualInstructions,
+    isNativeInstallSupported: isNativeInstallSupported || !!deferredPrompt,
   };
 }
