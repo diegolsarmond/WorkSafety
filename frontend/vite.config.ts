@@ -128,14 +128,14 @@ export default defineConfig(({ mode }) => {
               name: 'New Inspection',
               short_name: 'Inspect',
               description: 'Start a new safety inspection',
-              url: '/inspection/new',
+              url: 'inspection/new',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             },
             {
               name: 'Dashboard',
               short_name: 'Dashboard',
               description: 'View main dashboard',
-              url: '/home',
+              url: 'home',
               icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
             }
           ]

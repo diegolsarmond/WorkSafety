@@ -51,14 +51,11 @@ class EvidenceSerializer(serializers.ModelSerializer):
     def get_url(self, obj: Evidence) -> str:
         """Retorna URL de download da API sem depender de /media no proxy."""
         if obj.file:
-            request = self.context.get('request')
             download_path = reverse('evidence-download', kwargs={'evidence_id': obj.id})
             public_prefix = getattr(settings, 'PUBLIC_API_PREFIX', '/api/')
             normalized_prefix = '/' + public_prefix.strip('/') + '/'
             if download_path.startswith('/api/'):
                 download_path = normalized_prefix + download_path[len('/api/'):]
-            if request:
-                return request.build_absolute_uri(download_path)
             return download_path
         return ""
 
@@ -83,14 +80,11 @@ class EvidenceRefSerializer(serializers.ModelSerializer):
     def get_thumbnail_url(self, obj: Evidence) -> str:
         """Retorna URL de evidência para exibição via API."""
         if obj.file:
-            request = self.context.get('request')
             download_path = reverse('evidence-download', kwargs={'evidence_id': obj.id})
             public_prefix = getattr(settings, 'PUBLIC_API_PREFIX', '/api/')
             normalized_prefix = '/' + public_prefix.strip('/') + '/'
             if download_path.startswith('/api/'):
                 download_path = normalized_prefix + download_path[len('/api/'):]
-            if request:
-                return request.build_absolute_uri(download_path)
             return download_path
         return ""
 

@@ -35,7 +35,7 @@ services:
       - ../backend/.env.prod
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-worksafety}:${POSTGRES_PASSWORD:-worksafety}@db:5432/${POSTGRES_DB:-worksafety}
-      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SETTINGS_MODULE: config.settings.production
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       REDIS_HOST: redis
@@ -98,7 +98,7 @@ services:
       - ../backend/.env.prod
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-worksafety}:${POSTGRES_PASSWORD:-worksafety}@db:5432/${POSTGRES_DB:-worksafety}
-      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SETTINGS_MODULE: config.settings.production
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       REDIS_HOST: redis
