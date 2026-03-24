@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Filter,
   Search,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/ui/components/Button';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
@@ -334,6 +335,70 @@ function EmptyState({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** Estado de Processamento de IA Pendente */
+function PendingAIState({
+  onProcess,
+  onRefresh,
+  isProcessing,
+  error,
+  assessmentStatus,
+}: {
+  onProcess: () => void;
+  onRefresh: () => void;
+  isProcessing: boolean;
+  error: string | null;
+  assessmentStatus: string;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-8">
+      <div className="w-20 h-20 bg-amber-50 border-2 border-amber-200 rounded-full flex items-center justify-center mb-6">
+        <Zap className="w-10 h-10 text-amber-500" />
+      </div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">
+        AI analysis not yet completed
+      </h3>
+      <p className="text-gray-600 text-center mb-2 max-w-sm">
+        The assessment has been synced but the AI hasn't processed the images yet.
+      </p>
+      <p className="text-sm text-gray-400 text-center mb-6 max-w-sm">
+        Status: <span className="font-medium text-gray-500">{assessmentStatus}</span>
+      </p>
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 max-w-sm">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+      
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        <Button
+          onClick={onProcess}
+          disabled={isProcessing}
+          className="w-full h-12 text-base bg-teal-600 text-white hover:bg-teal-700 font-bold border-none flex items-center justify-center gap-2"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" /> Processing...
+            </>
+          ) : (
+            <>
+              <Zap className="w-5 h-5" /> Process with AI
+            </>
+          )}
+        </Button>
+        <Button
+          onClick={onRefresh}
+          variant="outline"
+          className="w-full h-10 flex items-center justify-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" /> Refresh status
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Status Badge do ciclo de vida */
 function LifecycleStatusBadge({ status }: { status: AssessmentStatus }) {
   const styles: Record<AssessmentStatus, string> = {
@@ -398,6 +463,9 @@ export function RisksDetected() {
     validateAssessment,
     isValidating,
     validationError,
+    triggerAIProcessing,
+    isProcessingAI,
+    aiProcessingError,
   } = useRiskAssessment(assessmentId, {
     autoFetch: true,
     refreshInterval: 30000, // Refresh a cada 30s para atualizações da IA
@@ -558,6 +626,36 @@ export function RisksDetected() {
       </div>
     );
   }
+
+  // Se o assessment está em status synced/draft/captured sem riscos,
+  // significa que a IA ainda não processou - mostrar estado pendente
+  if (
+    screenState.type === 'data' &&
+    assessment &&
+    assessment.risks.length === 0 &&
+    (assessment.status === 'synced' || assessment.status === 'draft' || assessment.status === 'captured')
+  ) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="flex items-center p-4 bg-white shadow-sm">
+          <button
+            onClick={() => navigate('/home')}
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-900 ml-4">Risks Detected</h1>
+        </header>
+        <PendingAIState
+          onProcess={triggerAIProcessing}
+          onRefresh={refresh}
+          isProcessing={isProcessingAI}
+          error={aiProcessingError}
+          assessmentStatus={assessment.status}
+        />
+      </div>
+    );
+  }
   
   // Estado com dados
   return (
@@ -709,7 +807,9 @@ export function RisksDetected() {
           <div className="divide-y divide-gray-100">
             {filteredRisks.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
-                No risks match the current filters.
+                {totalRisks === 0
+                  ? 'No risks detected by AI analysis.'
+                  : 'No risks match the current filters.'}
               </div>
             ) : (
               filteredRisks.map((risk) => (
