@@ -7,6 +7,7 @@ Target: até 15s para 10 imagens.
 import io
 import logging
 import time
+import os
 from datetime import datetime, timedelta
 
 from celery import shared_task
@@ -27,6 +28,22 @@ logger = logging.getLogger(__name__)
 # Target de performance: 15s para 10 imagens
 PERFORMANCE_TARGET_SECONDS = 15
 MAX_IMAGES_TARGET = 10
+
+
+def _resolve_inspector_name(created_by) -> str:
+    """Resolve a display-safe inspector name for report rendering."""
+    if not created_by:
+        return "Not informed"
+
+    full_name = (created_by.get_full_name() or "").strip()
+    if full_name:
+        return full_name
+
+    email = (getattr(created_by, 'email', '') or '').strip()
+    if email:
+        return email.split('@', 1)[0]
+
+    return "Not informed"
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
@@ -211,22 +228,27 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
                 'confidence': confidence,
             })
         
-        # Preparar dados da primeira evidência (imagem)
-        evidence_image_url = None
-        evidence_timestamp = None
+        # Preparar dados das evidências (imagens)
+        evidence_items = []
         evidences = assessment.evidences.all()
-        
-        if evidences.exists():
-            first_evidence = evidences.first()
-            if first_evidence.file:
-                # Usar caminho absoluto file:// para o WeasyPrint resolver localmente
+
+        for idx, evidence in enumerate(evidences, start=1):
+            evidence_image_url = None
+            if evidence.file:
                 try:
-                    evidence_image_url = f"file://{first_evidence.file.path.replace(chr(92), '/')}"
+                    evidence_image_url = f"file://{os.path.normpath(evidence.file.path).replace(chr(92), '/')}"
                 except Exception:
                     evidence_image_url = None
-                
-                if first_evidence.captured_at:
-                    evidence_timestamp = first_evidence.captured_at.strftime("%I:%M %p")
+
+            evidence_timestamp = None
+            if evidence.captured_at:
+                evidence_timestamp = evidence.captured_at.strftime("%I:%M %p")
+
+            evidence_items.append({
+                'index': idx,
+                'image_url': evidence_image_url,
+                'timestamp': evidence_timestamp,
+            })
         
         # Preparar recomendações
         recommendations = [
@@ -241,10 +263,10 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
         case_number = f"#ANLY-{assessment.created_at.year if assessment.created_at else timezone.now().year}-{assessment.id:03d}"
         
         # Dados do inspetor
-        inspector_name = "Inspector"
+        inspector_name = "Not informed"
         inspector_id = "0"
         if assessment.created_by:
-            inspector_name = assessment.created_by.get_full_name() or assessment.created_by.username
+            inspector_name = _resolve_inspector_name(assessment.created_by)
             inspector_id = str(assessment.created_by.id)
         
         # Localização
@@ -257,8 +279,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             'location': location,
             'inspector_name': inspector_name,
             'inspector_id': inspector_id,
-            'evidence_image_url': evidence_image_url,
-            'evidence_timestamp': evidence_timestamp,
+            'evidence_items': evidence_items,
             'findings': findings_data,
             'recommendations': recommendations,
             'follow_up_date': follow_up_date,

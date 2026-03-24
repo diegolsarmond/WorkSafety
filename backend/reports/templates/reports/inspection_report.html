@@ -4,7 +4,16 @@
     <meta charset="UTF-8">
     <title>Safety Analysis Report - WorkSafety</title>
     <style>
-        @page { size: A4; margin: 0; }
+        @page {
+            size: A4;
+            margin: 0;
+            @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                color: #64748b;
+                font-size: 9px;
+                font-family: Arial, Helvetica, sans-serif;
+            }
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -146,6 +155,15 @@
             padding: 0 40px 28px;
             display: table;
             width: 100%;
+        }
+        .evidence-list {
+            display: block;
+            width: 100%;
+        }
+        .evidence-item {
+            margin-bottom: 14px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         .evidence-image-cell {
             display: table-cell;
@@ -355,7 +373,7 @@
            <!-- <div class="info-label">Inspector</div>-->
             <div class="info-value">
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#00808e" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                {{ inspector_name }} 
+                {{ inspector_name|default:"Not informed" }}
             </div>
         </div>
     </div>
@@ -367,12 +385,23 @@
     </div>
 
     <div class="evidence-section">
-        <!-- Evidence Image -->
         <div class="evidence-image-cell">
-            {% if evidence_image_url %}
-                <div class="evidence-box">
-                    <img src="{{ evidence_image_url }}" alt="Site Capture">
-                    <div class="evidence-caption">Fig 1. Site Capture — {{ evidence_timestamp|default:"Evidence" }}</div>
+            {% if evidence_items %}
+                <div class="evidence-list">
+                    {% for evidence in evidence_items %}
+                        <div class="evidence-item">
+                            {% if evidence.image_url %}
+                                <div class="evidence-box">
+                                    <img src="{{ evidence.image_url }}" alt="Site Capture {{ evidence.index }}">
+                                    <div class="evidence-caption">Fig {{ evidence.index }}. Site Capture — {{ evidence.timestamp|default:"Evidence" }}</div>
+                                </div>
+                            {% else %}
+                                <div class="evidence-no-image">
+                                    <div class="evidence-no-image-inner">No evidence image available</div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 </div>
             {% else %}
                 <div class="evidence-no-image">
@@ -381,7 +410,6 @@
             {% endif %}
         </div>
 
-        <!-- Findings Cards -->
         <div class="findings-cell">
             {% for finding in findings %}
                 {% if finding.is_critical %}
