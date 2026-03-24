@@ -134,9 +134,21 @@ export default function ReportsPage() {
 
     try {
       const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
-      const url = report.file_url.startsWith('http')
-        ? report.file_url
-        : `${API_BASE}${report.file_url.startsWith('/api') ? report.file_url.replace(/^\/api/, '') : report.file_url}`;
+
+      // Build the absolute URL for fetch.
+      // file_url may be:
+      //   - absolute:  "https://…/worksafety/api/reports/31/download/"
+      //   - relative with full prefix: "/worksafety/api/reports/31/download/"
+      //   - relative with /api prefix: "/api/reports/31/download/"
+      let url: string;
+      if (report.file_url.startsWith('http')) {
+        url = report.file_url;
+      } else if (report.file_url.startsWith('/')) {
+        // Relative path that already contains the proxy prefix – use origin directly
+        url = `${window.location.origin}${report.file_url}`;
+      } else {
+        url = `${API_BASE}/${report.file_url}`;
+      }
 
       const response = await fetch(url, {
         headers: {
@@ -145,7 +157,7 @@ export default function ReportsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to download report');
+        throw new Error(`Failed to download report (status ${response.status})`);
       }
 
       const blob = await response.blob();
@@ -161,8 +173,18 @@ export default function ReportsPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      // Fallback: open in new tab if download fails
-      window.open(report.file_url, '_blank');
+      console.error('PDF download failed, attempting fallback:', err);
+      // Fallback: use an anchor with download attribute instead of window.open
+      // to avoid opening a blank page that requires refresh
+      const fallbackUrl = report.file_url.startsWith('http')
+        ? report.file_url
+        : `${window.location.origin}${report.file_url}`;
+      const link = document.createElement('a');
+      link.href = fallbackUrl;
+      link.download = `report_${report.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Table } from '../components/Table';
 import { Download, RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -60,6 +60,41 @@ export default function Reports() {
       }
     }
   };
+
+  const handleDownload = useCallback(async (row: Report) => {
+    if (!row.file_url) return;
+    try {
+      // Build absolute URL – file_url is a relative path like "/worksafety/api/reports/31/download/"
+      const url = row.file_url.startsWith('http')
+        ? row.file_url
+        : `${window.location.origin}${row.file_url}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `report_assessment_${row.assessment_id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      // Fallback: anchor with download attribute
+      const fallbackUrl = row.file_url.startsWith('http')
+        ? row.file_url
+        : `${window.location.origin}${row.file_url}`;
+      const link = document.createElement('a');
+      link.href = fallbackUrl;
+      link.download = `report_${row.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -126,13 +161,13 @@ export default function Reports() {
                 
                 <div className="pt-2 flex justify-end">
                   {row.status === 'ready' && (
-                    <a
-                      href={row.file_url || '#'}
+                    <button
+                      onClick={() => handleDownload(row)}
                       className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-bold rounded-xl shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors w-full justify-center focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       {t('Download')}
-                    </a>
+                    </button>
                   )}
                   {row.status === 'failed' && (
                     <button
@@ -171,13 +206,13 @@ export default function Reports() {
                 actions={(row) => (
                   <div className="flex justify-end space-x-3">
                     {row.status === 'ready' && (
-                      <a
-                        href={row.file_url || '#'}
+                      <button
+                        onClick={() => handleDownload(row)}
                         className="inline-flex items-center px-3.5 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-all focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                       >
                         <Download className="h-4 w-4 mr-1.5" />
                         {t('Download')}
-                      </a>
+                      </button>
                     )}
                     {row.status === 'failed' && (
                       <button
