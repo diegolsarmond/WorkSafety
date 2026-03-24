@@ -22,7 +22,7 @@ import { useAnalysisStore } from '@/store/analysisStore';
  */
 export function Syncing() {
   const navigate = useNavigate();
-  const { jobs, isProcessing, refresh } = useSyncQueue();
+  const { jobs, refresh } = useSyncQueue();
   const { setAssessmentId } = useAnalysisStore();
   
   // Encontra o job mais recente (que acabamos de criar)
@@ -88,37 +88,6 @@ export function Syncing() {
   // Determina o estado atual
   const isCompleted = currentJob?.status === 'COMPLETED';
   const hasError = currentJob?.status === 'ERROR' || currentJob?.status === 'FAILED';
-  const isSyncing = currentJob?.status === 'SYNCING' || (isProcessing && !hasError);
-  const isPending = currentJob?.status === 'PENDING';
-
-  // Configuração dos steps
-  const steps = [
-    { 
-      label: "Uploading photos...", 
-      desc: `Sending ${currentJob?.photos.length || 0} photos to server`,
-      condition: isSyncing || isPending || isCompleted
-    },
-    { 
-      label: "Visual Analysis (Perseu AI)", 
-      desc: "Detecting PPE & Risks...",
-      condition: isSyncing || isCompleted
-    },
-    { 
-      label: "Regulatory Check (Sofia NLP)", 
-      desc: "Mapping Bau-Wegweiser...",
-      condition: isCompleted
-    },
-  ];
-
-  // Determina qual step está ativo
-  const getActiveStep = () => {
-    if (isCompleted) return 3;
-    if (isSyncing) return 1;
-    if (isPending) return 0;
-    return 0;
-  };
-
-  const activeStep = getActiveStep();
 
   if (!currentJob) {
     return (
@@ -185,52 +154,28 @@ export function Syncing() {
         )}
       </div>
 
-      {/* Steps */}
-      <div className="w-full max-w-sm space-y-6">
-        {steps.map((s, i) => (
-          <div
-            key={i}
-            className={`flex items-start gap-4 transition-opacity duration-500 ${
-              i < activeStep ? "opacity-100" : 
-              i === activeStep ? "opacity-100" : 
-              "opacity-30"
-            }`}
-          >
-            <div className="mt-1">
-              {i < activeStep && !hasError ? (
-                <CheckCircle2 className="w-6 h-6 text-teal-600" />
-              ) : i === activeStep && !hasError ? (
-                <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
-              ) : i === activeStep && hasError ? (
-                <AlertCircle className="w-6 h-6 text-red-500" />
-              ) : (
-                <div className="w-6 h-6 rounded-full border-2 border-gray-300" />
-              )}
-            </div>
-            <div>
-              <h3
-                className={`font-bold ${
-                  i < activeStep && !hasError ? "text-teal-900" : 
-                  i === activeStep && hasError ? "text-red-600" : 
-                  i === activeStep ? "text-teal-900" : 
-                  "text-gray-400"
-                }`}
-              >
-                {i === activeStep && hasError ? "Sync Failed" : s.label}
-              </h3>
-              {s.desc && !hasError && (
-                <p className="text-sm text-gray-400">{s.desc}</p>
-              )}
-              {i === activeStep && hasError && (
-                <p className="text-sm text-red-400">
-                  {currentJob.status === 'ERROR' 
-                    ? 'Max retries reached. Please try manually.' 
-                    : `Retrying automatically... (${currentJob.retryCount}/${currentJob.maxRetries})`}
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
+      {/* Mensagem principal */}
+      <div className="w-full max-w-sm text-center space-y-3">
+        {hasError ? (
+          <>
+            <h2 className="text-xl font-bold text-red-600">Sync Failed</h2>
+            <p className="text-sm text-red-400">
+              {currentJob.status === 'ERROR'
+                ? 'Max retries reached. Please try manually.'
+                : `Retrying automatically... (${currentJob.retryCount}/${currentJob.maxRetries})`}
+            </p>
+          </>
+        ) : isCompleted ? (
+          <>
+            <h2 className="text-xl font-bold text-emerald-700">Upload completed</h2>
+            <p className="text-sm text-gray-500">Your assessment is ready. Redirecting...</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold text-teal-900">Thank you for uploading your photos.</h2>
+            <p className="text-sm text-gray-500">This assessment analysis will be completed shortly.</p>
+          </>
+        )}
       </div>
 
       {/* Botões de ação */}
