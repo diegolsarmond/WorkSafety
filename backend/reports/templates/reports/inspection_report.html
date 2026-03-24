@@ -153,27 +153,34 @@
         /* ── EVIDENCE & FINDINGS ────────────────── */
         .evidence-section {
             padding: 0 40px 28px;
-            display: table;
-            width: 100%;
         }
-        .evidence-list {
-            display: block;
-            width: 100%;
-        }
-        .evidence-item {
-            margin-bottom: 14px;
+        .evidence-block {
+            margin-bottom: 24px;
             page-break-inside: avoid;
             break-inside: avoid;
         }
+        .evidence-block-header {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+        .evidence-image-wrapper {
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
+        }
         .evidence-image-cell {
             display: table-cell;
-            width: 58%;
+            width: 50%;
             vertical-align: top;
-            padding-right: 16px;
+            padding-right: 12px;
         }
         .findings-cell {
             display: table-cell;
-            width: 42%;
+            width: 50%;
             vertical-align: top;
         }
 
@@ -181,13 +188,14 @@
             border-radius: 10px;
             overflow: hidden;
             background-color: #e2e8f0;
-            height: 200px;
             position: relative;
         }
         .evidence-box img {
             width: 100%;
-            height: 200px;
-            object-fit: cover;
+            max-height: 320px;
+            object-fit: contain;
+            display: block;
+            background-color: #f1f5f9;
         }
         .evidence-caption {
             position: absolute;
@@ -202,7 +210,7 @@
         .evidence-no-image {
             border-radius: 10px;
             background-color: #e2e8f0;
-            height: 200px;
+            height: 180px;
             display: table;
             width: 100%;
         }
@@ -385,15 +393,16 @@
     </div>
 
     <div class="evidence-section">
-        <div class="evidence-image-cell">
-            {% if evidence_items %}
-                <div class="evidence-list">
-                    {% for evidence in evidence_items %}
-                        <div class="evidence-item">
+        {% if evidence_items %}
+            {% for evidence in evidence_items %}
+                <div class="evidence-block">
+                    <div class="evidence-block-header">Evidence {{ evidence.index }} {% if evidence.timestamp %}— {{ evidence.timestamp }}{% endif %}</div>
+                    <div class="evidence-image-wrapper">
+                        <div class="evidence-image-cell">
                             {% if evidence.image_url %}
                                 <div class="evidence-box">
                                     <img src="{{ evidence.image_url }}" alt="Site Capture {{ evidence.index }}">
-                                    <div class="evidence-caption">Fig {{ evidence.index }}. Site Capture — {{ evidence.timestamp|default:"Evidence" }}</div>
+                                    <div class="evidence-caption">Fig {{ evidence.index }}. Site Capture</div>
                                 </div>
                             {% else %}
                                 <div class="evidence-no-image">
@@ -401,51 +410,50 @@
                                 </div>
                             {% endif %}
                         </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="evidence-no-image">
-                    <div class="evidence-no-image-inner">No evidence image available</div>
-                </div>
-            {% endif %}
-        </div>
-
-        <div class="findings-cell">
-            {% for finding in findings %}
-                {% if finding.is_critical %}
-                    <div class="finding-card finding-card-critical">
-                        <div class="finding-top">
-                            <div class="finding-badge-cell"><span class="badge badge-critical">Critical</span></div>
-                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
+                        <div class="findings-cell">
+                            {% for finding in evidence.findings %}
+                                {% if finding.is_critical %}
+                                    <div class="finding-card finding-card-critical">
+                                        <div class="finding-top">
+                                            <div class="finding-badge-cell"><span class="badge badge-critical">Critical</span></div>
+                                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
+                                        </div>
+                                        <div class="finding-title">{{ finding.title }}</div>
+                                        <div class="finding-desc">{{ finding.description }}</div>
+                                    </div>
+                                {% elif finding.is_warning %}
+                                    <div class="finding-card finding-card-warning">
+                                        <div class="finding-top">
+                                            <div class="finding-badge-cell"><span class="badge badge-warning">Warning</span></div>
+                                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
+                                        </div>
+                                        <div class="finding-title">{{ finding.title }}</div>
+                                        <div class="finding-desc">{{ finding.description }}</div>
+                                    </div>
+                                {% else %}
+                                    <div class="finding-card finding-card-info">
+                                        <div class="finding-top">
+                                            <div class="finding-badge-cell"><span class="badge badge-info">Info</span></div>
+                                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
+                                        </div>
+                                        <div class="finding-title">{{ finding.title }}</div>
+                                        <div class="finding-desc">{{ finding.description }}</div>
+                                    </div>
+                                {% endif %}
+                            {% empty %}
+                                <div class="finding-card finding-card-empty">
+                                    <div class="finding-desc">No findings for this evidence</div>
+                                </div>
+                            {% endfor %}
                         </div>
-                        <div class="finding-title">{{ finding.title }}</div>
-                        <div class="finding-desc">{{ finding.description }}</div>
                     </div>
-                {% elif finding.is_warning %}
-                    <div class="finding-card finding-card-warning">
-                        <div class="finding-top">
-                            <div class="finding-badge-cell"><span class="badge badge-warning">Warning</span></div>
-                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
-                        </div>
-                        <div class="finding-title">{{ finding.title }}</div>
-                        <div class="finding-desc">{{ finding.description }}</div>
-                    </div>
-                {% else %}
-                    <div class="finding-card finding-card-info">
-                        <div class="finding-top">
-                            <div class="finding-badge-cell"><span class="badge badge-info">Info</span></div>
-                            <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
-                        </div>
-                        <div class="finding-title">{{ finding.title }}</div>
-                        <div class="finding-desc">{{ finding.description }}</div>
-                    </div>
-                {% endif %}
-            {% empty %}
-                <div class="finding-card finding-card-empty">
-                    <div class="finding-desc">No findings recorded</div>
                 </div>
             {% endfor %}
-        </div>
+        {% else %}
+            <div class="evidence-no-image">
+                <div class="evidence-no-image-inner">No evidence images available</div>
+            </div>
+        {% endif %}
     </div>
 
     <!-- AI RECOMMENDATIONS SECTION -->
