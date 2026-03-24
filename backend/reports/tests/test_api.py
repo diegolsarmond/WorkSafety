@@ -13,6 +13,7 @@ from unittest.mock import patch, MagicMock
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework import status
 
@@ -266,3 +267,37 @@ class ReportAPITest(TestCase):
         }
         
         self.assertEqual(set(response.data.keys()), expected_fields)
+
+    # ==================== TESTES DE DOWNLOAD ====================
+
+    @override_settings(REPORT_DOWNLOAD_MAX_WAIT_SECONDS=0)
+    def test_download_report_not_ready_returns_404(self):
+        """Quando não há arquivo disponível, endpoint retorna 404."""
+        report = Report.objects.create(
+            assessment=self.assessment,
+            status=Report.STATUS_GENERATING,
+        )
+
+        url = reverse('report-download-public', kwargs={'report_id': report.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_download_report_ready_returns_pdf(self):
+        """Download público deve retornar PDF quando arquivo existir."""
+        report = Report.objects.create(
+            assessment=self.assessment,
+            status=Report.STATUS_READY,
+        )
+        report.file.save(
+            'test_report.pdf',
+            SimpleUploadedFile('test_report.pdf', b'%PDF-1.4\n%Test PDF\n', content_type='application/pdf'),
+            save=True,
+        )
+
+        url = reverse('report-download-public', kwargs={'report_id': report.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Content-Type'), 'application/pdf')
+        self.assertIn('attachment;', response.get('Content-Disposition', ''))

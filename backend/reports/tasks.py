@@ -262,7 +262,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             'findings': findings_data,
             'recommendations': recommendations,
             'follow_up_date': follow_up_date,
-            'signature_name': 'Safety Manager',
+            'signature_name': 'Safety Analysis Assessment',
             'manager_id': '4421',
             'approved_date': assessment.created_at or timezone.now(),
         }

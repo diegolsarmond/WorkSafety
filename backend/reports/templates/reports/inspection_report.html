@@ -335,8 +335,8 @@
             <div class="report-title">Safety Analysis<br>Report</div>
         </div>
         <div class="header-right">
-            <div class="case-label">Case Number</div>
-            <div class="case-number">{{ case_number }}</div>
+           <!--  <div class="case-label">Case Number</div>
+            <div class="case-number">{{ case_number }}</div>-->
             <div class="generated-date">Generated: {{ generated_date|date:"M d, Y" }}</div>
         </div>
     </div>
@@ -352,10 +352,10 @@
         </div>
         <div class="info-box-gap"></div>
         <div class="info-box">
-            <div class="info-label">Inspector</div>
+           <!-- <div class="info-label">Inspector</div>-->
             <div class="info-value">
                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#00808e" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                {{ inspector_name }} (ID: {{ inspector_id }})
+                {{ inspector_name }} 
             </div>
         </div>
     </div>
@@ -430,8 +430,8 @@
         <ul class="rec-list">
             {% for rec in recommendations %}
                 {% if forloop.first %}
-                    <li class="rec-immediate"><span class="rec-immediate-label">Immediate Action:</span>{{ rec }}</li>
-                {% else %}
+<!--                     <li class="rec-immediate"><span class="rec-immediate-label">Immediate Action:</span>{{ rec }}</li>
+ -->                {% else %}
                     <li>{{ rec }}</li>
                 {% endif %}
             {% endfor %}
@@ -441,19 +441,19 @@
 
     <!-- FOOTER -->
     <div class="footer">
-        <div class="footer-sig-label">Authorized Signature</div>
-        <div class="footer-sig-name">{{ signature_name }}</div>
+<!--         <div class="footer-sig-label">Authorized Signature</div>
+ -->        <div class="footer-sig-name">{{ signature_name }}</div>
         <div class="footer-sig-line"></div>
-        <div class="footer-sig-title">{{ signature_name }}</div>
-        <div class="footer-sig-id">Manager ID: {{ manager_id }}</div>
+<!--         <div class="footer-sig-title">{{ signature_name }}</div>
+        <div class="footer-sig-id">Manager ID: {{ manager_id }}</div> -->
 
-        <div class="stamp">
+<!--         <div class="stamp">
             <div class="stamp-brand">WorkSafety</div>
             <div class="stamp-approved">APPROVED</div>
             <div class="stamp-date">{{ approved_date|date:"d/m/Y" }}</div>
-        </div>
+        </div> 
 
-        <div class="footer-page">Page 1 of 1</div>
+        <div class="footer-page">Page 1 of 1</div>-->
     </div>
 
 </div>

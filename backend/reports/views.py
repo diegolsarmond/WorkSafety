@@ -7,6 +7,8 @@ Endpoints:
 """
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
+from django.conf import settings
+import time
 from rest_framework import views, status, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -221,8 +223,27 @@ class ReportDownloadView(views.APIView):
     # (mesmo comportamento já existente quando arquivos eram servidos por /media).
     permission_classes = [AllowAny]
 
+    def _wait_until_file_is_available(self, report_id: int) -> Report:
+        """Aguarda por poucos segundos quando o relatório ainda está em geração."""
+        max_wait_seconds = float(getattr(settings, 'REPORT_DOWNLOAD_MAX_WAIT_SECONDS', 12))
+        poll_interval_seconds = float(getattr(settings, 'REPORT_DOWNLOAD_POLL_INTERVAL_SECONDS', 0.5))
+
+        deadline = time.monotonic() + max_wait_seconds
+        report = get_object_or_404(Report.objects.select_related('assessment'), id=report_id)
+
+        while report.status == Report.STATUS_GENERATING and not report.file and time.monotonic() < deadline:
+            time.sleep(poll_interval_seconds)
+            report = get_object_or_404(Report.objects.select_related('assessment'), id=report_id)
+
+        return report
+
     def get(self, request, report_id, *args, **kwargs):
         report = get_object_or_404(Report.objects.select_related('assessment'), id=report_id)
+
+        # Se o relatório estiver em geração, aguarda brevemente para iniciar o
+        # download no primeiro acesso sem exigir refresh manual da página.
+        if report.status == Report.STATUS_GENERATING and not report.file:
+            report = self._wait_until_file_is_available(report_id)
 
         if not report.file:
             raise Http404("Report file not found")
@@ -233,9 +254,12 @@ class ReportDownloadView(views.APIView):
             raise Http404("Report file is not accessible") from exc
 
         filename = report.file.name.split('/')[-1] if report.file.name else f"report_{report.id}.pdf"
-        return FileResponse(
+        response = FileResponse(
             report.file,
             as_attachment=True,
             filename=filename,
             content_type="application/pdf",
         )
+        response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response["Pragma"] = "no-cache"
+        return response
