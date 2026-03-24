@@ -293,6 +293,8 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                     'rule_4_violation': 'CRITICAL',
                     'rule_5_violation': 'CRITICAL',
                     'rule_6_violation': 'HIGH',
+                    'rule_7_violation': 'MEDIUM',
+                    'rule_8_violation': 'MEDIUM',
                 }
 
                 evidence = obj.evidences.first()

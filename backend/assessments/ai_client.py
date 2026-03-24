@@ -31,7 +31,17 @@ class BoundingBox:
     def from_list(cls, coords: List[float]) -> "BoundingBox":
         """Cria a partir de lista [x1, y1, x2, y2]."""
         if len(coords) >= 4:
-            return cls(x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3])
+            try:
+                x1, y1, x2, y2 = [float(c) for c in coords[:4]]
+            except (TypeError, ValueError):
+                return cls(x1=0, y1=0, x2=1, y2=1)
+
+            # Clamp de segurança para coordenadas normalizadas.
+            x1 = max(0.0, min(1.0, x1))
+            y1 = max(0.0, min(1.0, y1))
+            x2 = max(0.0, min(1.0, x2))
+            y2 = max(0.0, min(1.0, y2))
+            return cls(x1=x1, y1=y1, x2=x2, y2=y2)
         return cls(x1=0, y1=0, x2=1, y2=1)
 
 
@@ -143,49 +153,59 @@ class MockAIClient(AIClientInterface):
             )
 
         # Gerar detecções no formato esperado pela Olímpia (rule_*_violation)
+        # Cada regra é aleatoriamente detectada (como ocorre na API real)
         raw_response = {}
         findings = []
         
         if request.evidence_urls:
-            # Simular 2-4 regras ativadas por evidência
-            num_rules = min(len(request.evidence_urls) + 1, 4)
-            rules_to_detect = [f"rule_{i+1}_violation" for i in range(num_rules)]
+            # Iterar sobre todas as possíveis regras (1-8)
+            available_rules = [f"rule_{i}_violation" for i in range(1, 9)]
             
-            for rule_idx, rule_key in enumerate(rules_to_detect):
+            for rule_idx, rule_key in enumerate(available_rules):
+                # Aleatoriamente decidir se essa regra foi detectada (60% de chance padrão)
+                detection_probability = 0.6
+                if random.random() > detection_probability:
+                    # Regra não foi detectada, adicionar como null (como API faz)
+                    raw_response[rule_key] = None
+                    continue
+                
                 detections = []
-                # Simular 1-2 detecções por regra
-                num_detections = 1 + (rule_idx % 2)
+                # Se detectada, simular 1-2 detecções por regra
+                num_detections = random.randint(1, 2)
                 
                 for det_idx in range(num_detections):
-                    # Variação de confiança
-                    confidence = 0.70 + (rule_idx * 0.05 + det_idx * 0.1) % 0.25
+                    # Confiança aleatória entre 0.72 e 0.98
+                    confidence = round(random.uniform(0.72, 0.98), 2)
                     
-                    # Bounding box simulado (x, y, w, h)
+                    # Bounding box em pixels (como a API real agora retorna)
+                    # Imagem tipicamente ~1000x1000, então valores entre 0-1000
                     bounding_box = [
-                        10 + (rule_idx * 20) % 400,  # x
-                        10 + (det_idx * 30) % 300,   # y
-                        100 + (rule_idx * 15) % 200, # w
-                        80 + (det_idx * 20) % 150,   # h
+                        random.randint(0, 800),    # x1
+                        random.randint(0, 800),    # y1
+                        random.randint(200, 1000), # x2
+                        random.randint(200, 1000), # y2
                     ]
                     
+                    # Descriptions por regra
+                    rule_descriptions = {
+                        "rule_1_violation": "Trabalhador não está usando EPI adequado",
+                        "rule_2_violation": "Presença de trabalhador em altura sem proteção",
+                        "rule_3_violation": "Piso com detritos e risco de tropeço",
+                        "rule_4_violation": "Proximidade com máquinas em operação",
+                        "rule_5_violation": "Possível entrada em espaço confinado",
+                        "rule_6_violation": "Risco de exposição elétrica detectado",
+                        "rule_7_violation": "Violação de segurança detectada pela regra 7",
+                        "rule_8_violation": "Violação de segurança detectada pela regra 8",
+                    }
+                    
                     detection = {
-                        "confidence": round(confidence, 2),
+                        "confidence": confidence,
                         "bounding_box": bounding_box,
-                        "reason": f"Safety violation detected in area {det_idx + 1}",
+                        "reason": rule_descriptions.get(rule_key, f"Safety violation in {rule_key}"),
                     }
                     detections.append(detection)
                 
                 raw_response[rule_key] = detections
-                
-                # Criar findings para compatibilidade
-                for detection in detections:
-                    findings.append({
-                        "description": detection.get("reason", f"Violation in {rule_key}"),
-                        "severity": ["HIGH", "CRITICAL", "HIGH", "CRITICAL", "CRITICAL", "HIGH"][rule_idx % 6],
-                        "location": f"Detection {det_idx + 1}",
-                        "confidence": detection.get("confidence", 0.75),
-                        "category": rule_key,
-                    })
 
         # Calcular confiança geral
         confidence_levels = ["LOW", "MEDIUM", "HIGH"]
@@ -307,6 +327,18 @@ class OlimpiaAIClient(AIClientInterface):
             "severity": "HIGH",
             "description": "Verifica exposição a riscos elétricos",
         },
+        "rule_7_violation": {
+            "name": "Regra 7 - Risco Ocupacional",
+            "category": "GENERAL",
+            "severity": "MEDIUM",
+            "description": "Violação de segurança detectada pela regra 7",
+        },
+        "rule_8_violation": {
+            "name": "Regra 8 - Risco Ocupacional",
+            "category": "GENERAL",
+            "severity": "MEDIUM",
+            "description": "Violação de segurança detectada pela regra 8",
+        },
     }
 
     # Recomendações por categoria
@@ -317,6 +349,7 @@ class OlimpiaAIClient(AIClientInterface):
         "MAQUINARIO": "Delimitar área de operação, usar sinalizador/spotter e manter distância de segurança.",
         "ESPACO_CONFINADO": "Exigir Permissão de Trabalho (PT) e monitoramento contínuo conforme NR-33.",
         "ELETRICO": "Verificar bloqueio/etiquetagem, usar EPI específico e manter distância mínima.",
+        "GENERAL": "Avaliar o risco identificado, aplicar controles de engenharia e reforçar procedimentos de segurança.",
     }
 
     # Thread-safe OAuth2 token cache (shared across all instances)
@@ -404,7 +437,54 @@ class OlimpiaAIClient(AIClientInterface):
         separator = "&" if "?" in self.api_url else "?"
         return f"{self.api_url}{separator}lang={self.language}"
 
-    def _parse_violations(self, response_data: Dict[str, Any]) -> List[SafetyViolation]:
+    @staticmethod
+    def _normalize_bounding_box(
+        bbox: Any,
+        image_width: Optional[int] = None,
+        image_height: Optional[int] = None,
+    ) -> BoundingBox:
+        """
+        Normaliza bounding box para coordenadas 0-1.
+
+        A Olímpia pode retornar tanto coordenadas normalizadas quanto pixels.
+        """
+        if not isinstance(bbox, list) or len(bbox) < 4:
+            return BoundingBox(x1=0, y1=0, x2=1, y2=1)
+
+        try:
+            x1, y1, x2, y2 = [float(c) for c in bbox[:4]]
+        except (TypeError, ValueError):
+            return BoundingBox(x1=0, y1=0, x2=1, y2=1)
+
+        # Se qualquer coordenada > 1, assumir que veio em pixels.
+        is_pixel_bbox = max(x1, y1, x2, y2) > 1.0
+        if is_pixel_bbox:
+            if not image_width or not image_height:
+                logger.warning("Bounding box em pixels sem dimensoes da imagem; usando bbox padrao")
+                return BoundingBox(x1=0, y1=0, x2=1, y2=1)
+
+            x1 /= float(image_width)
+            x2 /= float(image_width)
+            y1 /= float(image_height)
+            y2 /= float(image_height)
+
+        # Ordenar e limitar para evitar valores fora de faixa no banco.
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
+
+        x1 = max(0.0, min(1.0, x1))
+        y1 = max(0.0, min(1.0, y1))
+        x2 = max(0.0, min(1.0, x2))
+        y2 = max(0.0, min(1.0, y2))
+
+        return BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
+
+    def _parse_violations(
+        self,
+        response_data: Dict[str, Any],
+        image_width: Optional[int] = None,
+        image_height: Optional[int] = None,
+    ) -> List[SafetyViolation]:
         """Converte resposta da API em lista de SafetyViolation."""
         violations = []
         
@@ -430,7 +510,11 @@ class OlimpiaAIClient(AIClientInterface):
                     logger.debug(f"Ignorando detecção com confiança baixa: {confidence}")
                     continue
                 
-                bbox = BoundingBox.from_list(detection.get("bounding_box", [0, 0, 1, 1]))
+                bbox = self._normalize_bounding_box(
+                    detection.get("bounding_box", [0, 0, 1, 1]),
+                    image_width=image_width,
+                    image_height=image_height,
+                )
                 
                 violation = SafetyViolation(
                     rule_id=rule_key,
@@ -475,6 +559,7 @@ class OlimpiaAIClient(AIClientInterface):
             AIInferenceResult com as violações detectadas
         """
         import requests
+        from PIL import Image
         
         url = self._build_url()
         
@@ -482,6 +567,14 @@ class OlimpiaAIClient(AIClientInterface):
         for attempt in range(2):
             headers = self._get_headers()
             try:
+                image_width = None
+                image_height = None
+                try:
+                    with Image.open(image_path) as img_info:
+                        image_width, image_height = img_info.size
+                except Exception as image_error:
+                    logger.warning(f"Falha ao ler dimensoes da imagem {image_path}: {image_error}")
+
                 with open(image_path, "rb") as image_file:
                     files = {"file": (image_path.split("/")[-1], image_file, "image/jpeg")}
                     
@@ -504,7 +597,11 @@ class OlimpiaAIClient(AIClientInterface):
                 
                     logger.info(f"Resposta da API Olímpia recebida: {len(data)} regras")
                     
-                    violations = self._parse_violations(data)
+                    violations = self._parse_violations(
+                        data,
+                        image_width=image_width,
+                        image_height=image_height,
+                    )
                     findings = self._violations_to_findings(violations)
                     
                     # Calcular confiança geral

@@ -137,13 +137,31 @@ class SafetyImageProcessor:
                     bbox = finding.get("bounding_box")
                     if not bbox or len(bbox) != 4:
                         continue
-                    
-                    # Converter para pixels
-                    x1, y1, x2, y2 = [int(coord * dim) for coord, dim in zip(bbox, [width, height, width, height])]
+
+                    try:
+                        x1_raw, y1_raw, x2_raw, y2_raw = [float(coord) for coord in bbox]
+                    except (TypeError, ValueError):
+                        continue
+
+                    # Aceita bbox normalizado (0-1) e também bbox em pixel.
+                    if max(x1_raw, y1_raw, x2_raw, y2_raw) <= 1.0:
+                        x1 = int(x1_raw * width)
+                        y1 = int(y1_raw * height)
+                        x2 = int(x2_raw * width)
+                        y2 = int(y2_raw * height)
+                    else:
+                        x1 = int(x1_raw)
+                        y1 = int(y1_raw)
+                        x2 = int(x2_raw)
+                        y2 = int(y2_raw)
                     
                     # Garantir coordenadas válidas
                     x1, x2 = min(x1, x2), max(x1, x2)
                     y1, y2 = min(y1, y2), max(y1, y2)
+                    x1 = max(0, min(width, x1))
+                    x2 = max(0, min(width, x2))
+                    y1 = max(0, min(height, y1))
+                    y2 = max(0, min(height, y2))
                     
                     # Obter cor
                     color = self._get_color_for_finding(finding)
