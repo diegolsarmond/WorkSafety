@@ -329,7 +329,7 @@ class OlimpiaAIClient(AIClientInterface):
         api_url: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 60,
-        language: str = "en_us",
+        language: str = "pt_br",
         token_url: Optional[str] = None,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
@@ -340,7 +340,7 @@ class OlimpiaAIClient(AIClientInterface):
         )
         self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
         # Requisito de produto: payload da Olímpia deve sempre ser retornado em inglês.
-        self.language = "en_us"
+        self.language = "pt_br"
         self.min_confidence = getattr(settings, "OLIMPIA_MIN_CONFIDENCE", 0.70)
 
         # OAuth2 Client Credentials (preferred)
