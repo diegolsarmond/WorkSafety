@@ -471,6 +471,22 @@ export function RisksDetected() {
     refreshInterval: 30000, // Refresh a cada 30s para atualizações da IA
   });
 
+  // Auto-select risks that are already validated
+  useEffect(() => {
+    if (assessment?.risks) {
+      const validatedIds = assessment.risks
+        .filter((r) => r.risk_status === 'validated')
+        .map((r) => r.id);
+      if (validatedIds.length > 0) {
+        setSelectedRisks((prev) => {
+          const next = new Set(prev);
+          validatedIds.forEach((id) => next.add(id));
+          return next;
+        });
+      }
+    }
+  }, [assessment]);
+
   // Debug logs
   useEffect(() => {
     console.log('[RisksDetected] State:', {
@@ -897,7 +913,7 @@ export function RisksDetected() {
         ) : (
           <Button
             onClick={() => navigate('/analysis/validation')}
-            className="flex-1 h-12 sm:h-14 text-base sm:text-lg bg-gray-100 text-gray-400 hover:bg-gray-200 font-bold border-none"
+            className="flex-1 h-12 sm:h-14 text-base sm:text-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700 font-bold border-none shadow-lg shadow-green-500/30 transition-all duration-200"
           >
             Confirm <Send className="w-5 h-5 ml-2" />
           </Button>

@@ -156,6 +156,7 @@ class MockAIClient(AIClientInterface):
         # Cada regra é aleatoriamente detectada (como ocorre na API real)
         raw_response = {}
         findings = []
+        num_evidences = len(request.evidence_urls) if request.evidence_urls else 1
         
         if request.evidence_urls:
             # Iterar sobre todas as possíveis regras (1-8)
@@ -202,6 +203,7 @@ class MockAIClient(AIClientInterface):
                         "confidence": confidence,
                         "bounding_box": bounding_box,
                         "reason": rule_descriptions.get(rule_key, f"Safety violation in {rule_key}"),
+                        "evidence_index": random.randint(0, num_evidences - 1),
                     }
                     detections.append(detection)
                 
@@ -744,8 +746,10 @@ class OlimpiaAIClient(AIClientInterface):
         
         # Merge individual responses so rule_*_violation keys are at the
         # top level – this is what the serializer expects.
+        # Each detection is tagged with evidence_index so the serializer
+        # can associate it with the correct evidence/photo.
         merged_raw: Dict[str, Any] = {}
-        for individual_response in all_raw_responses:
+        for evidence_idx, individual_response in enumerate(all_raw_responses):
             if not isinstance(individual_response, dict):
                 continue
             for key, detections in individual_response.items():
@@ -756,6 +760,10 @@ class OlimpiaAIClient(AIClientInterface):
                 elif isinstance(detections, list):
                     if not isinstance(merged_raw.get(key), list):
                         merged_raw[key] = []
+                    # Tag each detection with the evidence index
+                    for det in detections:
+                        if isinstance(det, dict):
+                            det['evidence_index'] = evidence_idx
                     merged_raw[key].extend(detections)
 
         return AIInferenceResult(
