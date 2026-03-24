@@ -129,8 +129,39 @@ export default function ReportsPage() {
     }
   };
 
-  const downloadReport = (report: Report) => {
-    if (report.file_url) {
+  const downloadReport = async (report: Report) => {
+    if (!report.file_url) return;
+
+    try {
+      const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
+      const url = report.file_url.startsWith('http')
+        ? report.file_url
+        : `${API_BASE}${report.file_url.startsWith('/api') ? report.file_url.replace(/^\/api/, '') : report.file_url}`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download report');
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+
+      const inspectionId = getInspectionId(report);
+      link.download = `report_assessment_${inspectionId ?? report.id}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      // Fallback: open in new tab if download fails
       window.open(report.file_url, '_blank');
     }
   };

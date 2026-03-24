@@ -203,36 +203,22 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     Uses Tailwind CSS and professional styling.
     """
     try:
-        # Preparar dados para o template
-        findings_data = []
-        for finding in assessment.findings.all()[:2]:  # Mostrar top 2 findings
-            severity = finding.severity.lower() if finding.severity else ''
-            is_critical = 'critical' in severity
-            is_warning = 'warning' in severity or 'medium' in severity
+        # Mapping from severity to badge info for the template
+        SEVERITY_MAP = {
+            'rule_1_violation': {'severity': 'HIGH', 'name': 'Uso de EPI'},
+            'rule_2_violation': {'severity': 'CRITICAL', 'name': 'Trabalho em Altura'},
+            'rule_3_violation': {'severity': 'HIGH', 'name': 'Escavações'},
+            'rule_4_violation': {'severity': 'CRITICAL', 'name': 'Proximidade com Máquinas'},
+            'rule_5_violation': {'severity': 'CRITICAL', 'name': 'Espaço Confinado'},
+            'rule_6_violation': {'severity': 'HIGH', 'name': 'Proteção Elétrica'},
+            'rule_7_violation': {'severity': 'MEDIUM', 'name': 'Risco Ocupacional'},
+            'rule_8_violation': {'severity': 'MEDIUM', 'name': 'Risco Ocupacional'},
+        }
 
-            if getattr(finding, 'ai_confidence', None) is not None:
-                confidence = int(float(finding.ai_confidence) * 100)
-            else:
-                confidence = 85
-
-            title_text = (finding.description or 'Risk finding').strip()
-            short_title = title_text[:50]
-            if len(title_text) > 50:
-                short_title += '...'
-            
-            findings_data.append({
-                'title': short_title,
-                'description': finding.description or 'No description provided',
-                'is_critical': is_critical,
-                'is_warning': is_warning,
-                'confidence': confidence,
-            })
-        
-        # Preparar dados das evidências (imagens)
+        # Collect evidences with file paths
+        evidences = list(assessment.evidences.all())
         evidence_items = []
-        evidences = assessment.evidences.all()
-
-        for idx, evidence in enumerate(evidences, start=1):
+        for idx, evidence in enumerate(evidences):
             evidence_image_url = None
             if evidence.file:
                 try:
@@ -245,11 +231,118 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
                 evidence_timestamp = evidence.captured_at.strftime("%I:%M %p")
 
             evidence_items.append({
-                'index': idx,
+                'index': idx + 1,
                 'image_url': evidence_image_url,
                 'timestamp': evidence_timestamp,
+                'findings': [],  # will be populated below
             })
-        
+
+        # Build per-evidence findings from AI inference raw result
+        latest_inference = assessment.inferences.first()
+        raw_result = latest_inference.result_json if latest_inference else {}
+
+        # Handle legacy wrapped format
+        if isinstance(raw_result, dict) and 'individual_responses' in raw_result:
+            merged = {}
+            for resp in (raw_result.get('individual_responses') or []):
+                if not isinstance(resp, dict):
+                    continue
+                for k, v in resp.items():
+                    if not k.endswith('_violation'):
+                        continue
+                    if v is None:
+                        merged.setdefault(k, None)
+                    elif isinstance(v, list):
+                        if not isinstance(merged.get(k), list):
+                            merged[k] = []
+                        merged[k].extend(v)
+            if merged:
+                raw_result = merged
+
+        if isinstance(raw_result, dict):
+            for rule_key, detections in raw_result.items():
+                if not rule_key.endswith('_violation') or not isinstance(detections, list):
+                    continue
+                rule_info = SEVERITY_MAP.get(rule_key, {'severity': 'MEDIUM', 'name': rule_key})
+                for detection in detections:
+                    if not isinstance(detection, dict):
+                        continue
+
+                    severity = rule_info['severity'].lower()
+                    is_critical = severity == 'critical' or severity == 'high'
+                    is_warning = severity == 'medium'
+
+                    confidence_val = detection.get('confidence')
+                    try:
+                        confidence = int(float(confidence_val) * 100)
+                    except (TypeError, ValueError):
+                        confidence = 0
+
+                    reason = detection.get('reason', '') or rule_info['name']
+                    short_title = reason[:60]
+                    if len(reason) > 60:
+                        short_title += '...'
+
+                    finding_data = {
+                        'title': short_title,
+                        'description': reason,
+                        'is_critical': is_critical,
+                        'is_warning': is_warning,
+                        'confidence': confidence,
+                        'rule_id': rule_key,
+                    }
+
+                    # Associate with the correct evidence using evidence_index
+                    ev_idx = detection.get('evidence_index')
+                    if ev_idx is not None and 0 <= ev_idx < len(evidence_items):
+                        evidence_items[ev_idx]['findings'].append(finding_data)
+                    elif evidence_items:
+                        evidence_items[0]['findings'].append(finding_data)
+
+        # If no raw result data, fallback to DB RiskFindings
+        has_any_findings = any(ei['findings'] for ei in evidence_items)
+        if not has_any_findings:
+            for finding in assessment.findings.all():
+                severity = finding.severity.lower() if finding.severity else ''
+                is_critical = 'critical' in severity or 'high' in severity
+                is_warning = 'medium' in severity
+
+                if getattr(finding, 'ai_confidence', None) is not None:
+                    confidence = int(float(finding.ai_confidence) * 100)
+                else:
+                    confidence = 0
+
+                title_text = (finding.description or 'Risk finding').strip()
+                short_title = title_text[:60]
+                if len(title_text) > 60:
+                    short_title += '...'
+
+                finding_data = {
+                    'title': short_title,
+                    'description': finding.description or 'No description provided',
+                    'is_critical': is_critical,
+                    'is_warning': is_warning,
+                    'confidence': confidence,
+                    'rule_id': '',
+                }
+
+                # Associate via FK relationship
+                if finding.evidence_id:
+                    for ei_idx, ei in enumerate(evidence_items):
+                        if ei_idx + 1 == finding.evidence_id or (ei_idx < len(evidences) and evidences[ei_idx].id == finding.evidence_id):
+                            ei['findings'].append(finding_data)
+                            break
+                    else:
+                        if evidence_items:
+                            evidence_items[0]['findings'].append(finding_data)
+                elif evidence_items:
+                    evidence_items[0]['findings'].append(finding_data)
+
+        # Collect all findings for the flat list (used by recommendations)
+        all_findings = []
+        for ei in evidence_items:
+            all_findings.extend(ei['findings'])
+
         # Preparar recomendações
         recommendations = [
             "Stop work in the affected area until critical hazards are resolved.",
@@ -280,7 +373,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             'inspector_name': inspector_name,
             'inspector_id': inspector_id,
             'evidence_items': evidence_items,
-            'findings': findings_data,
+            'findings': all_findings,
             'recommendations': recommendations,
             'follow_up_date': follow_up_date,
             'signature_name': 'Safety Analysis Assessment',
