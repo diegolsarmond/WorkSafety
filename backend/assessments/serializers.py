@@ -297,10 +297,13 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                     'rule_8_violation': 'MEDIUM',
                 }
 
-                evidence = obj.evidences.first()
-                evidence_payload = None
-                if evidence:
-                    evidence_payload = EvidenceRefSerializer(evidence, context=self.context).data
+                # Build list of all evidences to associate with detections
+                evidence_list = list(obj.evidences.all())
+                evidence_payloads = {}
+                for idx, ev in enumerate(evidence_list):
+                    evidence_payloads[idx] = EvidenceRefSerializer(ev, context=self.context).data
+                # Fallback: first evidence if no evidence_index
+                default_evidence_payload = evidence_payloads.get(0)
 
                 risks = []
                 status_map = {
@@ -333,6 +336,13 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                         bounding_box = detection.get('bounding_box')
                         if not isinstance(bounding_box, list):
                             bounding_box = []
+
+                        # Use evidence_index to associate with correct photo
+                        ev_idx = detection.get('evidence_index')
+                        if ev_idx is not None and ev_idx in evidence_payloads:
+                            evidence_payload = evidence_payloads[ev_idx]
+                        else:
+                            evidence_payload = default_evidence_payload
 
                         risks.append({
                             'id': f"{obj.id}-{rule_key}-{detection_index}",
