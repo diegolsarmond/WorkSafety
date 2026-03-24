@@ -11,6 +11,14 @@ import type {
 
 const API_PREFIX = 'assessments';
 
+/** Resultado de status de IA */
+export interface AIStatusResult {
+  status: string;
+  message?: string;
+  confidence?: string;
+  error_message?: string;
+}
+
 /** Erro específico do serviço de riscos */
 export class RiskServiceError extends Error {
   constructor(
@@ -218,7 +226,7 @@ export async function reprocessAssessment(
 export async function processAIAssessment(
   assessmentId: string | number,
   reason?: string
-): Promise<{ status: AssessmentStatus; previous_status: string; message: string }> {
+): Promise<{ message: string; task_id: string; status: string }> {
   try {
     const response = await apiClient.post(`${API_PREFIX}/${assessmentId}/process-ai/`, {
       reason,
@@ -229,6 +237,26 @@ export async function processAIAssessment(
       const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
       const message = axiosError.response?.data?.error || 'Failed to process AI assessment';
       throw new RiskServiceError(message, 'TRANSITION_ERROR', axiosError.response?.status);
+    }
+    throw new RiskServiceError('Network error', 'NETWORK_ERROR');
+  }
+}
+
+/**
+ * Consulta status do processamento de IA
+ * @param assessmentId - ID da avaliação
+ */
+export async function getAIStatus(
+  assessmentId: string | number
+): Promise<AIStatusResult> {
+  try {
+    const response = await apiClient.get(`${API_PREFIX}/${assessmentId}/ai-status/`);
+    return response.data;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+      const message = axiosError.response?.data?.error || 'Failed to get AI status';
+      throw new RiskServiceError(message, 'AI_STATUS_ERROR', axiosError.response?.status);
     }
     throw new RiskServiceError('Network error', 'NETWORK_ERROR');
   }

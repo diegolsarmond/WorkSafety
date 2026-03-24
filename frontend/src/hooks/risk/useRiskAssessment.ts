@@ -13,6 +13,7 @@ import type {
 import {
   getAssessmentById,
   humanValidateAssessment,
+  processAIAssessment,
   RiskServiceError,
   countRisksBySeverity,
 } from '@/services/risk/riskService';
@@ -41,10 +42,13 @@ interface UseRiskAssessmentReturn {
   fetchAssessment: () => Promise<void>;
   refresh: () => Promise<void>;
   validateAssessment: (reason?: string) => Promise<void>;
+  triggerAIProcessing: () => Promise<void>;
   
   // Estados de ação
   isValidating: boolean;
   validationError: string | null;
+  isProcessingAI: boolean;
+  aiProcessingError: string | null;
 }
 
 
@@ -73,6 +77,8 @@ export function useRiskAssessment(
   // Estado de ações
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiProcessingError, setAiProcessingError] = useState<string | null>(null);
   
   // Estado para rastrear timeout do processamento de IA (5 minutos = 300000ms)
   const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
@@ -100,7 +106,7 @@ export function useRiskAssessment(
     try {
       const data = await getAssessmentById(assessmentId);
       
-      // Verificar se está em processamento de IA (synced ou error_ai)
+      // Verificar se está em processamento de IA (synced)
       if (data.status === 'synced') {
         // Rastrear quando começou o processamento
         if (!processingStartTime) {
@@ -110,8 +116,10 @@ export function useRiskAssessment(
         // Verificar se passou o timeout
         const timeElapsed = Date.now() - (processingStartTime || Date.now());
         if (timeElapsed > PROCESSING_TIMEOUT) {
-          // Timeout: mostrar dados mesmo com processamento pendente
-          console.warn('AI processing timeout exceeded, showing data with pending analysis');
+          // Timeout: A IA não processou a tempo.
+          // Se não tem riscos, mostrar o assessment mas com status synced
+          // para que o UI possa mostrar botão de "Processar IA"
+          console.warn('AI processing timeout exceeded, showing assessment with pending analysis');
           setScreenState({
             type: 'data',
             assessment: data,
@@ -201,6 +209,40 @@ export function useRiskAssessment(
       }
     } finally {
       setIsValidating(false);
+    }
+  }, [assessmentId, fetchAssessment]);
+  
+  // Disparar processamento de IA manualmente
+  const triggerAIProcessing = useCallback(async () => {
+    if (!assessmentId) return;
+    
+    setIsProcessingAI(true);
+    setAiProcessingError(null);
+    
+    try {
+      await processAIAssessment(assessmentId);
+      
+      // Resetar timer de processamento para dar mais tempo
+      setProcessingStartTime(Date.now());
+      
+      // Mostrar loading de IA
+      setScreenState({
+        type: 'loading',
+        message: 'AI is analyzing the images...',
+      });
+      
+      // Aguardar um pouco e então fazer polling
+      setTimeout(() => {
+        fetchAssessment();
+      }, 3000);
+    } catch (error) {
+      if (error instanceof RiskServiceError) {
+        setAiProcessingError(error.message);
+      } else {
+        setAiProcessingError('Failed to trigger AI processing');
+      }
+    } finally {
+      setIsProcessingAI(false);
     }
   }, [assessmentId, fetchAssessment]);
   
@@ -307,7 +349,10 @@ export function useRiskAssessment(
     fetchAssessment,
     refresh,
     validateAssessment,
+    triggerAIProcessing,
     isValidating,
     validationError,
+    isProcessingAI,
+    aiProcessingError,
   };
 }
