@@ -7,6 +7,7 @@ import {
   AlertCircle,
   RefreshCw,
   List,
+  Home,
 } from "lucide-react";
 import { Button } from '@/ui/components/Button';
 import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
@@ -28,6 +29,16 @@ export function Syncing() {
   // Encontra o job mais recente (que acabamos de criar)
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
   const [showAllJobs, setShowAllJobs] = useState(false);
+
+  // Intercepta o botão voltar do dispositivo para evitar loop de navegação
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      navigate('/home', { replace: true });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [navigate]);
 
   useEffect(() => {
     // Pega o job mais recente
@@ -65,7 +76,9 @@ export function Syncing() {
         setAssessmentId(assessmentId);
         
         // Passa o assessmentId para a tela de riscos
+        // replace: true para evitar loop no botão voltar
         navigate("/analysis/risks", {
+          replace: true,
           state: { 
             assessmentId: assessmentId
           }
@@ -83,6 +96,10 @@ export function Syncing() {
 
   const handleGoToQueue = () => {
     navigate('/sync-queue');
+  };
+
+  const handleGoHome = () => {
+    navigate('/home', { replace: true });
   };
 
   // Determina o estado atual
@@ -198,12 +215,21 @@ export function Syncing() {
           <List className="w-5 h-5" /> View sync queue
         </Button>
 
+        <Button
+          onClick={handleGoHome}
+          variant="outline"
+          className="w-full h-14 text-lg rounded-xl flex items-center justify-center gap-2"
+        >
+          <Home className="w-5 h-5" /> Back to Home
+        </Button>
+
         {isCompleted && (
           <Button
             onClick={() => {
               const assessmentId = currentJob?.assessmentId || currentJob?.id;
               setAssessmentId(assessmentId);
               navigate("/analysis/risks", {
+                replace: true,
                 state: { 
                   assessmentId: assessmentId
                 }
