@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera, Images } from "lucide-react";
+import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera } from "lucide-react";
 
 import { useAnalysisStore } from "../../store/analysisStore";
 
@@ -147,18 +147,8 @@ export function CameraCapture() {
 
       <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-4 sm:gap-6" style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1rem))' }}>
         <div className="flex items-center justify-between w-full max-w-xs z-20">
-          {/* Gallery Button */}
-          <label className={`relative cursor-pointer transition-transform active:scale-95 p-4 rounded-full bg-white/10 text-white ${processing || photos.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/jpg,image/webp"
-              disabled={processing || photos.length >= 10}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-              onChange={handleFileChange}
-            />
-            <Images className="w-6 h-6" />
-          </label>
+          {/* Spacer for alignment */}
+          <div className="w-14 h-14" />
 
           {/* Camera Button (main) */}
           <label className={`relative cursor-pointer transition-transform active:scale-95 ${processing || photos.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -176,17 +166,29 @@ export function CameraCapture() {
             </div>
           </label>
 
-          <button
-            onClick={() => navigate("/analysis/review")}
-            className="relative p-4 rounded-full bg-white/10 text-white"
-          >
-            <ImageIcon className="w-6 h-6" />
-            {photos.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center text-[10px] font-bold">
-                {photos.length}
-              </span>
-            )}
-          </button>
+          {/* Gallery / Review Button: abre galeria se sem fotos, senão vai para review */}
+          <div className="relative">
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/jpg,image/webp"
+              disabled={processing || photos.length >= 10}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              onClick={() => photos.length > 0 ? navigate("/analysis/review") : galleryInputRef.current?.click()}
+              disabled={processing}
+              className="relative p-4 rounded-full bg-white/10 text-white disabled:opacity-50"
+            >
+              <ImageIcon className="w-6 h-6" />
+              {photos.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center text-[10px] font-bold">
+                  {photos.length}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         <p className="text-sm text-white/80 font-medium z-20">

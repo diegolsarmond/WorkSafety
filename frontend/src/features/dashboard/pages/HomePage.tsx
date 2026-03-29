@@ -117,9 +117,6 @@ export default function HomePage() {
               <path d="M160 140V160H140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M60 160H40V140" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M40 60V40H60" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M120 80C120 80 110 100 100 100C90 100 80 80 80 80" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="85" cy="70" r="4" fill="white" />
-              <circle cx="115" cy="70" r="4" fill="white" />
               <path d="M170 30L175 25M175 25L180 30M175 25V35" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>

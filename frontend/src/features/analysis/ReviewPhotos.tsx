@@ -33,7 +33,8 @@ export function ReviewPhotos() {
       reset();
 
       // Navega para a página de sincronização
-      navigate('/analysis/syncing');
+      // replace: true para remover /review do histórico e evitar loop no botão voltar
+      navigate('/analysis/syncing', { replace: true });
     } catch (error) {
       console.error('Error submitting analysis:', error);
       alert('Error submitting analysis. Please try again.');
@@ -67,7 +68,16 @@ export function ReviewPhotos() {
                 #{index + 1}
               </div>
 
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+              {/* Botão excluir sempre visível no mobile */}
+              <button
+                onClick={() => removePhoto(photo.id)}
+                className="absolute top-2 right-2 p-2 bg-red-500/90 rounded-full text-white sm:hidden"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+
+              {/* Overlay com hover apenas no desktop */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center gap-4">
                 <button className="p-3 bg-white/20 rounded-full backdrop-blur-sm hover:bg-white/30 transition-colors">
                   <Eye className="w-6 h-6 text-white" />
                 </button>
