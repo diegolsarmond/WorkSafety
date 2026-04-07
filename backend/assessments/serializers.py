@@ -255,17 +255,14 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         """
         Retorna riscos priorizando o payload bruto da API Olímpia.
 
-        Formato esperado da Olímpia:
-        {
-          "rule_1_violation": [{"bounding_box": [...], "reason": "...", "confidence": 0.92}],
-          ...
-        }
+        Suporta dois formatos:
+          Novo  (v2): {"rule_1": {"name":"...", "violations":[{...}]}, ...}
+          Legado:     {"rule_1_violation": [{...}], ...}
         """
         latest_inference = obj.inferences.first()
         raw_result = latest_inference.result_json if latest_inference else {}
 
-        # If the raw result wraps individual responses (legacy format),
-        # merge them so rule_*_violation keys are accessible at top level.
+        # Legacy wrapper: individual_responses
         if isinstance(raw_result, dict) and 'individual_responses' in raw_result:
             merged: dict = {}
             for resp in (raw_result.get('individual_responses') or []):
@@ -283,88 +280,93 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
             if merged:
                 raw_result = merged
 
-        if isinstance(raw_result, dict):
-            rule_keys = [k for k in raw_result.keys() if k.endswith('_violation')]
-            if rule_keys:
-                severity_by_rule = {
-                    'rule_1_violation': 'HIGH',
-                    'rule_2_violation': 'CRITICAL',
-                    'rule_3_violation': 'HIGH',
-                    'rule_4_violation': 'CRITICAL',
-                    'rule_5_violation': 'CRITICAL',
-                    'rule_6_violation': 'HIGH',
-                    'rule_7_violation': 'MEDIUM',
-                    'rule_8_violation': 'MEDIUM',
-                }
+        if not isinstance(raw_result, dict):
+            return []
 
-                # Build list of all evidences to associate with detections
-                evidence_list = list(obj.evidences.all())
-                evidence_payloads = {}
-                for idx, ev in enumerate(evidence_list):
-                    evidence_payloads[idx] = EvidenceRefSerializer(ev, context=self.context).data
-                # Fallback: first evidence if no evidence_index
-                default_evidence_payload = evidence_payloads.get(0)
+        severity_by_rule = {
+            'rule_1': 'HIGH',   'rule_1_violation': 'HIGH',
+            'rule_2': 'CRITICAL', 'rule_2_violation': 'CRITICAL',
+            'rule_3': 'HIGH',   'rule_3_violation': 'HIGH',
+            'rule_4': 'CRITICAL', 'rule_4_violation': 'CRITICAL',
+            'rule_5': 'CRITICAL', 'rule_5_violation': 'CRITICAL',
+            'rule_6': 'HIGH',   'rule_6_violation': 'HIGH',
+            'rule_7': 'MEDIUM', 'rule_7_violation': 'MEDIUM',
+            'rule_8': 'MEDIUM', 'rule_8_violation': 'MEDIUM',
+        }
 
-                risks = []
-                status_map = {
-                    'draft': 'pending',
-                    'captured': 'pending',
-                    'synced': 'pending',
-                    'ai_reviewed': 'ai_detected',
-                    'human_validated': 'validated',
-                    'finalized': 'validated',
-                    'error_ai': 'error',
-                }
-                risk_status = status_map.get(obj.status, 'pending')
+        # Collect (rule_key, detections_list) pairs from either format
+        rule_detections: list = []
+        for key, value in raw_result.items():
+            if isinstance(value, dict) and 'violations' in value:
+                # New format: rule_1 → {violations: [...]}
+                detections = value.get('violations') or []
+                if isinstance(detections, list):
+                    rule_detections.append((key, detections))
+            elif key.endswith('_violation') and isinstance(value, list):
+                # Legacy format: rule_1_violation → [...]
+                rule_detections.append((key, value))
 
-                for rule_key in sorted(rule_keys):
-                    detections = raw_result.get(rule_key)
-                    if not isinstance(detections, list):
-                        continue
+        if not rule_detections:
+            return []
 
-                    for detection_index, detection in enumerate(detections, start=1):
-                        if not isinstance(detection, dict):
-                            continue
+        # Build list of all evidences to associate with detections
+        evidence_list = list(obj.evidences.all())
+        evidence_payloads = {}
+        for idx, ev in enumerate(evidence_list):
+            evidence_payloads[idx] = EvidenceRefSerializer(ev, context=self.context).data
+        default_evidence_payload = evidence_payloads.get(0)
 
-                        reason = detection.get('reason') or ''
-                        confidence = detection.get('confidence')
-                        try:
-                            confidence_pct = f"{float(confidence) * 100:.0f}%"
-                        except (TypeError, ValueError):
-                            confidence_pct = ''
+        status_map = {
+            'draft': 'pending',
+            'captured': 'pending',
+            'synced': 'pending',
+            'ai_reviewed': 'ai_detected',
+            'human_validated': 'validated',
+            'finalized': 'validated',
+            'error_ai': 'error',
+        }
+        risk_status = status_map.get(obj.status, 'pending')
 
-                        bounding_box = detection.get('bounding_box')
-                        if not isinstance(bounding_box, list):
-                            bounding_box = []
+        risks = []
+        for rule_key, detections in sorted(rule_detections, key=lambda x: x[0]):
+            for detection_index, detection in enumerate(detections, start=1):
+                if not isinstance(detection, dict):
+                    continue
 
-                        # Use evidence_index to associate with correct photo
-                        ev_idx = detection.get('evidence_index')
-                        if ev_idx is not None and ev_idx in evidence_payloads:
-                            evidence_payload = evidence_payloads[ev_idx]
-                        else:
-                            evidence_payload = default_evidence_payload
+                reason = detection.get('reason') or ''
+                confidence = detection.get('confidence')
+                try:
+                    confidence_pct = f"{float(confidence) * 100:.0f}%"
+                except (TypeError, ValueError):
+                    confidence_pct = ''
 
-                        risks.append({
-                            'id': f"{obj.id}-{rule_key}-{detection_index}",
-                            'description': reason,
-                            'reason': reason,
-                            'rule_id': rule_key,
-                            'bounding_box': bounding_box,
-                            'severity': severity_by_rule.get(rule_key, 'MEDIUM'),
-                            'location': '',
-                            'evidence': evidence_payload,
-                            'recommendations': [],
-                            'ai_confidence': confidence_pct,
-                            'risk_status': risk_status,
-                            'created_at': obj.created_at,
-                            'updated_at': obj.updated_at,
-                        })
+                bounding_box = detection.get('bounding_box')
+                if not isinstance(bounding_box, list):
+                    bounding_box = []
 
-                return risks
+                ev_idx = detection.get('evidence_index')
+                if ev_idx is not None and ev_idx in evidence_payloads:
+                    evidence_payload = evidence_payloads[ev_idx]
+                else:
+                    evidence_payload = default_evidence_payload
 
-        # No raw violations from Olimpia API — return empty list
-        # (do not fall back to parameterised risk types)
-        return []
+                risks.append({
+                    'id': f"{obj.id}-{rule_key}-{detection_index}",
+                    'description': reason,
+                    'reason': reason,
+                    'rule_id': rule_key,
+                    'bounding_box': bounding_box,
+                    'severity': severity_by_rule.get(rule_key, 'MEDIUM'),
+                    'location': '',
+                    'evidence': evidence_payload,
+                    'recommendations': [],
+                    'ai_confidence': confidence_pct,
+                    'risk_status': risk_status,
+                    'created_at': obj.created_at,
+                    'updated_at': obj.updated_at,
+                })
+
+        return risks
 
     def get_compliance_score(self, obj: RiskAssessment) -> int:
         """Calcula score de compliance baseado nos riscos."""

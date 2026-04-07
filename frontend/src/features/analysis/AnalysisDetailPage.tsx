@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -31,6 +31,11 @@ export function AnalysisDetailPage() {
   const [isValidating, setIsValidating] = useState(false);
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    setImgNaturalSize(null);
+  }, [currentImageIndex]);
 
   const {
     screenState,
@@ -90,6 +95,14 @@ export function AnalysisDetailPage() {
 
   const currentEvidence = assessment ? assessment.evidences[currentImageIndex] : null;
   const canRedoAIAnalysis = assessment?.status !== 'human_validated' && assessment?.status !== 'finalized';
+
+  const currentBoundingBoxRisks = useMemo(() => {
+    if (!currentEvidence || !assessment) return [];
+    return filteredRisks.filter(
+      (r) => Array.isArray(r.bounding_box) && r.bounding_box.length === 4 &&
+             (r.evidence?.id === currentEvidence.id || r.evidence == null)
+    );
+  }, [filteredRisks, currentEvidence, assessment]);
 
   // Loading state
   if (screenState.type === 'loading') {
@@ -152,10 +165,41 @@ export function AnalysisDetailPage() {
           <div className="relative bg-black">
             <div className="aspect-video flex items-center justify-center bg-gray-900 relative">
               <img
+                key={currentImageIndex}
                 src={assessment.evidences[currentImageIndex].url}
                 alt={`Evidence ${currentImageIndex + 1}`}
                 className="w-full h-full object-contain"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+                }}
               />
+              {imgNaturalSize && currentBoundingBoxRisks.length > 0 && (
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  {currentBoundingBoxRisks.map((risk) => {
+                    const [x1, y1, x2, y2] = risk.bounding_box!;
+                    const strokeW = Math.max(imgNaturalSize.w, imgNaturalSize.h) / 150;
+                    const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
+                    return (
+                      <rect
+                        key={risk.id}
+                        x={x1}
+                        y={y1}
+                        width={x2 - x1}
+                        height={y2 - y1}
+                        fill="none"
+                        stroke={isViolation ? '#ef4444' : '#f59e0b'}
+                        strokeWidth={strokeW}
+                        strokeLinejoin="round"
+                      />
+                    );
+                  })}
+                </svg>
+              )}
 
               {/* Navigation Arrows */}
               {assessment.evidences.length > 1 && (

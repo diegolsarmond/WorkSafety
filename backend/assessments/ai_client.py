@@ -487,39 +487,54 @@ class OlimpiaAIClient(AIClientInterface):
         image_width: Optional[int] = None,
         image_height: Optional[int] = None,
     ) -> List[SafetyViolation]:
-        """Converte resposta da API em lista de SafetyViolation."""
+        """Converte resposta da API em lista de SafetyViolation.
+
+        Suporta dois formatos de resposta da Olímpia:
+          - Novo (v2): {"rule_1": {"name": "...", "violations": [...]}, ...}
+          - Legado:    {"rule_1_violation": [...], ...}
+        """
         violations = []
-        
-        for rule_key, detections in response_data.items():
-            if not rule_key.endswith("_violation"):
+
+        for key, value in response_data.items():
+            # ── Novo formato: rule_1, rule_2 … com violations array ──────────
+            if isinstance(value, dict) and "violations" in value:
+                detections = value.get("violations") or []
+                mapping_key = f"{key}_violation"  # rule_1 → rule_1_violation
+                rule_info = self.RULE_MAPPING.get(mapping_key, {
+                    "name": value.get("name", key),
+                    "category": value.get("category", "GENERAL"),
+                    "severity": "MEDIUM",
+                    "description": f"Safety violation detected by {key}",
+                })
+            # ── Formato legado: rule_1_violation, rule_2_violation … ─────────
+            elif key.endswith("_violation") and isinstance(value, list):
+                detections = value
+                rule_info = self.RULE_MAPPING.get(key, {
+                    "name": key,
+                    "category": "GENERAL",
+                    "severity": "MEDIUM",
+                    "description": "Violação de segurança detectada",
+                })
+            else:
                 continue
-            
-            if not isinstance(detections, list):
-                continue
-            
-            rule_info = self.RULE_MAPPING.get(rule_key, {
-                "name": rule_key,
-                "category": "GENERAL",
-                "severity": "MEDIUM",
-                "description": "Violação de segurança detectada",
-            })
-            
+
             for detection in detections:
+                if not isinstance(detection, dict):
+                    continue
+
                 confidence = detection.get("confidence", 0.0)
-                
-                # Filtrar por confiança mínima
                 if confidence < self.min_confidence:
                     logger.debug(f"Ignorando detecção com confiança baixa: {confidence}")
                     continue
-                
+
                 bbox = self._normalize_bounding_box(
                     detection.get("bounding_box", [0, 0, 1, 1]),
                     image_width=image_width,
                     image_height=image_height,
                 )
-                
+
                 violation = SafetyViolation(
-                    rule_id=rule_key,
+                    rule_id=key,
                     rule_name=rule_info["name"],
                     description=detection.get("reason", rule_info["description"]),
                     confidence=confidence,
@@ -529,7 +544,7 @@ class OlimpiaAIClient(AIClientInterface):
                     recommendation=self.RECOMMENDATIONS.get(rule_info["category"], ""),
                 )
                 violations.append(violation)
-        
+
         # Ordenar por confiança (maior primeiro)
         violations.sort(key=lambda v: v.confidence, reverse=True)
         return violations
@@ -744,27 +759,39 @@ class OlimpiaAIClient(AIClientInterface):
             f"de {len(all_findings)} total"
         )
         
-        # Merge individual responses so rule_*_violation keys are at the
-        # top level – this is what the serializer expects.
+        # Merge individual responses preserving the original format so the
+        # serializer can handle both new (rule_1 + violations) and legacy
+        # (rule_1_violation) shapes.
         # Each detection is tagged with evidence_index so the serializer
         # can associate it with the correct evidence/photo.
         merged_raw: Dict[str, Any] = {}
         for evidence_idx, individual_response in enumerate(all_raw_responses):
             if not isinstance(individual_response, dict):
                 continue
-            for key, detections in individual_response.items():
-                if not key.endswith("_violation"):
-                    continue
-                if detections is None:
-                    merged_raw.setdefault(key, None)
-                elif isinstance(detections, list):
-                    if not isinstance(merged_raw.get(key), list):
-                        merged_raw[key] = []
-                    # Tag each detection with the evidence index
-                    for det in detections:
+            for key, value in individual_response.items():
+                # ── Novo formato: rule_1 … com dict {violations:[…]} ─────────
+                if isinstance(value, dict) and "violations" in value:
+                    if key not in merged_raw:
+                        merged_raw[key] = {
+                            k: v for k, v in value.items() if k != "violations"
+                        }
+                        merged_raw[key]["violations"] = []
+                    for det in (value.get("violations") or []):
                         if isinstance(det, dict):
-                            det['evidence_index'] = evidence_idx
-                    merged_raw[key].extend(detections)
+                            det = dict(det)
+                            det["evidence_index"] = evidence_idx
+                            merged_raw[key]["violations"].append(det)
+                # ── Formato legado: rule_1_violation … com list ───────────────
+                elif key.endswith("_violation"):
+                    if value is None:
+                        merged_raw.setdefault(key, None)
+                    elif isinstance(value, list):
+                        if not isinstance(merged_raw.get(key), list):
+                            merged_raw[key] = []
+                        for det in value:
+                            if isinstance(det, dict):
+                                det["evidence_index"] = evidence_idx
+                        merged_raw[key].extend(value)
 
         return AIInferenceResult(
             success=True,
