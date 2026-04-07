@@ -309,12 +309,15 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         if not rule_detections:
             return []
 
-        # Build list of all evidences to associate with detections
+        # Build evidence lookup tables keyed by DB id and by positional index
         evidence_list = list(obj.evidences.all())
-        evidence_payloads = {}
+        evidence_by_id = {}    # {evidence.id: serialized_payload}
+        evidence_by_idx = {}   # {position_index: serialized_payload}
         for idx, ev in enumerate(evidence_list):
-            evidence_payloads[idx] = EvidenceRefSerializer(ev, context=self.context).data
-        default_evidence_payload = evidence_payloads.get(0)
+            payload = EvidenceRefSerializer(ev, context=self.context).data
+            evidence_by_id[ev.id] = payload
+            evidence_by_idx[idx] = payload
+        default_evidence_payload = evidence_by_idx.get(0)
 
         status_map = {
             'draft': 'pending',
@@ -344,9 +347,13 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                 if not isinstance(bounding_box, list):
                     bounding_box = []
 
+                # Prefer real evidence_id (DB pk), fall back to positional index
+                ev_db_id = detection.get('evidence_id')
                 ev_idx = detection.get('evidence_index')
-                if ev_idx is not None and ev_idx in evidence_payloads:
-                    evidence_payload = evidence_payloads[ev_idx]
+                if ev_db_id is not None and ev_db_id in evidence_by_id:
+                    evidence_payload = evidence_by_id[ev_db_id]
+                elif ev_idx is not None and ev_idx in evidence_by_idx:
+                    evidence_payload = evidence_by_idx[ev_idx]
                 else:
                     evidence_payload = default_evidence_payload
 

@@ -96,13 +96,20 @@ export function AnalysisDetailPage() {
   const currentEvidence = assessment ? assessment.evidences[currentImageIndex] : null;
   const canRedoAIAnalysis = assessment?.status !== 'human_validated' && assessment?.status !== 'finalized';
 
-  const currentBoundingBoxRisks = useMemo(() => {
+  // Risks belonging to the currently displayed photo
+  const currentPhotoRisks = useMemo(() => {
     if (!currentEvidence || !assessment) return [];
     return filteredRisks.filter(
-      (r) => Array.isArray(r.bounding_box) && r.bounding_box.length === 4 &&
-             (r.evidence?.id === currentEvidence.id || r.evidence == null)
+      (r) => r.evidence?.id === currentEvidence.id || r.evidence == null
     );
   }, [filteredRisks, currentEvidence, assessment]);
+
+  // Subset that also have a bounding box (for the SVG overlay)
+  const currentBoundingBoxRisks = useMemo(() => {
+    return currentPhotoRisks.filter(
+      (r) => Array.isArray(r.bounding_box) && r.bounding_box.length === 4
+    );
+  }, [currentPhotoRisks]);
 
   // Loading state
   if (screenState.type === 'loading') {
@@ -254,19 +261,28 @@ export function AnalysisDetailPage() {
           </div>
         )}
 
-        {/* Analysis Results */}
+        {/* Analysis Results — per-photo */}
         <div className="p-4 sm:p-6 bg-white space-y-4">
-          {/* AI Analysis Header */}
-          <div>
-            <h2 className="text-lg font-bold text-[#0b6b82] flex items-center gap-2 mb-4">
-              AI Analysis
+          {/* Photo header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-[#0b6b82]">
+              Photo {currentImageIndex + 1} of {assessment.evidences.length}
             </h2>
+            {currentPhotoRisks.length > 0 ? (
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-red-50 text-red-600">
+                {currentPhotoRisks.length} risk{currentPhotoRisks.length !== 1 ? 's' : ''} detected
+              </span>
+            ) : (
+              <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-50 text-green-600">
+                No risks detected
+              </span>
+            )}
           </div>
 
-          {/* Risks/Findings */}
-          {filteredRisks.length > 0 ? (
+          {/* Risks/Findings for current photo */}
+          {currentPhotoRisks.length > 0 ? (
             <div className="space-y-3">
-              {filteredRisks.map((risk, index) => {
+              {currentPhotoRisks.map((risk) => {
                 const decision = riskDecisions.get(risk.id);
                 const severity = risk.severity;
                 const severityColor = {
@@ -289,12 +305,12 @@ export function AnalysisDetailPage() {
                           {risk.description}
                         </h3>
                         <p className={`text-xs font-bold mt-1 px-2 py-1 rounded-md inline-block ${severityColor[severity as keyof typeof severityColor]}`}>
-                          Conf: {risk.ai_confidence}
+                          {severity} · {risk.ai_confidence}
                         </p>
                       </div>
                     </div>
 
-                    {/* Confidence % Badge */}
+                    {/* Confidence bar */}
                     <div className="mb-3 bg-gray-50 rounded-lg p-3">
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[13px] font-semibold text-gray-600">Confidence</span>
@@ -303,9 +319,7 @@ export function AnalysisDetailPage() {
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-[#0b6b82] to-[#1BC5BD]"
-                          style={{
-                            width: `${parseInt(risk.ai_confidence) || 0}%`,
-                          }}
+                          style={{ width: `${parseInt(risk.ai_confidence) || 0}%` }}
                         />
                       </div>
                     </div>
@@ -314,20 +328,22 @@ export function AnalysisDetailPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleRiskDecision(risk.id, 'approved')}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${decision === 'approved'
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${
+                          decision === 'approved'
                             ? 'bg-green-500 text-white'
                             : 'border-2 border-green-500 text-green-600 hover:bg-green-50'
-                          }`}
+                        }`}
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Accept
                       </button>
                       <button
                         onClick={() => handleRiskDecision(risk.id, 'rejected')}
-                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${decision === 'rejected'
+                        className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold transition-colors ${
+                          decision === 'rejected'
                             ? 'bg-red-500 text-white'
                             : 'border-2 border-red-500 text-red-600 hover:bg-red-50'
-                          }`}
+                        }`}
                       >
                         <XCircle className="w-4 h-4" />
                         Reject
@@ -339,18 +355,23 @@ export function AnalysisDetailPage() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500 font-medium">No risks detected in the analysis</p>
+              <p className="text-gray-500 font-medium">No risks detected in this photo</p>
+              {assessment.evidences.length > 1 && (
+                <p className="text-gray-400 text-sm mt-1">
+                  Navigate to other photos to review their findings
+                </p>
+              )}
             </div>
           )}
 
-          {/* Suggested Norms */}
-          {filteredRisks.length > 0 && (
+          {/* Suggested Norms — based on current photo's risks */}
+          {currentPhotoRisks.length > 0 && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-sm font-bold text-gray-700 tracking-wider mb-3">
                 SUGGESTED NORMS
               </h3>
               <ul className="space-y-2">
-                {filteredRisks.flatMap((risk) =>
+                {currentPhotoRisks.flatMap((risk) =>
                   risk.recommendations.map((rec) => (
                     <li
                       key={`${risk.id}-${rec.id}`}

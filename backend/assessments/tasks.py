@@ -244,22 +244,29 @@ def process_assessment(self, assessment_id: int):
         inference.finished_at = None
         inference.save()
         
-        # Coletar URLs das evidências
-        evidences = Evidence.objects.filter(assessment=assessment)
+        # Coletar URLs e IDs das evidências (ordenados de forma consistente)
+        evidences = list(Evidence.objects.filter(assessment=assessment))
         evidence_urls = []
+        evidence_ids = []
         for evidence in evidences:
             if evidence.file:
-                # Construir URL absoluta
                 evidence_urls.append(evidence.file.url)
-        
+                evidence_ids.append(evidence.id)
+
         if not evidence_urls:
             logger.warning(f"Assessment {assessment_id} has no evidences")
             raise ValueError("Assessment has no evidences to analyze")
-        
-        # Preparar requisição
+
+        logger.info(
+            f"Assessment {assessment_id}: analisando {len(evidence_urls)} foto(s) "
+            f"individualmente — IDs {evidence_ids}"
+        )
+
+        # Preparar requisição com IDs explícitos para vinculação por foto
         request = AIInferenceRequest(
             assessment_id=assessment.id,
             evidence_urls=evidence_urls,
+            evidence_ids=evidence_ids,
             title=assessment.title or "",
             description=assessment.description or "",
         )

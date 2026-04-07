@@ -61,7 +61,14 @@ export function Syncing() {
   }, [currentJob, setAssessmentId]);
 
   const handleRetry = () => { if (currentJob) refresh(); };
-  const handleGoToQueue = () => navigate('/sync-queue');
+  const handleGoToQueue = () => {
+    const assessmentId = currentJob?.assessmentId || currentJob?.id;
+    if (assessmentId) {
+      navigate(`/analysis/${assessmentId}`);
+    } else {
+      navigate('/sync-queue');
+    }
+  };
   const handleGoHome = () => navigate('/home', { replace: true });
 
   const isCompleted = currentJob?.status === 'COMPLETED';

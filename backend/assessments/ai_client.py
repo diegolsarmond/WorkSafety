@@ -79,6 +79,7 @@ class AIInferenceRequest:
     title: str = ""
     description: str = ""
     evidence_files: List[Any] = field(default_factory=list)  # arquivos para upload multipart
+    evidence_ids: List[int] = field(default_factory=list)    # DB ids das evidências (1:1 com evidence_urls)
 
 
 class AIClientInterface(ABC):
@@ -364,13 +365,12 @@ class OlimpiaAIClient(AIClientInterface):
         api_url: Optional[str] = None,
         api_token: Optional[str] = None,
         timeout: int = 60,
-        language: str = "en_us",
         token_url: Optional[str] = None,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
     ):
         self.api_url = api_url or getattr(
-            settings, "OLIMPIA_API_URL", 
+            settings, "OLIMPIA_API_URL",
             "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
         )
         self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
@@ -695,7 +695,13 @@ class OlimpiaAIClient(AIClientInterface):
         
         logger.info(f"Analisando avaliação {request.assessment_id} com {len(request.evidence_urls)} evidências")
         
-        for evidence_url in request.evidence_urls:
+        for url_idx, evidence_url in enumerate(request.evidence_urls):
+            # Obter ID real da evidência, se disponível
+            evidence_id = (
+                request.evidence_ids[url_idx]
+                if request.evidence_ids and url_idx < len(request.evidence_ids)
+                else None
+            )
             try:
                 # Converter URL para caminho de arquivo local
                 if evidence_url.startswith("/media/"):
@@ -704,31 +710,31 @@ class OlimpiaAIClient(AIClientInterface):
                     relative_path = evidence_url.replace(settings.MEDIA_URL, "")
                 else:
                     relative_path = evidence_url
-                
+
                 file_path = os.path.join(settings.MEDIA_ROOT, relative_path)
-                
+
                 if not os.path.exists(file_path):
                     logger.warning(f"Arquivo não encontrado: {file_path}")
                     errors.append(f"File not found: {file_path}")
                     continue
-                
-                # Analisar imagem
+
+                logger.info(f"Analisando evidência {evidence_id} ({file_path})")
                 result = self.analyze_image_file(file_path)
-                
+
                 if result.success:
                     all_violations.extend(result.violations)
                     all_findings.extend(result.findings)
-                    all_raw_responses.append(result.raw_response)
-                    
+                    all_raw_responses.append((evidence_id, url_idx, result.raw_response))
+
                     if result.violations:
                         avg_conf = sum(v.confidence for v in result.violations) / len(result.violations)
                         total_confidences.append(avg_conf)
                 else:
-                    logger.warning(f"Falha ao analisar {file_path}: {result.error_message}")
+                    logger.warning(f"Falha ao analisar evidência {evidence_id}: {result.error_message}")
                     errors.append(result.error_message)
-                    
+
             except Exception as e:
-                logger.exception(f"Erro processando evidência {evidence_url}: {e}")
+                logger.exception(f"Erro processando evidência {evidence_id} ({evidence_url}): {e}")
                 errors.append(str(e))
                 continue
         
@@ -759,13 +765,11 @@ class OlimpiaAIClient(AIClientInterface):
             f"de {len(all_findings)} total"
         )
         
-        # Merge individual responses preserving the original format so the
-        # serializer can handle both new (rule_1 + violations) and legacy
-        # (rule_1_violation) shapes.
-        # Each detection is tagged with evidence_index so the serializer
-        # can associate it with the correct evidence/photo.
+        # Merge individual responses, tagging each detection with both the
+        # real evidence_id (DB pk) and the positional evidence_index so the
+        # serializer can robustly associate violations with the right photo.
         merged_raw: Dict[str, Any] = {}
-        for evidence_idx, individual_response in enumerate(all_raw_responses):
+        for evidence_id, evidence_idx, individual_response in all_raw_responses:
             if not isinstance(individual_response, dict):
                 continue
             for key, value in individual_response.items():
@@ -779,6 +783,7 @@ class OlimpiaAIClient(AIClientInterface):
                     for det in (value.get("violations") or []):
                         if isinstance(det, dict):
                             det = dict(det)
+                            det["evidence_id"] = evidence_id
                             det["evidence_index"] = evidence_idx
                             merged_raw[key]["violations"].append(det)
                 # ── Formato legado: rule_1_violation … com list ───────────────
@@ -788,10 +793,14 @@ class OlimpiaAIClient(AIClientInterface):
                     elif isinstance(value, list):
                         if not isinstance(merged_raw.get(key), list):
                             merged_raw[key] = []
+                        tagged = []
                         for det in value:
                             if isinstance(det, dict):
+                                det = dict(det)
+                                det["evidence_id"] = evidence_id
                                 det["evidence_index"] = evidence_idx
-                        merged_raw[key].extend(value)
+                            tagged.append(det)
+                        merged_raw[key].extend(tagged)
 
         return AIInferenceResult(
             success=True,
@@ -863,7 +872,6 @@ def get_ai_client() -> AIClientInterface:
             api_url=getattr(settings, 'OLIMPIA_API_URL', None),
             api_token=static_token if not has_oauth2 else None,
             timeout=getattr(settings, 'OLIMPIA_API_TIMEOUT', 60),
-            language=getattr(settings, 'OLIMPIA_API_LANGUAGE', 'en_us'),
             token_url=token_url if has_oauth2 else None,
             client_id=client_id if has_oauth2 else None,
             client_secret=client_secret if has_oauth2 else None,
