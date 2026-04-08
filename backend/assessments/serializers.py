@@ -194,6 +194,7 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
     """Serializer para listagem de avaliações."""
     created_by_email = serializers.SerializerMethodField()
     risk_count = serializers.SerializerMethodField()
+    evidence_count = serializers.SerializerMethodField()
     assessment_type = AssessmentTypeRefSerializer(read_only=True)
     environment_type = EnvironmentTypeRefSerializer(read_only=True)
     legal_basis_display = serializers.CharField(source='get_legal_basis_display', read_only=True)
@@ -202,7 +203,7 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'created_by_email',
-            'risk_count', 'assessment_type', 'environment_type',
+            'risk_count', 'evidence_count', 'assessment_type', 'environment_type',
             'legal_basis', 'legal_basis_display',
             'captured_at', 'ai_reviewed_at',
             'human_validated_at', 'created_at',
@@ -213,6 +214,9 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
 
     def get_risk_count(self, obj: RiskAssessment) -> int:
         return obj.findings.count()
+
+    def get_evidence_count(self, obj: RiskAssessment) -> int:
+        return obj.evidences.count()
 
 
 class RiskAssessmentDetailSerializer(serializers.ModelSerializer):

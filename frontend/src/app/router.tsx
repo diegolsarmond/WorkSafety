@@ -12,6 +12,7 @@ import { Syncing } from '@/features/analysis/Syncing';
 import { RisksDetected } from '@/features/analysis/RisksDetected';
 import { ReviewValidation } from '@/features/analysis/ReviewValidation';
 import AnalysisDetailPage from '@/features/analysis/AnalysisDetailPage';
+import AssessmentsListPage from '@/features/analysis/AssessmentsListPage';
 import { SyncQueuePage } from '@/features/sync';
 import { AIQueuePage } from '@/features/ai-queue';
 import { ReportsPage } from '@/features/reports';
@@ -100,6 +101,15 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <ReviewValidation />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/assessments"
+          element={
+            <ProtectedRoute>
+              <AssessmentsListPage />
             </ProtectedRoute>
           }
         />
