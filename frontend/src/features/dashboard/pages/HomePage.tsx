@@ -132,7 +132,7 @@ export default function HomePage() {
 
           {/* Validated Analyses */}
           <div
-            onClick={() => navigate('/assessments?tab=validated')}
+            onClick={() => navigate('/assessments?tab=done')}
             className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-4">
