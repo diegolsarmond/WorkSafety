@@ -15,6 +15,7 @@ from .views import (
     AssessmentReprocessAIView,
     AssessmentAIStatusView,
     AIProcessingQueueView,
+    AssessmentReviewView,
 )
 
 urlpatterns = [
@@ -29,6 +30,7 @@ urlpatterns = [
     path("<int:assessment_id>/sync/", AssessmentSyncView.as_view(), name="assessment-sync"),
     path("<int:assessment_id>/ai-reviewed/", AssessmentMarkAIReviewedView.as_view(), name="assessment-ai-reviewed"),
     path("<int:assessment_id>/human-validated/", AssessmentHumanValidateView.as_view(), name="assessment-human-validated"),
+    path("<int:assessment_id>/review/", AssessmentReviewView.as_view(), name="assessment-review"),
     path("<int:assessment_id>/finalize/", AssessmentFinalizeView.as_view(), name="assessment-finalize"),
 
     # Lifecycle info endpoints

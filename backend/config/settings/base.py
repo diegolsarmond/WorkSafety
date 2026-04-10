@@ -269,7 +269,7 @@ AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY", "")
 OLIMPIA_API_ENABLED = os.environ.get("OLIMPIA_API_ENABLED", "true").lower() in ("1", "true", "yes")
 OLIMPIA_API_URL = os.environ.get(
     "OLIMPIA_API_URL",
-    "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
+    "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/security-service"
 )
 # OAuth2 Client Credentials (preferred - token is fetched automatically)
 OLIMPIA_TOKEN_URL = os.environ.get(

@@ -1,10 +1,21 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Eye, Image as ImageIcon, CheckCircle, Camera } from "lucide-react";
-
+import {
+  ArrowLeft,
+  Camera,
+  X,
+  ShieldCheck,
+  Info,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/ui/components/Button";
 import { useAnalysisStore } from "../../store/analysisStore";
+import { useSyncStore } from "@/store/syncStore";
 
-// Gerador de UUID v4 compatível com todos os contextos (HTTP/HTTPS)
+const TIPS_KEY = "worksafety:camera_tips_shown";
+
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -13,14 +24,51 @@ function generateUUID(): string {
   });
 }
 
+const TIPS = [
+  "Ensure the area is well-lit and clearly visible.",
+  "Include the full hazard zone in the frame.",
+  "Hold the camera steady and avoid blur.",
+  "Multiple photos improve analysis accuracy.",
+];
+
 export function CameraCapture() {
   const navigate = useNavigate();
-  const { photos, addPhoto } = useAnalysisStore();
-  const [privacyMode, setPrivacyMode] = useState(true);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [processing, setProcessing] = useState(false);
+  const { photos, addPhoto, removePhoto, environment, category, title, description, reset } = useAnalysisStore();
+  const { addJob } = useSyncStore();
+
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const [showTipsModal, setShowTipsModal] = useState(false);
+  const [pendingCameraOpen, setPendingCameraOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleCameraButtonClick = () => {
+    if (processing || photos.length >= 10) return;
+    const shown = localStorage.getItem(TIPS_KEY);
+    if (!shown) {
+      setShowTipsModal(true);
+      setPendingCameraOpen(true);
+    } else {
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const handleTipsDismiss = () => {
+    localStorage.setItem(TIPS_KEY, "true");
+    setShowTipsModal(false);
+    if (pendingCameraOpen) {
+      setPendingCameraOpen(false);
+      // Small delay so modal unmounts before triggering file input (iOS Safari)
+      setTimeout(() => cameraInputRef.current?.click(), 100);
+    }
+  };
 
   const processAndSaveImage = (file: File) => {
     setProcessing(true);
@@ -28,28 +76,27 @@ export function CameraCapture() {
     const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
-      // Resolution minimum: 1280x720
+      if (img.width < 10 || img.height < 10) {
+        URL.revokeObjectURL(objectUrl);
+        setProcessing(false);
+        showToast("This image does not meet the app's usage policies. Please try a different photo.");
+        return;
+      }
+
       const minWidth = 1280;
       const minHeight = 720;
-
       let width = img.width;
       let height = img.height;
 
-      // Ensure minimum resolution boundaries (scaling up if needed)
       if (width < minWidth || height < minHeight) {
-        const scaleX = minWidth / width;
-        const scaleY = minHeight / height;
-        const scale = Math.max(scaleX, scaleY);
+        const scale = Math.max(minWidth / width, minHeight / height);
         width = Math.round(width * scale);
         height = Math.round(height * scale);
       }
 
-      // To prevent extremely huge base64 strings and memory issues, we cap max resolution
-      // maintaining aspect ratio, but ensuring it stays above 1280x720.
       const MAX_SIZE = 1920;
       if (width > MAX_SIZE || height > MAX_SIZE) {
         const scale = Math.min(MAX_SIZE / width, MAX_SIZE / height);
-        // Only scale down if the scaled down version still meets minimum requirements
         if (width * scale >= minWidth && height * scale >= minHeight) {
           width = Math.round(width * scale);
           height = Math.round(height * scale);
@@ -63,29 +110,21 @@ export function CameraCapture() {
 
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height);
-        // Compress JPEG slightly to save storage space
         const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-
-        addPhoto({
-          id: generateUUID(),
-          dataUrl: dataUrl,
-          timestamp: new Date().toISOString(),
-        });
-
+        addPhoto({ id: generateUUID(), dataUrl, timestamp: new Date().toISOString() });
         URL.revokeObjectURL(objectUrl);
         setProcessing(false);
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 2000); // Visual confirmation hides after 2s
-        setTimeout(() => navigate('/analysis/review'), 300);
       } else {
         URL.revokeObjectURL(objectUrl);
         setProcessing(false);
+        showToast("Failed to process image. Please try again.");
       }
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
       setProcessing(false);
+      showToast("This image does not meet the app's usage policies. Please try a different photo.");
     };
 
     img.src = objectUrl;
@@ -95,105 +134,199 @@ export function CameraCapture() {
     const file = e.target.files?.[0];
     if (file) {
       if (photos.length >= 10) {
-        alert("Maximum 10 photos allowed per analysis.");
+        showToast("Maximum 10 photos allowed per analysis.");
         return;
       }
       processAndSaveImage(file);
     }
-    // reset value so the same file can be selected again if needed
-    e.target.value = '';
+    e.target.value = "";
+  };
+
+  const handleSubmit = async () => {
+    if (photos.length === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await addJob(
+        {
+          title: title.trim() || `Analysis - ${environment} - ${category}`,
+          description: description.trim() || `Automated analysis for ${environment} concerning ${category}.`,
+          environment,
+          category,
+          status: "draft",
+        },
+        photos
+      );
+      reset();
+      navigate("/analysis/syncing", { replace: true });
+    } catch (error) {
+      console.error("Error submitting analysis:", error);
+      showToast("Failed to submit photos. Please try again.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col">
-      <div className="absolute top-0 left-0 right-0 p-4 z-10 flex items-start justify-between bg-gradient-to-b from-black/50 to-transparent">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed top-4 left-4 right-4 z-50 bg-red-600 text-white px-4 py-3 rounded-2xl shadow-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold">Image not accepted</p>
+            <p className="text-xs mt-0.5 text-white/90">{toastMessage}</p>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="ml-auto flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Tips Modal */}
+      {showTipsModal && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4"
+          onClick={() => setShowTipsModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-sm p-6 flex flex-col gap-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center">
+                <Info className="w-6 h-6 text-[#0B7A90]" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Tips for good photos</h2>
+              <p className="text-sm text-gray-500">Better photos lead to more accurate results.</p>
+            </div>
+
+            <ul className="space-y-3">
+              {TIPS.map((tip) => (
+                <li key={tip} className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+                  <span className="text-sm text-gray-700">{tip}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Button
+              onClick={handleTipsDismiss}
+              className="w-full h-12 bg-[#0B7A90] hover:bg-[#096375] text-white rounded-2xl"
+            >
+              Got it, continue
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="flex items-center p-4 bg-white shadow-sm gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="p-3 rounded-full bg-black/20 backdrop-blur-md text-white"
+          className="p-2.5 -ml-2 rounded-full hover:bg-gray-100 flex items-center justify-center min-w-[44px] min-h-[44px]"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
-
-        <div className="flex flex-col items-end gap-2">
-          <button
-            onClick={() => setPrivacyMode(!privacyMode)}
-            className={`flex items-center min-h-[44px] gap-2 px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold ${privacyMode ? "bg-teal-500/20 text-teal-400 border border-teal-500/30" : "bg-white/10 text-white"}`}
-          >
-            <Shield className="w-4 h-4" />
-            PRIVACY MODE {privacyMode ? "ON" : "OFF"}
-          </button>
-          {privacyMode && (
-            <p className="text-xs text-white/90 text-right max-w-[200px]">
-              Identified faces will be automatically blurred (GDPR).
-            </p>
-          )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 font-medium">Select Photos</p>
+          <h1 className="text-base font-bold text-gray-900 truncate">{title || "New Analysis"}</h1>
         </div>
+        <button className="p-2 rounded-full hover:bg-gray-100 min-w-[44px] min-h-[44px] flex items-center justify-center">
+          <Info className="w-5 h-5 text-gray-400" />
+        </button>
+      </header>
+
+      {/* Stepper bar */}
+      <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-2">
+        <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 text-xs font-bold flex items-center justify-center">1</div>
+        <div className="w-6 h-6 rounded-full bg-[#0B7A90] text-white text-xs font-bold flex items-center justify-center">2</div>
+        <span className="text-sm text-gray-500 ml-1">Step 2 of 2 — Select Photos</span>
       </div>
 
-      <div className="flex-1 relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-        {showSuccess && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-teal-500/95 text-white p-6 rounded-3xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 z-50 shadow-2xl">
-            <CheckCircle className="w-16 h-16" />
-            <p className="font-bold text-xl">Photo Captured!</p>
-          </div>
-        )}
+      {/* Hidden file input */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/jpg,image/webp"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
-        <Camera className="w-24 h-24 text-white/20 mb-6" />
-        <h2 className="text-2xl text-white font-bold mb-2">Native Camera</h2>
-        <p className="text-white/60 mb-12 max-w-xs">
-          Tap the capture button below to open your device camera.
+      {/* Main content */}
+      <main className="flex-1 p-4 sm:p-6 overflow-y-auto pb-28 max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto w-full">
+        <p className="text-xs font-bold text-gray-500 tracking-wider mb-3 uppercase flex items-center gap-2">
+          Recent Photos
         </p>
-      </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col items-center gap-4 sm:gap-6" style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1rem))' }}>
-        <div className="flex items-center justify-between w-full max-w-xs z-20">
-          {/* Spacer for alignment */}
-          <div className="w-14 h-14" />
-
-          {/* Camera Button (main) */}
-          <label className={`relative cursor-pointer transition-transform active:scale-95 ${processing || photos.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/jpg,image/webp"
-              capture="environment"
-              disabled={processing || photos.length >= 10}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-              onChange={handleFileChange}
-            />
-            <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-colors ${processing ? 'border-teal-500/50' : 'border-white'}`}>
-              <div className={`w-16 h-16 rounded-full transition-all ${processing ? 'bg-teal-500 animate-pulse' : 'bg-white'}`}></div>
-            </div>
-          </label>
-
-          {/* Gallery / Review Button: abre galeria se sem fotos, senão vai para review */}
-          <div className="relative">
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/jpg,image/webp"
-              disabled={processing || photos.length >= 10}
-              className="hidden"
-              onChange={handleFileChange}
-            />
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {/* Camera cell */}
+          {photos.length < 10 && (
             <button
-              onClick={() => photos.length > 0 ? navigate("/analysis/review") : galleryInputRef.current?.click()}
+              onClick={handleCameraButtonClick}
               disabled={processing}
-              className="relative p-4 rounded-full bg-white/10 text-white disabled:opacity-50"
+              className="aspect-square rounded-2xl bg-white border-2 border-dashed border-[#0B7A90]/40 flex flex-col items-center justify-center gap-1.5 text-[#0B7A90] active:scale-95 transition-transform disabled:opacity-50 shadow-sm"
             >
-              <ImageIcon className="w-6 h-6" />
-              {photos.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center text-[10px] font-bold">
-                  {photos.length}
-                </span>
+              {processing ? (
+                <Loader2 className="w-7 h-7 animate-spin" />
+              ) : (
+                <>
+                  <Camera className="w-7 h-7" />
+                  <span className="text-xs font-bold">Camera</span>
+                </>
               )}
             </button>
-          </div>
+          )}
+
+          {/* Photo thumbnails */}
+          {photos.map((photo) => (
+            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+              <img src={photo.dataUrl} alt="" className="w-full h-full object-cover" />
+              <button
+                onClick={() => removePhoto(photo.id)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center active:scale-95"
+              >
+                <X className="w-3.5 h-3.5 text-white" />
+              </button>
+            </div>
+          ))}
         </div>
 
-        <p className="text-sm text-white/80 font-medium z-20">
-          {processing ? 'Processing image...' : 'Tap camera to capture or gallery to select'}
-        </p>
+        {/* Privacy notice */}
+        <div className="mt-4 flex items-start gap-2 bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
+          <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#0B7A90]" />
+          <p className="text-xs text-gray-500 leading-relaxed">
+            <span className="font-semibold text-gray-700">Privacy protected.</span>{" "}
+            Faces in photos are automatically anonymized before any processing.
+          </p>
+        </div>
+      </main>
+
+      {/* Footer CTA */}
+      <div
+        className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100"
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="max-w-lg sm:max-w-xl lg:max-w-2xl mx-auto">
+          <Button
+            onClick={handleSubmit}
+            disabled={photos.length === 0 || isSubmitting}
+            className={`w-full h-12 sm:h-14 text-base sm:text-lg rounded-xl transition-all flex items-center justify-center gap-2 ${
+              photos.length === 0
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-[#0B7A90] hover:bg-[#096375] text-white"
+            }`}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Submitting...
+              </>
+            ) : photos.length === 0 ? (
+              "Select at least 1 photo"
+            ) : (
+              `Analyze Photos (${photos.length}) →`
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
