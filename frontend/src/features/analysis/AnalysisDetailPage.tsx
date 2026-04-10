@@ -12,10 +12,19 @@ import {
   Search,
   X,
   Info,
+  Image,
+  Building2,
+  Tag,
+  FileText,
+  Calendar,
+  Shield,
+  Share2,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { submitReview } from '@/services/risk/riskService';
-import type { RiskItem } from '@/types/risk';
+import type { RiskItem, RiskAssessmentDetail } from '@/types/risk';
 
 interface RiskDecision {
   riskId: string;
@@ -47,6 +56,347 @@ function normalizeBBox(
     (x2 / ref) * imgW,
     (y2 / ref) * imgH,
   ];
+}
+
+// ── Validated read-only view (Safety Report) ──────────────────────────────
+function ValidatedAssessmentView({
+  assessment,
+  risks,
+}: {
+  assessment: RiskAssessmentDetail;
+  risks: RiskItem[];
+}) {
+  const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'checklist' | 'full'>('checklist');
+
+  // Show only validated risks; fall back to all if statuses not yet updated
+  const accepted = risks.filter(r => r.risk_status === 'validated');
+  const display = accepted.length > 0 ? accepted : risks;
+
+  const violations = display.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH');
+  const warnings = display.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW');
+
+  // Aggregate unique recommendations from all displayed risks
+  const allRecommendations = useMemo(() => {
+    const seen = new Set<string>();
+    const recs: { id: string; title: string }[] = [];
+    for (const risk of display) {
+      for (const rec of risk.recommendations) {
+        if (!seen.has(rec.id)) {
+          seen.add(rec.id);
+          recs.push({ id: rec.id, title: rec.title });
+        }
+      }
+    }
+    return recs;
+  }, [display]);
+
+  const reportDate = new Date(assessment.captured_at || assessment.created_at);
+  const formattedDate = reportDate.toLocaleDateString('pt-BR');
+  const caseNum = String(assessment.id).slice(0, 6).toUpperCase();
+  const submittedBy =
+    assessment.created_by ||
+    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ').toUpperCase() ||
+    'Unknown';
+  const environment = display[0]?.location || assessment.description || '—';
+  const category = assessment.title || '—';
+
+  return (
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
+      {/* Header */}
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-base font-bold text-gray-900">Safety Report</h1>
+        <button
+          onClick={() => navigate('/home')}
+          className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <Home className="w-5 h-5" />
+        </button>
+      </header>
+
+      {/* FORMAT toggle */}
+      <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-center gap-3">
+        <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex-shrink-0">
+          Format:
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setViewMode('checklist')}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+              viewMode === 'checklist'
+                ? 'bg-[#0B7A90] text-white'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            Checklist
+          </button>
+          <button
+            onClick={() => setViewMode('full')}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+              viewMode === 'full'
+                ? 'bg-[#0B7A90] text-white'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            Full Report
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable content */}
+      <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4">
+
+        {/* Report info card */}
+        <div className="bg-white rounded-2xl px-4 pt-4 pb-3 shadow-sm">
+          {/* Title row */}
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1 min-w-0 pr-3">
+              <h2 className="text-base font-bold text-gray-900 leading-tight">Safety Analysis Report</h2>
+              <p className="text-[9px] text-gray-400 tracking-widest uppercase mt-0.5">
+                {viewMode === 'checklist' ? 'Analysis Title' : `Case #${caseNum}`}
+              </p>
+            </div>
+            <span className="text-xs text-gray-400 flex-shrink-0">{formattedDate}</span>
+          </div>
+
+          {/* Environment + Category */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="flex items-start gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Environment</p>
+                <p className="text-xs font-semibold text-gray-800 truncate">{environment}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Category</p>
+                <p className="text-xs font-semibold text-gray-800 truncate">{category}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Description (checklist) or Date (full report) */}
+          {viewMode === 'checklist' ? (
+            assessment.description ? (
+              <div className="flex items-start gap-1.5 mb-3">
+                <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
+                  <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
+                </div>
+              </div>
+            ) : null
+          ) : (
+            <div className="flex items-center gap-1.5 mb-3">
+              <Calendar className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0" />
+              <div>
+                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Date</p>
+                <p className="text-xs font-semibold text-gray-800">{formattedDate}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Submitted by */}
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+            Submitted by:{' '}
+            <span className="font-bold text-gray-600">{submittedBy}</span>
+          </p>
+        </div>
+
+        {/* Findings section */}
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+          {/* Section divider label */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
+              {viewMode === 'checklist' ? 'Risk Checklist' : 'Evidence & Findings'}
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          <div className="p-4 space-y-3">
+            {viewMode === 'checklist' ? (
+              <>
+                {violations.map(risk => (
+                  <div key={risk.id} className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">
+                        Violation
+                      </span>
+                      {risk.location && (
+                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
+                          {risk.location}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                  </div>
+                ))}
+                {warnings.map(risk => (
+                  <div key={risk.id} className="rounded-xl border border-yellow-100 bg-yellow-50/40 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                      <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
+                        Warning
+                      </span>
+                      {risk.location && (
+                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
+                          {risk.location}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                  </div>
+                ))}
+                {display.length === 0 && (
+                  <div className="text-center py-6 text-gray-400">
+                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No risks found</p>
+                  </div>
+                )}
+                {/* Photo note */}
+                {assessment.evidences.length > 0 && (
+                  <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                    <Image className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-gray-500 leading-snug">
+                      Photos are not shown in checklist format. Switch to{' '}
+                      <button
+                        onClick={() => setViewMode('full')}
+                        className="text-[#0B7A90] font-semibold underline"
+                      >
+                        Full Report
+                      </button>{' '}
+                      to view evidence images.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {assessment.evidences.length === 0 && (
+                  <div className="flex items-center justify-center py-10 text-gray-200">
+                    <Image className="w-16 h-16" strokeWidth={1} />
+                  </div>
+                )}
+                {assessment.evidences.map((evidence, idx) => {
+                  const evidenceRisks = display.filter(
+                    r => r.evidence?.id === evidence.id || r.evidence == null,
+                  );
+                  return (
+                    <div key={evidence.id} className="space-y-3">
+                      {/* Evidence image with caption */}
+                      <div className="rounded-xl overflow-hidden bg-gray-900">
+                        <img
+                          src={evidence.url}
+                          alt={`Evidence ${idx + 1}`}
+                          className="w-full object-cover"
+                          style={{ maxHeight: 200 }}
+                        />
+                        <div className="px-3 py-2 bg-gray-800">
+                          <p className="text-xs text-white/70">
+                            {assessment.title} — Evidence {idx + 1}
+                          </p>
+                        </div>
+                      </div>
+                      {/* Risk cards for this evidence */}
+                      {evidenceRisks.map(risk => {
+                        const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
+                        return (
+                          <div
+                            key={risk.id}
+                            className={`rounded-xl border p-3 ${
+                              isViolation
+                                ? 'border-red-100 bg-red-50/40'
+                                : 'border-yellow-100 bg-yellow-50/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <AlertTriangle
+                                className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                  isViolation ? 'text-red-500' : 'text-yellow-500'
+                                }`}
+                              />
+                              <span
+                                className={`text-[10px] font-bold tracking-widest uppercase ${
+                                  isViolation ? 'text-red-500' : 'text-yellow-600'
+                                }`}
+                              >
+                                {isViolation ? 'Violation' : 'Warning'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        {allRecommendations.length > 0 && (
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
+                Recommendations
+              </span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            <div className="p-4">
+              <div className="flex justify-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-[#0B7A90]" />
+                </div>
+              </div>
+              <ul className="space-y-2">
+                {allRecommendations.map(rec => (
+                  <li key={rec.id} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0B7A90] flex-shrink-0 mt-[7px]" />
+                    <p className="text-sm text-gray-700 leading-snug">{rec.title}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* Footer: Share / PDF / CSV */}
+      <footer
+        className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+      >
+        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+          <Share2 className="w-5 h-5" />
+          <span className="text-[10px] font-semibold tracking-wide">Share</span>
+        </button>
+        <div className="w-px h-8 bg-white/10" />
+        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+          <Download className="w-5 h-5" />
+          <span className="text-[10px] font-semibold tracking-wide">PDF</span>
+        </button>
+        <div className="w-px h-8 bg-white/10" />
+        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+          <FileSpreadsheet className="w-5 h-5" />
+          <span className="text-[10px] font-semibold tracking-wide">CSV</span>
+        </button>
+      </footer>
+    </div>
+  );
 }
 
 export function AnalysisDetailPage() {
@@ -227,6 +577,11 @@ export function AnalysisDetailPage() {
         </button>
       </div>
     );
+  }
+
+  // ── Validated / finalized read-only view ──────────────────────────────────
+  if (assessment.status === 'human_validated' || assessment.status === 'finalized') {
+    return <ValidatedAssessmentView assessment={assessment} risks={filteredRisks} />;
   }
 
   // ── Completion screen ──────────────────────────────────────────────────────

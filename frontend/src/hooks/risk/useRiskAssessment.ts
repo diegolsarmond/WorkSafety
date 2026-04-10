@@ -275,10 +275,7 @@ export function useRiskAssessment(
     const effectiveInterval = isProcessing ? 5000 : refreshInterval; // 5s quando processando
     
     const interval = setInterval(() => {
-      // Faz refresh em qualquer estado exceto erro permanente
-      if (screenState.type !== 'error' || screenState.canRetry) {
-        refresh();
-      }
+      refresh();
     }, effectiveInterval);
     
     return () => clearInterval(interval);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -33,7 +33,7 @@ interface AssessmentListItem {
   created_at: string;
 }
 
-type Tab = 'all' | 'pending' | 'done';
+type Tab = 'all' | 'pending' | 'validated';
 
 const PENDING_STATUSES: AssessmentStatus[] = ['draft', 'captured', 'synced', 'ai_reviewed', 'error_ai', 'error'];
 const VALIDATED_STATUSES: AssessmentStatus[] = ['human_validated', 'finalized'];
@@ -49,7 +49,7 @@ interface StatusConfig {
   badge: string;
   badgeClass: string;
   iconBg: string;
-  Icon: React.ElementType;
+  Icon: ElementType;
   iconClass: string;
 }
 
@@ -182,6 +182,7 @@ function StatusDetail({ assessment }: StatusDetailProps) {
 }
 
 interface AssessmentCardProps {
+  key?: React.Key;
   assessment: AssessmentListItem;
   onClick: () => void;
 }
@@ -266,7 +267,7 @@ export default function AssessmentsListPage() {
   const [loading, setLoading] = useState(true);
 
   const tabParam = searchParams.get('tab') as Tab | null;
-  const activeTab: Tab = tabParam === 'pending' || tabParam === 'done' ? tabParam : 'all';
+  const activeTab: Tab = tabParam === 'pending' || tabParam === 'validated' ? tabParam : 'all';
 
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -298,7 +299,7 @@ export default function AssessmentsListPage() {
 
   const visibleItems =
     activeTab === 'pending' ? pending :
-    activeTab === 'done' ? done :
+    activeTab === 'validated' ? done :
     assessments;
 
   const hasProcessing = assessments.some(a => a.status === 'synced' || a.status === 'captured');
@@ -332,7 +333,7 @@ export default function AssessmentsListPage() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-gray-100 px-4 py-2 flex items-center gap-2 sticky top-[52px] z-40">
-        {(['all', 'pending', 'done'] as Tab[]).map(tab => {
+        {(['all', 'pending', 'validated'] as Tab[]).map(tab => {
           const count =
             tab === 'all' ? assessments.length :
             tab === 'pending' ? pending.length :
