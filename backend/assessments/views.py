@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from .models import RiskAssessment, Evidence, AIInferenceResult, AssessmentStatusHistory
+from .models import RiskAssessment, Evidence, AIInferenceResult, AssessmentStatusHistory, HumanValidationDecision
 
 logger = logging.getLogger(__name__)
 from .serializers import (
@@ -554,6 +554,103 @@ class AssessmentReprocessAIView(views.APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+@extend_schema(tags=["Assessment Lifecycle"])
+class AssessmentReviewView(views.APIView):
+    """
+    POST /assessments/{id}/review/
+
+    Submete a revisão humana com decisões por risco e mitigações.
+    Salva um HumanValidationDecision e transiciona para human_validated
+    quando o status atual for ai_reviewed.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["Assessment Lifecycle"],
+        request={
+            'type': 'object',
+            'required': ['decisions'],
+            'properties': {
+                'decisions': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'required': ['risk_id', 'decision'],
+                        'properties': {
+                            'risk_id': {'type': 'string'},
+                            'decision': {'type': 'string', 'enum': ['approved', 'rejected', 'pending']},
+                            'mitigations': {'type': 'array', 'items': {'type': 'string'}},
+                            'custom_action': {'type': 'string'},
+                        },
+                    },
+                },
+            },
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'string'},
+                    'previous_status': {'type': 'string'},
+                    'transitioned': {'type': 'boolean'},
+                    'decisions_saved': {'type': 'integer'},
+                    'message': {'type': 'string'},
+                },
+            },
+            400: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+            404: {'type': 'object', 'properties': {'error': {'type': 'string'}}},
+        }
+    )
+    def post(self, request, assessment_id, *args, **kwargs):
+        import json as _json
+
+        assessment = get_object_or_404(
+            RiskAssessment,
+            id=assessment_id,
+            created_by=request.user,
+        )
+
+        decisions = request.data.get('decisions', [])
+        if not isinstance(decisions, list):
+            return Response(
+                {'error': "'decisions' must be a list"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Salvar decisões ligadas à última inferência
+        latest_inference = assessment.inferences.first()
+        if latest_inference:
+            HumanValidationDecision.objects.create(
+                inference=latest_inference,
+                validator=request.user,
+                decision='approved',
+                comment=_json.dumps({'decisions': decisions}, ensure_ascii=False),
+            )
+
+        # Transicionar para human_validated se elegível
+        previous_status = assessment.status
+        transitioned = False
+        if assessment.status == RiskAssessment.STATUS_AI_REVIEWED:
+            try:
+                AssessmentLifecycleService.human_validate(
+                    assessment, request.user, reason='Revisão humana submetida via app'
+                )
+                transitioned = True
+            except InvalidTransitionError:
+                pass
+
+        return Response(
+            {
+                'status': assessment.status,
+                'previous_status': previous_status,
+                'transitioned': transitioned,
+                'decisions_saved': len(decisions),
+                'message': 'Review submitted successfully',
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema_view(

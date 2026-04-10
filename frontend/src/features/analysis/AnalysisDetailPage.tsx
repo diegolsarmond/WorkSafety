@@ -14,11 +14,39 @@ import {
   Info,
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
+import { submitReview } from '@/services/risk/riskService';
 import type { RiskItem } from '@/types/risk';
 
 interface RiskDecision {
   riskId: string;
   decision: 'approved' | 'rejected' | null;
+}
+
+/**
+ * Normaliza coordenadas de bounding box para o espaço de pixels da imagem.
+ *
+ * A API Olímpia retorna dois formatos:
+ *  - Violations: [x1, y1, x2, y2] em espaço 0-1000 (referência interna da API)
+ *  - Warnings:   [x1, y1, x2, y2] normalizados 0-1
+ *
+ * Ambos precisam ser convertidos para pixels reais da imagem para que o SVG
+ * fique alinhado com o <img object-contain>.
+ */
+function normalizeBBox(
+  bbox: number[],
+  imgW: number,
+  imgH: number,
+): [number, number, number, number] {
+  const [x1, y1, x2, y2] = bbox;
+  const maxVal = Math.max(Math.abs(x1), Math.abs(y1), Math.abs(x2), Math.abs(y2));
+  // Valores > 1 → espaço 0-1000 da API; valores ≤ 1 → já normalizados
+  const ref = maxVal > 1 ? 1000 : 1;
+  return [
+    (x1 / ref) * imgW,
+    (y1 / ref) * imgH,
+    (x2 / ref) * imgW,
+    (y2 / ref) * imgH,
+  ];
 }
 
 export function AnalysisDetailPage() {
@@ -30,11 +58,26 @@ export function AnalysisDetailPage() {
   const [selectedMitigations, setSelectedMitigations] = useState<Map<string, Set<string>>>(new Map());
   const [customMitigations, setCustomMitigations] = useState<Map<string, string>>(new Map());
   const [reviewComplete, setReviewComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // null = fechado; 'violation' | 'warning' = lightbox aberto para o grupo
+  const [lightboxGroup, setLightboxGroup] = useState<'violation' | 'warning' | null>(null);
 
   useEffect(() => {
     setImgNaturalSize(null);
+    setLightboxGroup(null);
   }, [currentImageIndex]);
+
+  // Impede scroll do body quando lightbox está aberto
+  useEffect(() => {
+    if (lightboxGroup !== null) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [lightboxGroup]);
 
   const { screenState, assessment, filteredRisks } = useRiskAssessment(assessmentId, {
     autoFetch: true,
@@ -94,13 +137,33 @@ export function AnalysisDetailPage() {
     setCustomMitigations(prev => new Map(prev).set(riskId, value));
   };
 
+  const handleFinishReview = async () => {
+    if (!assessmentId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const decisions = filteredRisks.map(risk => ({
+        risk_id: risk.id,
+        decision: (riskDecisions.get(risk.id) ?? 'pending') as 'approved' | 'rejected' | 'pending',
+        mitigations: [...(selectedMitigations.get(risk.id) ?? new Set<string>())],
+        custom_action: customMitigations.get(risk.id) ?? '',
+      }));
+      await submitReview(assessmentId, decisions);
+      setReviewComplete(true);
+    } catch {
+      setSubmitError('Failed to save review. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleNextPhoto = () => {
     if (!assessment) return;
     if (currentImageIndex < assessment.evidences.length - 1) {
       setCurrentImageIndex(prev => prev + 1);
       setImgNaturalSize(null);
     } else {
-      setReviewComplete(true);
+      handleFinishReview();
     }
   };
 
@@ -191,56 +254,75 @@ export function AnalysisDetailPage() {
 
   const isLastPhoto = currentImageIndex === assessment.evidences.length - 1;
 
-  // ── Image card for a severity group ───────────────────────────────────────
+  // ── Rects SVG (reutilizado no card e no lightbox) ──────────────────────────
+  const renderBBoxRects = (
+    risks: RiskItem[],
+    imgW: number,
+    imgH: number,
+    strokeColor: string,
+    strokeWidthDivisor = 150,
+  ) => (
+    <>
+      {risks
+        .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4)
+        .map(risk => {
+          const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
+          const sw = Math.max(imgW, imgH) / strokeWidthDivisor;
+          return (
+            <rect
+              key={risk.id}
+              x={rx1} y={ry1}
+              width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth={sw}
+              strokeLinejoin="round"
+            />
+          );
+        })}
+    </>
+  );
+
+  // ── Image card (thumbnail) ─────────────────────────────────────────────────
   const renderImageCard = (group: 'violation' | 'warning') => {
     if (!currentEvidence) return null;
-    const boxRisks = currentPhotoRisks
-      .filter(r =>
-        group === 'violation'
-          ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
-          : r.severity === 'MEDIUM' || r.severity === 'LOW'
-      )
-      .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4);
+    const boxRisks = currentPhotoRisks.filter(r =>
+      group === 'violation'
+        ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
+        : r.severity === 'MEDIUM' || r.severity === 'LOW'
+    );
     const strokeColor = group === 'violation' ? '#ef4444' : '#f59e0b';
     const groupCount = group === 'violation' ? violationRisks.length : warningRisks.length;
 
     return (
-      <div className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-        <div className="relative" style={{ height: 168 }}>
+      <div className="relative rounded-xl overflow-hidden bg-gray-900 border border-gray-200">
+        {/* Imagem + SVG overlay */}
+        <div
+          className="relative cursor-zoom-in"
+          style={{ height: 168 }}
+          onClick={() => setLightboxGroup(group)}
+        >
           <img
             src={currentEvidence.url}
             alt={`Evidence ${currentImageIndex + 1}`}
-            className="w-full h-full object-contain bg-gray-900"
+            className="w-full h-full object-contain"
             onLoad={e => {
               const img = e.currentTarget;
               setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
             }}
           />
-          {imgNaturalSize && boxRisks.length > 0 && (
+          {imgNaturalSize && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
               preserveAspectRatio="xMidYMid meet"
             >
-              {boxRisks.map(risk => {
-                const [x1, y1, x2, y2] = risk.bounding_box!;
-                const sw = Math.max(imgNaturalSize.w, imgNaturalSize.h) / 150;
-                return (
-                  <rect
-                    key={risk.id}
-                    x={x1} y={y1}
-                    width={x2 - x1} height={y2 - y1}
-                    fill="none"
-                    stroke={strokeColor}
-                    strokeWidth={sw}
-                    strokeLinejoin="round"
-                  />
-                );
-              })}
+              {renderBBoxRects(boxRisks, imgNaturalSize.w, imgNaturalSize.h, strokeColor, 150)}
             </svg>
           )}
-          {/* Top-left severity chip */}
-          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+
+          {/* Severity chip */}
+          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
             group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
           }`}>
             <AlertTriangle className="w-3 h-3" />
@@ -251,8 +333,12 @@ export function AnalysisDetailPage() {
               {groupCount}
             </span>
           </div>
-          {/* Zoom icon */}
-          <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white">
+
+          {/* Zoom button */}
+          <button
+            onClick={e => { e.stopPropagation(); setLightboxGroup(group); }}
+            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+          >
             <Search className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -369,6 +455,72 @@ export function AnalysisDetailPage() {
     );
   };
 
+  // ── Lightbox ───────────────────────────────────────────────────────────────
+  const renderLightbox = () => {
+    if (lightboxGroup === null || !currentEvidence || !imgNaturalSize) return null;
+
+    const boxRisks = currentPhotoRisks.filter(r =>
+      lightboxGroup === 'violation'
+        ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
+        : r.severity === 'MEDIUM' || r.severity === 'LOW'
+    );
+    const strokeColor = lightboxGroup === 'violation' ? '#ef4444' : '#f59e0b';
+
+    return (
+      <div
+        className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+        onClick={() => setLightboxGroup(null)}
+      >
+        {/* Conteúdo — stopPropagation para não fechar ao clicar dentro */}
+        <div
+          className="relative w-full h-full flex items-center justify-center"
+          onClick={e => e.stopPropagation()}
+        >
+          <img
+            src={currentEvidence.url}
+            alt={`Evidence ${currentImageIndex + 1} expanded`}
+            className="max-w-full max-h-full object-contain"
+            style={{ display: 'block' }}
+          />
+          {/* SVG overlay com mesma viewBox e preserveAspectRatio que o <img> */}
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {renderBBoxRects(boxRisks, imgNaturalSize.w, imgNaturalSize.h, strokeColor, 80)}
+          </svg>
+
+          {/* Severity label */}
+          <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${
+            lightboxGroup === 'violation'
+              ? 'bg-red-500/90 text-white'
+              : 'bg-yellow-500/90 text-white'
+          }`}>
+            <AlertTriangle className="w-4 h-4" />
+            {lightboxGroup === 'violation' ? 'Violations' : 'Warnings'}
+            <span className="ml-0.5 bg-white/30 rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold">
+              {lightboxGroup === 'violation' ? violationRisks.length : warningRisks.length}
+            </span>
+          </div>
+
+          {/* Fechar */}
+          <button
+            onClick={() => setLightboxGroup(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Dica de toque */}
+          <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">
+            Tap outside to close
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -407,7 +559,6 @@ export function AnalysisDetailPage() {
             {percentReviewed}% reviewed
           </span>
         </div>
-        {/* Step dots */}
         {assessment.evidences.length > 1 && (
           <div className="flex items-center">
             {assessment.evidences.map((_, idx) => (
@@ -525,18 +676,30 @@ export function AnalysisDetailPage() {
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         <div className="max-w-3xl mx-auto">
+          {submitError && (
+            <p className="text-center text-xs text-red-500 mb-2">{submitError}</p>
+          )}
           <button
             onClick={handleNextPhoto}
-            className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors"
+            disabled={isSubmitting}
+            className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors disabled:opacity-60"
           >
-            {isLastPhoto ? 'Finish Review' : 'Next Photo'}
-            {!isLastPhoto && <span className="text-lg leading-none">›</span>}
+            {isSubmitting ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+            ) : isLastPhoto ? (
+              'Finish Review'
+            ) : (
+              <>Next Photo <span className="text-lg leading-none">›</span></>
+            )}
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">
             Review is optional — skip anytime to generate the report
           </p>
         </div>
       </footer>
+
+      {/* ── Lightbox ── */}
+      {renderLightbox()}
     </div>
   );
 }

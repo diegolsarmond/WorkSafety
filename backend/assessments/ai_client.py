@@ -371,7 +371,7 @@ class OlimpiaAIClient(AIClientInterface):
     ):
         self.api_url = api_url or getattr(
             settings, "OLIMPIA_API_URL",
-            "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/infer"
+            "https://api.olimpia.suia.dataprev.gov.br/v2/seguranca-por-imagem/security-service"
         )
         self.timeout = timeout or getattr(settings, "OLIMPIA_API_TIMEOUT", 60)
         # Requisito de produto: payload da Olímpia deve sempre ser retornado em inglês.
@@ -549,6 +549,55 @@ class OlimpiaAIClient(AIClientInterface):
         violations.sort(key=lambda v: v.confidence, reverse=True)
         return violations
 
+    def _parse_warnings(
+        self,
+        warnings_data: Dict[str, Any],
+    ) -> List[SafetyViolation]:
+        """Converte warnings do endpoint security-service em SafetyViolation.
+
+        O endpoint retorna warnings com bounding boxes normalizadas (0-1),
+        razões como lista de strings e confidence como lista com um elemento.
+        """
+        warnings = []
+
+        for key, value in warnings_data.items():
+            if not key.startswith("warning_") or not isinstance(value, dict):
+                continue
+
+            # Bounding box já está normalizada (0-1)
+            bbox_raw = value.get("bounding_box", [])
+            bbox = BoundingBox.from_list(bbox_raw) if isinstance(bbox_raw, list) else BoundingBox(0, 0, 1, 1)
+
+            # Reason pode ser lista de strings
+            reasons = value.get("reason", [])
+            if isinstance(reasons, str):
+                reasons = [reasons]
+            description = "; ".join(r for r in reasons if r) if reasons else "Warning detected"
+
+            # Confidence pode ser lista com um elemento
+            confidence_raw = value.get("confidence", [0.0])
+            if isinstance(confidence_raw, list):
+                confidence = float(confidence_raw[0]) if confidence_raw else 0.0
+            else:
+                confidence = float(confidence_raw) if confidence_raw else 0.0
+
+            if confidence < self.min_confidence:
+                logger.debug(f"Ignorando warning com confiança baixa: {confidence}")
+                continue
+
+            warnings.append(SafetyViolation(
+                rule_id=key,
+                rule_name=f"Warning {key.split('_')[-1]}",
+                description=description,
+                confidence=confidence,
+                bounding_box=bbox,
+                category="GENERAL",
+                severity="MEDIUM",
+                recommendation=self.RECOMMENDATIONS.get("GENERAL", ""),
+            ))
+
+        return warnings
+
     def _violations_to_findings(self, violations: List[SafetyViolation]) -> List[Dict[str, Any]]:
         """Converte violações para formato de findings do sistema."""
         findings = []
@@ -611,19 +660,42 @@ class OlimpiaAIClient(AIClientInterface):
                     
                     response.raise_for_status()
                     data = response.json()
-                
-                    logger.info(f"Resposta da API Olímpia recebida: {len(data)} regras")
-                    
+
+                    # O endpoint security-service retorna uma lista:
+                    # [0] = dict de violações (rule_*), [1] = mitigações, [2] = warnings
+                    if isinstance(data, list):
+                        violations_raw = data[0] if len(data) > 0 and isinstance(data[0], dict) else {}
+                        mitigations_raw = data[1] if len(data) > 1 and isinstance(data[1], dict) else {}
+                        warnings_raw = data[2] if len(data) > 2 and isinstance(data[2], dict) else {}
+                        structured_raw = {
+                            "violations": violations_raw,
+                            "mitigations": mitigations_raw,
+                            "warnings": warnings_raw,
+                        }
+                    else:
+                        # Formato antigo: dict plano com chaves rule_*
+                        violations_raw = data if isinstance(data, dict) else {}
+                        mitigations_raw = {}
+                        warnings_raw = {}
+                        structured_raw = data
+
+                    logger.info(
+                        f"Resposta da API Olímpia recebida: {len(violations_raw)} regras, "
+                        f"{len(warnings_raw)} avisos"
+                    )
+
                     violations = self._parse_violations(
-                        data,
+                        violations_raw,
                         image_width=image_width,
                         image_height=image_height,
                     )
-                    findings = self._violations_to_findings(violations)
-                    
+                    warning_violations = self._parse_warnings(warnings_raw)
+                    all_violations = violations + warning_violations
+                    findings = self._violations_to_findings(all_violations)
+
                     # Calcular confiança geral
-                    if violations:
-                        avg_confidence = sum(v.confidence for v in violations) / len(violations)
+                    if all_violations:
+                        avg_confidence = sum(v.confidence for v in all_violations) / len(all_violations)
                         if avg_confidence >= 0.85:
                             confidence_level = "HIGH"
                         elif avg_confidence >= 0.70:
@@ -632,15 +704,15 @@ class OlimpiaAIClient(AIClientInterface):
                             confidence_level = "LOW"
                     else:
                         confidence_level = "HIGH"  # Sem violações = boa confiança
-                    
+
                     return AIInferenceResult(
                         success=True,
                         findings=findings,
                         confidence=confidence_level,
                         model_version="olimpia-v2",
                         error_message="",
-                        raw_response=data,
-                        violations=violations,
+                        raw_response=structured_raw,
+                        violations=all_violations,
                     )
                 
             except requests.exceptions.Timeout:
@@ -768,39 +840,77 @@ class OlimpiaAIClient(AIClientInterface):
         # Merge individual responses, tagging each detection with both the
         # real evidence_id (DB pk) and the positional evidence_index so the
         # serializer can robustly associate violations with the right photo.
-        merged_raw: Dict[str, Any] = {}
+        merged_violations: Dict[str, Any] = {}
+        merged_mitigations: Dict[str, Any] = {}
+        merged_warnings: Dict[str, Any] = {}
+
         for evidence_id, evidence_idx, individual_response in all_raw_responses:
             if not isinstance(individual_response, dict):
                 continue
-            for key, value in individual_response.items():
-                # ── Novo formato: rule_1 … com dict {violations:[…]} ─────────
+
+            # Detecta formato estruturado do endpoint security-service
+            is_structured = (
+                "violations" in individual_response
+                and isinstance(individual_response.get("violations"), dict)
+            )
+
+            if is_structured:
+                violations_data = individual_response.get("violations", {})
+                mitigations_data = individual_response.get("mitigations", {})
+                warnings_data = individual_response.get("warnings", {})
+            else:
+                violations_data = individual_response
+                mitigations_data = {}
+                warnings_data = {}
+
+            # ── Merge violations ──────────────────────────────────────────────
+            for key, value in violations_data.items():
                 if isinstance(value, dict) and "violations" in value:
-                    if key not in merged_raw:
-                        merged_raw[key] = {
-                            k: v for k, v in value.items() if k != "violations"
-                        }
-                        merged_raw[key]["violations"] = []
+                    # Novo formato: rule_1 → {violations: [...]}
+                    if key not in merged_violations:
+                        merged_violations[key] = {k: v for k, v in value.items() if k != "violations"}
+                        merged_violations[key]["violations"] = []
                     for det in (value.get("violations") or []):
                         if isinstance(det, dict):
                             det = dict(det)
                             det["evidence_id"] = evidence_id
                             det["evidence_index"] = evidence_idx
-                            merged_raw[key]["violations"].append(det)
-                # ── Formato legado: rule_1_violation … com list ───────────────
+                            merged_violations[key]["violations"].append(det)
                 elif key.endswith("_violation"):
+                    # Formato legado: rule_1_violation → [...]
                     if value is None:
-                        merged_raw.setdefault(key, None)
+                        merged_violations.setdefault(key, None)
                     elif isinstance(value, list):
-                        if not isinstance(merged_raw.get(key), list):
-                            merged_raw[key] = []
-                        tagged = []
+                        if not isinstance(merged_violations.get(key), list):
+                            merged_violations[key] = []
                         for det in value:
                             if isinstance(det, dict):
                                 det = dict(det)
                                 det["evidence_id"] = evidence_id
                                 det["evidence_index"] = evidence_idx
-                            tagged.append(det)
-                        merged_raw[key].extend(tagged)
+                            merged_violations[key].append(det)
+
+            # ── Merge mitigations (first-wins por chave) ──────────────────────
+            for key, value in mitigations_data.items():
+                merged_mitigations.setdefault(key, value)
+
+            # ── Merge warnings (tagged por evidência) ─────────────────────────
+            for key, value in warnings_data.items():
+                if isinstance(value, dict) and key not in merged_warnings:
+                    tagged = dict(value)
+                    tagged["evidence_id"] = evidence_id
+                    tagged["evidence_index"] = evidence_idx
+                    merged_warnings[key] = tagged
+
+        # Formato final: estruturado se há mitigações ou warnings, legado caso contrário
+        if merged_mitigations or merged_warnings:
+            merged_raw: Dict[str, Any] = {
+                "violations": merged_violations,
+                "mitigations": merged_mitigations,
+                "warnings": merged_warnings,
+            }
+        else:
+            merged_raw = merged_violations
 
         return AIInferenceResult(
             success=True,
@@ -821,7 +931,7 @@ class OlimpiaAIClient(AIClientInterface):
             # Como a API Olímpia não tem endpoint de health específico,
             # verificamos apenas se a URL está acessível
             response = requests.get(
-                self.api_url.replace("/infer", "/health"),
+                self.api_url.replace("/security-service", "/health").replace("/infer", "/health"),
                 headers=self._get_headers(),
                 timeout=10,
                 verify=True,

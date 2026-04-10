@@ -259,9 +259,10 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         """
         Retorna riscos priorizando o payload bruto da API Olímpia.
 
-        Suporta dois formatos:
-          Novo  (v2): {"rule_1": {"name":"...", "violations":[{...}]}, ...}
-          Legado:     {"rule_1_violation": [{...}], ...}
+        Suporta três formatos:
+          Estruturado (security-service): {"violations":{rule_1:{...}}, "mitigations":{...}, "warnings":{...}}
+          Novo  (v2 /infer):              {"rule_1": {"name":"...", "violations":[{...}]}, ...}
+          Legado:                         {"rule_1_violation": [{...}], ...}
         """
         latest_inference = obj.inferences.first()
         raw_result = latest_inference.result_json if latest_inference else {}
@@ -287,33 +288,44 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         if not isinstance(raw_result, dict):
             return []
 
+        # ── Detecta formato estruturado do endpoint security-service ──────────
+        is_structured = (
+            'violations' in raw_result
+            and isinstance(raw_result.get('violations'), dict)
+        )
+        if is_structured:
+            violations_data = raw_result.get('violations', {})
+            mitigations_data = raw_result.get('mitigations', {})
+            warnings_data = raw_result.get('warnings', {})
+        else:
+            violations_data = raw_result
+            mitigations_data = {}
+            warnings_data = {}
+
         severity_by_rule = {
             'rule_1': 'HIGH',   'rule_1_violation': 'HIGH',
-            'rule_2': 'CRITICAL', 'rule_2_violation': 'CRITICAL',
-            'rule_3': 'HIGH',   'rule_3_violation': 'HIGH',
+            'rule_2': 'HIGH',   'rule_2_violation': 'HIGH',
+            'rule_3': 'MEDIUM', 'rule_3_violation': 'MEDIUM',
             'rule_4': 'CRITICAL', 'rule_4_violation': 'CRITICAL',
-            'rule_5': 'CRITICAL', 'rule_5_violation': 'CRITICAL',
-            'rule_6': 'HIGH',   'rule_6_violation': 'HIGH',
-            'rule_7': 'MEDIUM', 'rule_7_violation': 'MEDIUM',
+            'rule_5': 'HIGH',   'rule_5_violation': 'HIGH',
+            'rule_6': 'CRITICAL', 'rule_6_violation': 'CRITICAL',
+            'rule_7': 'HIGH',   'rule_7_violation': 'HIGH',
             'rule_8': 'MEDIUM', 'rule_8_violation': 'MEDIUM',
         }
 
-        # Collect (rule_key, detections_list) pairs from either format
-        rule_detections: list = []
-        for key, value in raw_result.items():
-            if isinstance(value, dict) and 'violations' in value:
-                # New format: rule_1 → {violations: [...]}
-                detections = value.get('violations') or []
-                if isinstance(detections, list):
-                    rule_detections.append((key, detections))
-            elif key.endswith('_violation') and isinstance(value, list):
-                # Legacy format: rule_1_violation → [...]
-                rule_detections.append((key, value))
+        # ── Global recommendations from mitigations ───────────────────────────
+        global_recommendations = []
+        for mit_key in sorted(mitigations_data.keys()):
+            mit_text = mitigations_data[mit_key]
+            if isinstance(mit_text, str):
+                global_recommendations.append({
+                    'id': mit_key,
+                    'title': mit_text,
+                    'description': mit_text,
+                    'priority': 'high',
+                })
 
-        if not rule_detections:
-            return []
-
-        # Build evidence lookup tables keyed by DB id and by positional index
+        # ── Build evidence lookup ─────────────────────────────────────────────
         evidence_list = list(obj.evidences.all())
         evidence_by_id = {}    # {evidence.id: serialized_payload}
         evidence_by_idx = {}   # {position_index: serialized_payload}
@@ -335,7 +347,18 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         risk_status = status_map.get(obj.status, 'pending')
 
         risks = []
-        for rule_key, detections in sorted(rule_detections, key=lambda x: x[0]):
+
+        # ── Violations (rule_*) ───────────────────────────────────────────────
+        rule_detections: list = []
+        for key, value in violations_data.items():
+            if isinstance(value, dict) and 'violations' in value:
+                detections = value.get('violations') or []
+                if isinstance(detections, list):
+                    rule_detections.append((key, detections, value))
+            elif key.endswith('_violation') and isinstance(value, list):
+                rule_detections.append((key, value, {}))
+
+        for rule_key, detections, rule_meta in sorted(rule_detections, key=lambda x: x[0]):
             for detection_index, detection in enumerate(detections, start=1):
                 if not isinstance(detection, dict):
                     continue
@@ -351,7 +374,6 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                 if not isinstance(bounding_box, list):
                     bounding_box = []
 
-                # Prefer real evidence_id (DB pk), fall back to positional index
                 ev_db_id = detection.get('evidence_id')
                 ev_idx = detection.get('evidence_index')
                 if ev_db_id is not None and ev_db_id in evidence_by_id:
@@ -367,15 +389,68 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
                     'reason': reason,
                     'rule_id': rule_key,
                     'bounding_box': bounding_box,
-                    'severity': severity_by_rule.get(rule_key, 'MEDIUM'),
+                    'severity': severity_by_rule.get(rule_key, 'HIGH'),
                     'location': '',
                     'evidence': evidence_payload,
-                    'recommendations': [],
+                    'recommendations': global_recommendations,
                     'ai_confidence': confidence_pct,
                     'risk_status': risk_status,
                     'created_at': obj.created_at,
                     'updated_at': obj.updated_at,
                 })
+
+        # ── Warnings (warning_*) ──────────────────────────────────────────────
+        for warn_key in sorted(warnings_data.keys()):
+            warning = warnings_data[warn_key]
+            if not isinstance(warning, dict):
+                continue
+
+            # reason pode ser lista de strings
+            reasons = warning.get('reason', [])
+            if isinstance(reasons, str):
+                reasons = [reasons]
+            description = '; '.join(r for r in reasons if r) if reasons else 'Warning detected'
+
+            # confidence pode ser lista com um elemento
+            conf_raw = warning.get('confidence', [0.0])
+            if isinstance(conf_raw, list):
+                confidence = float(conf_raw[0]) if conf_raw else 0.0
+            else:
+                confidence = float(conf_raw) if conf_raw else 0.0
+            try:
+                confidence_pct = f"{confidence * 100:.0f}%"
+            except (TypeError, ValueError):
+                confidence_pct = ''
+
+            # bounding_box já é normalizado (0-1) nos warnings
+            bounding_box = warning.get('bounding_box')
+            if not isinstance(bounding_box, list):
+                bounding_box = []
+
+            ev_db_id = warning.get('evidence_id')
+            ev_idx = warning.get('evidence_index')
+            if ev_db_id is not None and ev_db_id in evidence_by_id:
+                evidence_payload = evidence_by_id[ev_db_id]
+            elif ev_idx is not None and ev_idx in evidence_by_idx:
+                evidence_payload = evidence_by_idx[ev_idx]
+            else:
+                evidence_payload = default_evidence_payload
+
+            risks.append({
+                'id': f"{obj.id}-{warn_key}-1",
+                'description': description,
+                'reason': description,
+                'rule_id': warn_key,
+                'bounding_box': bounding_box,
+                'severity': 'MEDIUM',
+                'location': '',
+                'evidence': evidence_payload,
+                'recommendations': global_recommendations,
+                'ai_confidence': confidence_pct,
+                'risk_status': risk_status,
+                'created_at': obj.created_at,
+                'updated_at': obj.updated_at,
+            })
 
         return risks
 

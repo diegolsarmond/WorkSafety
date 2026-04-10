@@ -326,6 +326,34 @@ export async function getValidTransitions(
   }
 }
 
+export interface RiskDecisionPayload {
+  risk_id: string;
+  decision: 'approved' | 'rejected' | 'pending';
+  mitigations: string[];
+  custom_action: string;
+}
+
+/**
+ * Submete a revisão humana com decisões por risco e mitigações.
+ * Salva no banco e transiciona o assessment para human_validated.
+ */
+export async function submitReview(
+  assessmentId: string | number,
+  decisions: RiskDecisionPayload[],
+): Promise<{ status: string; previous_status: string; transitioned: boolean; decisions_saved: number }> {
+  try {
+    const response = await apiClient.post(`${API_PREFIX}/${assessmentId}/review/`, { decisions });
+    return response.data;
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: string } } };
+      const message = axiosError.response?.data?.error || 'Failed to submit review';
+      throw new RiskServiceError(message, 'REVIEW_ERROR', axiosError.response?.status);
+    }
+    throw new RiskServiceError('Network error', 'NETWORK_ERROR');
+  }
+}
+
 /** Hook helper para verificar se o status permite validação */
 export function canValidate(status: AssessmentStatus): boolean {
   return status === 'ai_reviewed';
