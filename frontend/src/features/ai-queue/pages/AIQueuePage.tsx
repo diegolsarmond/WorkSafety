@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   RefreshCw, 
@@ -25,6 +25,8 @@ const getStatusLabel = (item: AIQueueItem) => {
   }
 };
 
+type FilterType = 'all' | 'processing' | 'pending' | 'completed' | 'error';
+
 /**
  * AI Processing Queue Page
  * 
@@ -37,6 +39,7 @@ const getStatusLabel = (item: AIQueueItem) => {
 export function AIQueuePage() {
   const navigate = useNavigate();
   const { queue, counts, isLoading, error, refresh } = useAIQueue();
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   // Agrupa itens por status
   const processingItems = queue.filter(item => item.ai_status === 'running');
@@ -45,6 +48,15 @@ export function AIQueuePage() {
   const completedItems = queue.filter(item => item.ai_status === 'succeeded');
 
   const hasAnyItems = queue.length > 0;
+
+  const showProcessing = activeFilter === 'all' || activeFilter === 'processing';
+  const showPending = activeFilter === 'all' || activeFilter === 'pending';
+  const showCompleted = activeFilter === 'all' || activeFilter === 'completed';
+  const showError = activeFilter === 'all' || activeFilter === 'error';
+
+  const toggleFilter = (filter: FilterType) => {
+    setActiveFilter(current => current === filter ? 'all' : filter);
+  };
 
   const handleBack = () => {
     navigate('/home');
@@ -107,7 +119,7 @@ export function AIQueuePage() {
           
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <Brain className="w-6 h-6 text-indigo-600" />
+               <Brain className="w-6 h-6 text-indigo-600" />
               <h1 className="text-xl font-bold text-gray-900">AI Processing Queue</h1>
             </div>
             <p className="text-sm text-gray-500">
@@ -129,30 +141,61 @@ export function AIQueuePage() {
           </button>
         </div>
 
-        {/* Counter summary */}
+        {/* Counter summary as Filters */}
         {hasAnyItems && (
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full text-sm">
-              <Loader2 className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-blue-700 font-medium">{counts.processing}</span>
-              <span className="text-blue-600">Processing</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 rounded-full text-sm">
-              <Clock className="w-3.5 h-3.5 text-yellow-600" />
-              <span className="text-yellow-700 font-medium">{counts.pending}</span>
-              <span className="text-yellow-600">Pending</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-full text-sm">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-emerald-700 font-medium">{counts.completed}</span>
-              <span className="text-emerald-600">Completed</span>
-            </div>
-            {counts.error > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 rounded-full text-sm">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                <span className="text-red-700 font-medium">{counts.error}</span>
-                <span className="text-red-600">Errors</span>
-              </div>
+          <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
+            <button 
+              onClick={() => toggleFilter('processing')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors border ${
+                activeFilter === 'processing' 
+                  ? 'bg-blue-100 border-blue-200 text-blue-800 ring-2 ring-blue-500/20' 
+                  : 'bg-blue-50 border-transparent text-blue-600 hover:bg-blue-100/70'
+              } ${counts.processing === 0 && activeFilter !== 'processing' ? 'opacity-60 grayscale' : ''}`}
+            >
+              <Loader2 className={`w-3.5 h-3.5 ${activeFilter === 'processing' ? 'text-blue-700' : 'text-blue-600'}`} />
+              <span className={`font-medium ${activeFilter === 'processing' ? 'text-blue-800' : 'text-blue-700'}`}>{counts.processing}</span>
+              <span className={activeFilter === 'processing' ? 'text-blue-700' : 'text-blue-600'}>Processing</span>
+            </button>
+
+            <button 
+              onClick={() => toggleFilter('pending')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors border ${
+                activeFilter === 'pending' 
+                  ? 'bg-yellow-100 border-yellow-200 text-yellow-800 ring-2 ring-yellow-500/20' 
+                  : 'bg-yellow-50 border-transparent text-yellow-600 hover:bg-yellow-100/70'
+              } ${counts.pending === 0 && activeFilter !== 'pending' ? 'opacity-60 grayscale' : ''}`}
+            >
+              <Clock className={`w-3.5 h-3.5 ${activeFilter === 'pending' ? 'text-yellow-700' : 'text-yellow-600'}`} />
+              <span className={`font-medium ${activeFilter === 'pending' ? 'text-yellow-800' : 'text-yellow-700'}`}>{counts.pending}</span>
+              <span className={activeFilter === 'pending' ? 'text-yellow-700' : 'text-yellow-600'}>Pending</span>
+            </button>
+
+            <button 
+              onClick={() => toggleFilter('completed')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors border ${
+                activeFilter === 'completed' 
+                  ? 'bg-emerald-100 border-emerald-200 text-emerald-800 ring-2 ring-emerald-500/20' 
+                  : 'bg-emerald-50 border-transparent text-emerald-600 hover:bg-emerald-100/70'
+              } ${counts.completed === 0 && activeFilter !== 'completed' ? 'opacity-60 grayscale' : ''}`}
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${activeFilter === 'completed' ? 'text-emerald-700' : 'text-emerald-600'}`} />
+              <span className={`font-medium ${activeFilter === 'completed' ? 'text-emerald-800' : 'text-emerald-700'}`}>{counts.completed}</span>
+              <span className={activeFilter === 'completed' ? 'text-emerald-700' : 'text-emerald-600'}>Completed</span>
+            </button>
+
+            {(counts.error > 0 || activeFilter === 'error') && (
+              <button 
+                onClick={() => toggleFilter('error')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors border ${
+                  activeFilter === 'error' 
+                    ? 'bg-red-100 border-red-200 text-red-800 ring-2 ring-red-500/20' 
+                    : 'bg-red-50 border-transparent text-red-600 hover:bg-red-100/70'
+                } ${counts.error === 0 && activeFilter !== 'error' ? 'opacity-60 grayscale' : ''}`}
+              >
+                <AlertTriangle className={`w-3.5 h-3.5 ${activeFilter === 'error' ? 'text-red-700' : 'text-red-600'}`} />
+                <span className={`font-medium ${activeFilter === 'error' ? 'text-red-800' : 'text-red-700'}`}>{counts.error}</span>
+                <span className={activeFilter === 'error' ? 'text-red-700' : 'text-red-600'}>Errors</span>
+              </button>
             )}
           </div>
         )}
@@ -196,7 +239,7 @@ export function AIQueuePage() {
           // Lista de itens agrupados por status
           <div className="space-y-6">
             {/* Processing now */}
-            {processingItems.length > 0 && (
+            {showProcessing && processingItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
                   Processing now ({processingItems.length})
@@ -206,6 +249,7 @@ export function AIQueuePage() {
                     <AIQueueItemCard 
                       key={item.assessment_id} 
                       item={item}
+                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
@@ -217,7 +261,7 @@ export function AIQueuePage() {
             )}
 
             {/* Pending */}
-            {pendingItems.length > 0 && (
+            {showPending && pendingItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
                   Waiting for processing ({pendingItems.length})
@@ -227,6 +271,7 @@ export function AIQueuePage() {
                     <AIQueueItemCard 
                       key={item.assessment_id} 
                       item={item}
+                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
@@ -238,7 +283,7 @@ export function AIQueuePage() {
             )}
 
             {/* Completed */}
-            {completedItems.length > 0 && (
+            {showCompleted && completedItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
                   Completed ({completedItems.length})
@@ -248,6 +293,7 @@ export function AIQueuePage() {
                     <AIQueueItemCard 
                       key={item.assessment_id} 
                       item={item}
+                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
@@ -259,7 +305,7 @@ export function AIQueuePage() {
             )}
 
             {/* Errors */}
-            {errorItems.length > 0 && (
+            {showError && errorItems.length > 0 && (
               <section>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
                   With error ({errorItems.length})
@@ -269,6 +315,7 @@ export function AIQueuePage() {
                     <AIQueueItemCard 
                       key={item.assessment_id} 
                       item={item}
+                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
                       getStatusIcon={getStatusIcon}
                       getStatusBadgeClass={getStatusBadgeClass}
                       formatTime={formatTime}
@@ -277,6 +324,22 @@ export function AIQueuePage() {
                   ))}
                 </div>
               </section>
+            )}
+            
+            {/* Show message if filter returns nothing */}
+            {((activeFilter === 'processing' && processingItems.length === 0) ||
+              (activeFilter === 'pending' && pendingItems.length === 0) ||
+              (activeFilter === 'completed' && completedItems.length === 0) ||
+              (activeFilter === 'error' && errorItems.length === 0)) && (
+              <div className="py-12 text-center">
+                <p className="text-gray-500">No items match the selected filter.</p>
+                <button 
+                  onClick={() => setActiveFilter('all')}
+                  className="mt-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                >
+                  Clear filter
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -289,15 +352,19 @@ export function AIQueuePage() {
 interface AIQueueItemCardProps {
   key?: number | string;
   item: AIQueueItem;
+  onClick: () => void;
   getStatusIcon: (item: AIQueueItem) => React.ReactNode;
   getStatusBadgeClass: (item: AIQueueItem) => string;
   formatTime: (dateString: string | null) => string;
   getStatusLabel: (item: AIQueueItem) => string;
 }
 
-function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime, getStatusLabel }: AIQueueItemCardProps) {
+function AIQueueItemCard({ item, onClick, getStatusIcon, getStatusBadgeClass, formatTime, getStatusLabel }: AIQueueItemCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+    <div 
+      onClick={onClick}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all cursor-pointer"
+    >
       <div className="flex gap-4">
         {/* Thumbnail */}
         <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
@@ -317,7 +384,7 @@ function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime,
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-gray-900 truncate">
+            <h3 className="font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
               {item.title}
             </h3>
             <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(item)}`}>
@@ -359,3 +426,4 @@ function AIQueueItemCard({ item, getStatusIcon, getStatusBadgeClass, formatTime,
     </div>
   );
 }
+

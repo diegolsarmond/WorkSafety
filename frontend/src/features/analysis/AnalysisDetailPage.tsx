@@ -786,68 +786,38 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
 function ImageCardWithBBox({
   evidenceUrl,
   imageIndex,
+  totalImages = 1,
   risks,
   group,
   groupCount,
   onOpenLightbox,
-  renderBBoxRects,
+  onNext,
+  onPrev,
 }: {
   evidenceUrl: string;
   imageIndex: number;
+  totalImages?: number;
   risks: RiskItem[];
-  group: 'violation' | 'warning';
+  group: 'violation' | 'warning' | 'all';
   groupCount: number;
-  onOpenLightbox: (group: 'violation' | 'warning') => void;
-  renderBBoxRects: (
-    risks: RiskItem[],
-    imgW: number,
-    imgH: number,
-    strokeColor: string,
-    strokeWidthDivisor?: number,
-  ) => React.ReactNode;
+  onOpenLightbox: (group: 'violation' | 'warning' | 'all') => void;
+  onNext?: () => void;
+  onPrev?: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
-  const [renderedRect, setRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-
-  const computeRect = useCallback(() => {
-    if (!containerRef.current || !natSize) return;
-    const cw = containerRef.current.clientWidth;
-    const ch = containerRef.current.clientHeight;
-    const scale = Math.min(cw / natSize.w, ch / natSize.h);
-    const rw = natSize.w * scale;
-    const rh = natSize.h * scale;
-    setRenderedRect({
-      x: (cw - rw) / 2,
-      y: (ch - rh) / 2,
-      w: rw,
-      h: rh,
-    });
-  }, [natSize]);
-
-  useEffect(() => {
-    computeRect();
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => computeRect());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [computeRect]);
 
   // Reset when image changes
   useEffect(() => {
     setNatSize(null);
-    setRenderedRect(null);
   }, [evidenceUrl]);
 
   const strokeColor = group === 'violation' ? '#ef4444' : '#f59e0b';
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-gray-900 border border-gray-200">
+    <div className="relative rounded-xl overflow-hidden bg-[#e5e5ea] border border-gray-100 group">
       <div
-        ref={containerRef}
         className="relative cursor-zoom-in"
-        style={{ height: 168 }}
+        style={{ height: group === 'all' ? 260 : 168 }}
         onClick={() => onOpenLightbox(group)}
       >
         <img
@@ -859,42 +829,66 @@ function ImageCardWithBBox({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {natSize && renderedRect && (
+        {natSize && (
           <svg
-            className="absolute pointer-events-none"
-            style={{
-              left: renderedRect.x,
-              top: renderedRect.y,
-              width: renderedRect.w,
-              height: renderedRect.h,
-            }}
+            className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox={`0 0 ${natSize.w} ${natSize.h}`}
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
           >
-            {renderBBoxRects(risks, natSize.w, natSize.h, strokeColor, 150)}
+            {group === 'all' 
+              ? renderAllBBoxRects(risks, natSize.w, natSize.h)
+              : renderBBoxRects(risks, natSize.w, natSize.h, strokeColor, 150)}
           </svg>
         )}
 
-        {/* Severity chip */}
-        <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
-          group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
-        }`}>
-          <AlertTriangle className="w-3 h-3" />
-          {group === 'violation' ? 'Violation' : 'Warning'}
-          <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
-            group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
+        {/* Severity chip or all chip */}
+        {group !== 'all' ? (
+          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
+            group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
           }`}>
-            {groupCount}
-          </span>
-        </div>
+            <AlertTriangle className="w-3 h-3" />
+            {group === 'violation' ? 'Violation' : 'Warning'}
+            <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
+              group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
+            }`}>
+              {groupCount}
+            </span>
+          </div>
+        ) : (
+          <div className="absolute top-4 left-4 pointer-events-none">
+             <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full">
+                <span className="text-white text-xs font-bold whitespace-nowrap">Scaffolding Area</span>
+             </div>
+          </div>
+        )}
 
         {/* Zoom button */}
         <button
           onClick={e => { e.stopPropagation(); onOpenLightbox(group); }}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors opacity-0 group-hover:opacity-100"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
+
+        {/* Prev button */}
+        {onPrev && imageIndex > 0 && (
+          <button
+            onClick={e => { e.stopPropagation(); onPrev(); }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 flex flex-col items-center justify-center text-white hover:bg-black/70 transition-transform active:scale-95 z-10"
+          >
+            <ChevronLeft className="w-5 h-5 ml-0.5" strokeWidth={3} />
+          </button>
+        )}
+
+        {/* Next button */}
+        {onNext && imageIndex < totalImages - 1 && (
+          <button
+            onClick={e => { e.stopPropagation(); onNext(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 flex flex-col items-center justify-center text-white hover:bg-black/70 transition-transform active:scale-95 z-10"
+          >
+            <ChevronRight className="w-5 h-5 mr-0.5" strokeWidth={3} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -917,7 +911,7 @@ function renderBBoxRects(
       return (
         <rect
           key={risk.id}
-          x={rx1} y={ry1}
+          x={Math.min(rx1, rx2)} y={Math.min(ry1, ry2)}
           width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
           fill="none"
           stroke={strokeColor}
@@ -940,7 +934,7 @@ function renderAllBBoxRects(risks: RiskItem[], imgW: number, imgH: number): Reac
       return (
         <rect
           key={risk.id}
-          x={rx1} y={ry1}
+          x={Math.min(rx1, rx2)} y={Math.min(ry1, ry2)}
           width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
           fill="none"
           stroke={strokeColor}
@@ -968,32 +962,10 @@ function ReportEvidenceCard({
   idx: number;
   onClick: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
-  const [renderedRect, setRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-
-  const computeRect = useCallback(() => {
-    if (!containerRef.current || !natSize) return;
-    const cw = containerRef.current.clientWidth;
-    const ch = containerRef.current.clientHeight;
-    const scale = Math.min(cw / natSize.w, ch / natSize.h);
-    const rw = natSize.w * scale;
-    const rh = natSize.h * scale;
-    setRenderedRect({ x: (cw - rw) / 2, y: (ch - rh) / 2, w: rw, h: rh });
-  }, [natSize]);
-
-  useEffect(() => {
-    computeRect();
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => computeRect());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [computeRect]);
 
   useEffect(() => {
     setNatSize(null);
-    setRenderedRect(null);
   }, [evidence.url]);
 
   const violationCount = risks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH').length;
@@ -1004,7 +976,7 @@ function ReportEvidenceCard({
       className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group"
       onClick={onClick}
     >
-      <div ref={containerRef} className="relative" style={{ height: 200 }}>
+      <div className="relative" style={{ height: 200 }}>
         <img
           src={evidence.url}
           alt={`Evidence ${idx + 1}`}
@@ -1014,12 +986,11 @@ function ReportEvidenceCard({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {natSize && renderedRect && (
+        {natSize && (
           <svg
-            className="absolute pointer-events-none"
-            style={{ left: renderedRect.x, top: renderedRect.y, width: renderedRect.w, height: renderedRect.h }}
+            className="absolute inset-0 w-full h-full pointer-events-none"
             viewBox={`0 0 ${natSize.w} ${natSize.h}`}
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
           >
             {renderAllBBoxRects(risks, natSize.w, natSize.h)}
           </svg>
@@ -1060,8 +1031,7 @@ export function AnalysisDetailPage() {
   const [reviewComplete, setReviewComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // null = fechado; 'violation' | 'warning' = lightbox aberto para o grupo
-  const [lightboxGroup, setLightboxGroup] = useState<'violation' | 'warning' | null>(null);
+  const [lightboxGroup, setLightboxGroup] = useState<'violation' | 'warning' | 'all' | null>(null);
   // Natural size for lightbox image (independently tracked)
   const [lightboxNatSize, setLightboxNatSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -1097,9 +1067,7 @@ export function AnalysisDetailPage() {
 
   const handleRiskDecision = (riskId: string, decision: 'approved' | 'rejected') => {
     setRiskDecisions(prev => new Map(prev).set(riskId, decision));
-    if (decision === 'approved') {
-      setMitigationOpen(prev => new Set(prev).add(riskId));
-    } else {
+    if (decision === 'rejected') {
       setMitigationOpen(prev => {
         const next = new Set(prev);
         next.delete(riskId);
@@ -1424,12 +1392,16 @@ export function AnalysisDetailPage() {
   const renderLightbox = () => {
     if (lightboxGroup === null || !currentEvidence) return null;
 
-    const boxRisks = currentPhotoRisks.filter(r =>
-      lightboxGroup === 'violation'
-        ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
-        : r.severity === 'MEDIUM' || r.severity === 'LOW'
-    );
-    const strokeColor = lightboxGroup === 'violation' ? '#ef4444' : '#f59e0b';
+    const boxRisks = lightboxGroup === 'all' 
+      ? currentPhotoRisks
+      : currentPhotoRisks.filter(r =>
+          lightboxGroup === 'violation'
+            ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
+            : r.severity === 'MEDIUM' || r.severity === 'LOW'
+        );
+    const strokeColor = lightboxGroup === 'all' 
+      ? '#ef4444' // fallback for direct call
+      : (lightboxGroup === 'violation' ? '#ef4444' : '#f59e0b');
 
     return (
       <div
@@ -1458,22 +1430,26 @@ export function AnalysisDetailPage() {
               viewBox={`0 0 ${lightboxNatSize.w} ${lightboxNatSize.h}`}
               preserveAspectRatio="xMidYMid meet"
             >
-              {renderBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h, strokeColor, 80)}
+              {lightboxGroup === 'all' 
+                ? renderAllBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h)
+                : renderBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h, strokeColor, 80)}
             </svg>
           )}
 
           {/* Severity label */}
-          <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${
-            lightboxGroup === 'violation'
-              ? 'bg-red-500/90 text-white'
-              : 'bg-yellow-500/90 text-white'
-          }`}>
-            <AlertTriangle className="w-4 h-4" />
-            {lightboxGroup === 'violation' ? 'Violations' : 'Warnings'}
-            <span className="ml-0.5 bg-white/30 rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold">
-              {lightboxGroup === 'violation' ? violationRisks.length : warningRisks.length}
-            </span>
-          </div>
+          {lightboxGroup !== 'all' && (
+            <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${
+              lightboxGroup === 'violation'
+                ? 'bg-red-500/90 text-white'
+                : 'bg-yellow-500/90 text-white'
+            }`}>
+              <AlertTriangle className="w-4 h-4" />
+              {lightboxGroup === 'violation' ? 'Violations' : 'Warnings'}
+              <span className="ml-0.5 bg-white/30 rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold">
+                {lightboxGroup === 'violation' ? violationRisks.length : warningRisks.length}
+              </span>
+            </div>
+          )}
 
           {/* Fechar */}
           <button
@@ -1621,29 +1597,52 @@ export function AnalysisDetailPage() {
       <main className="flex-1 overflow-y-auto pb-28">
         <div className="max-w-3xl mx-auto w-full space-y-0">
 
+          {/* Unified Photo View */}
+          {currentEvidence && (
+            <div className="pt-4 px-4 pb-1">
+              <ImageCardWithBBox
+                evidenceUrl={currentEvidence.url}
+                imageIndex={currentImageIndex}
+                totalImages={assessment.evidences.length}
+                risks={currentPhotoRisks}
+                group="all"
+                groupCount={currentPhotoRisks.length}
+                onOpenLightbox={setLightboxGroup}
+                onNext={() => {
+                  if (currentImageIndex < assessment.evidences.length - 1) {
+                    setCurrentImageIndex(i => i + 1);
+                    setLightboxNatSize(null);
+                  }
+                }}
+                onPrev={() => {
+                  if (currentImageIndex > 0) {
+                    setCurrentImageIndex(i => i - 1);
+                    setLightboxNatSize(null);
+                  }
+                }}
+              />
+              
+              {/* Pagination Dots */}
+              {assessment.evidences.length > 1 && (
+                <div className="flex justify-center mt-3 mb-1">
+                  <div className="inline-flex gap-1.5 px-3 py-1.5 bg-black/50 rounded-full">
+                    {assessment.evidences.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1.5 rounded-full transition-all ${
+                          idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Violation section */}
           {violationRisks.length > 0 && (
-            <div className="pt-3 px-4 pb-1">
-              <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                  <span className="text-sm font-bold text-red-600">Violation</span>
-                </div>
-                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
-                  {violationRisks.length}
-                </span>
-              </div>
-              {currentEvidence && (
-                <ImageCardWithBBox
-                  evidenceUrl={currentEvidence.url}
-                  imageIndex={currentImageIndex}
-                  risks={currentPhotoRisks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH')}
-                  group="violation"
-                  groupCount={violationRisks.length}
-                  onOpenLightbox={setLightboxGroup}
-                  renderBBoxRects={renderBBoxRects}
-                />
-              )}
+            <div className="pt-2 px-4 pb-1 mt-4">
               <div className="mt-2 space-y-2">
                 {violationRisks.map(renderFindingCard)}
               </div>
@@ -1652,27 +1651,7 @@ export function AnalysisDetailPage() {
 
           {/* Warning section */}
           {warningRisks.length > 0 && (
-            <div className="pt-4 px-4 pb-1">
-              <div className="flex items-center justify-between bg-yellow-50 border border-yellow-100 rounded-xl px-3 py-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm font-bold text-yellow-700">Warning</span>
-                </div>
-                <span className="w-5 h-5 rounded-full bg-yellow-500 text-white text-[11px] font-bold flex items-center justify-center">
-                  {warningRisks.length}
-                </span>
-              </div>
-              {currentEvidence && (
-                <ImageCardWithBBox
-                  evidenceUrl={currentEvidence.url}
-                  imageIndex={currentImageIndex}
-                  risks={currentPhotoRisks.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW')}
-                  group="warning"
-                  groupCount={warningRisks.length}
-                  onOpenLightbox={setLightboxGroup}
-                  renderBBoxRects={renderBBoxRects}
-                />
-              )}
+            <div className="pt-2 px-4 pb-1 mt-4">
               <div className="mt-2 space-y-2">
                 {warningRisks.map(renderFindingCard)}
               </div>
