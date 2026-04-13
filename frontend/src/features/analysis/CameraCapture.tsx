@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/ui/components/Button";
 import { useAnalysisStore } from "../../store/analysisStore";
@@ -32,14 +33,18 @@ const TIPS = [
   "Multiple photos improve analysis accuracy.",
 ];
 
+type PendingSource = "camera" | "gallery" | null;
+
 export function CameraCapture() {
   const navigate = useNavigate();
   const { photos, addPhoto, removePhoto, environment, category, title, description, reset } = useAnalysisStore();
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [showTipsModal, setShowTipsModal] = useState(false);
-  const [pendingCameraOpen, setPendingCameraOpen] = useState(false);
+  const [pendingSource, setPendingSource] = useState<PendingSource>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,24 +54,36 @@ export function CameraCapture() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleCameraButtonClick = () => {
+  const triggerInput = (source: PendingSource) => {
+    setTimeout(() => {
+      if (source === "camera") cameraInputRef.current?.click();
+      else galleryInputRef.current?.click();
+    }, 100);
+  };
+
+  const handleAddPhotoClick = () => {
     if (processing || photos.length >= 10) return;
+    setShowSourcePicker(true);
+  };
+
+  const handleSourceSelect = (source: "camera" | "gallery") => {
+    setShowSourcePicker(false);
     const shown = localStorage.getItem(TIPS_KEY);
     if (!shown) {
+      setPendingSource(source);
       setShowTipsModal(true);
-      setPendingCameraOpen(true);
     } else {
-      cameraInputRef.current?.click();
+      triggerInput(source);
     }
   };
 
   const handleTipsDismiss = () => {
     localStorage.setItem(TIPS_KEY, "true");
     setShowTipsModal(false);
-    if (pendingCameraOpen) {
-      setPendingCameraOpen(false);
-      // Small delay so modal unmounts before triggering file input (iOS Safari)
-      setTimeout(() => cameraInputRef.current?.click(), 100);
+    if (pendingSource) {
+      const source = pendingSource;
+      setPendingSource(null);
+      triggerInput(source);
     }
   };
 
@@ -175,8 +192,6 @@ export function CameraCapture() {
       await apiClient.post(`assessments/${assessmentId}/sync/`, {});
 
       reset();
-      // Navigate to syncing screen — assessment ID is passed via state so
-      // "Review Analysis Status" can go directly to /analysis/{id}
       navigate("/analysis/syncing", {
         replace: true,
         state: { assessmentId, title: computedTitle },
@@ -201,6 +216,54 @@ export function CameraCapture() {
           <button onClick={() => setToastMessage(null)} className="ml-auto flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Source Picker Sheet */}
+      {showSourcePicker && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center p-4"
+          onClick={() => setShowSourcePicker(false)}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-sm p-4 flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleSourceSelect("camera")}
+              className="flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <Camera className="w-5 h-5 text-[#0B7A90]" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-900">Take Photo</p>
+                <p className="text-xs text-gray-500">Use the device camera</p>
+              </div>
+            </button>
+
+            <div className="h-px bg-gray-100 mx-4" />
+
+            <button
+              onClick={() => handleSourceSelect("gallery")}
+              className="flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="w-5 h-5 text-[#0B7A90]" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-900">Choose from Gallery</p>
+                <p className="text-xs text-gray-500">Select an existing photo</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowSourcePicker(false)}
+              className="mt-1 py-3 text-sm font-semibold text-gray-500 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -265,9 +328,17 @@ export function CameraCapture() {
         <span className="text-sm text-gray-500 ml-1">Step 2 of 2 — Select Photos</span>
       </div>
 
-      {/* Hidden file input */}
+      {/* Hidden file inputs */}
       <input
         ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/jpg,image/webp"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <input
+        ref={galleryInputRef}
         type="file"
         accept="image/jpeg,image/png,image/jpg,image/webp"
         className="hidden"
@@ -281,10 +352,10 @@ export function CameraCapture() {
         </p>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          {/* Camera cell */}
+          {/* Add photo cell */}
           {photos.length < 10 && (
             <button
-              onClick={handleCameraButtonClick}
+              onClick={handleAddPhotoClick}
               disabled={processing}
               className="aspect-square rounded-2xl bg-white border-2 border-dashed border-[#0B7A90]/40 flex flex-col items-center justify-center gap-1.5 text-[#0B7A90] active:scale-95 transition-transform disabled:opacity-50 shadow-sm"
             >
@@ -293,7 +364,7 @@ export function CameraCapture() {
               ) : (
                 <>
                   <Camera className="w-7 h-7" />
-                  <span className="text-xs font-bold">Camera</span>
+                  <span className="text-xs font-bold">Add Photo</span>
                 </>
               )}
             </button>
