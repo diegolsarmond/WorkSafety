@@ -222,6 +222,7 @@ class RiskAssessmentListSerializer(serializers.ModelSerializer):
 class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
     """Serializer detalhado para avaliação com riscos e evidências."""
     created_by_email = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
     risks = serializers.SerializerMethodField()
     evidences = EvidenceSerializer(many=True, read_only=True)
     inferences = AIInferenceDetailSerializer(many=True, read_only=True)
@@ -236,7 +237,7 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
         model = RiskAssessment
         fields = [
             'id', 'title', 'description', 'status', 'status_display',
-            'created_by', 'created_by_email', 'risks', 'evidences',
+            'created_by', 'created_by_email', 'created_by_name', 'risks', 'evidences',
             'inferences', 'compliance_score', 'valid_transitions',
             'assessment_type', 'environment_type',
             'legal_basis', 'legal_basis_display', 'legal_basis_notes',
@@ -254,6 +255,12 @@ class RiskAssessmentDetailSerializer(serializers.ModelSerializer):
 
     def get_created_by_email(self, obj: RiskAssessment) -> str:
         return obj.created_by.email if obj.created_by else ""
+
+    def get_created_by_name(self, obj: RiskAssessment) -> str:
+        if not obj.created_by:
+            return ""
+        full_name = obj.created_by.get_full_name().strip()
+        return full_name if full_name else obj.created_by.email
 
     def get_risks(self, obj: RiskAssessment) -> list:
         """

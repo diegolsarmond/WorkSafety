@@ -26,6 +26,8 @@ import {
   ImageIcon,
   User,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { submitReview } from '@/services/risk/riskService';
@@ -81,6 +83,19 @@ export function ValidatedAssessmentView({
 }) {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'checklist' | 'full'>('checklist');
+  const [reportLightbox, setReportLightbox] = useState<{
+    evidence: { id: string; url: string };
+    risks: RiskItem[];
+  } | null>(null);
+  const [reportLbIndex, setReportLbIndex] = useState<number>(0);
+  const [reportLbNatSize, setReportLbNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [shareToast, setShareToast] = useState(false);
+
+  // Lock body scroll when lightbox is open
+  useEffect(() => {
+    document.body.style.overflow = reportLightbox ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [reportLightbox]);
 
   // Show only approved risks from the review state, then fall back to validated, then all
   const display = useMemo(() => {
@@ -130,12 +145,61 @@ export function ValidatedAssessmentView({
   const reportDate = new Date(assessment.captured_at || assessment.created_at);
   const formattedDate = reportDate.toLocaleDateString('pt-BR');
   const caseNum = String(assessment.id).slice(0, 6).toUpperCase();
-  const submittedBy =
-    assessment.created_by ||
-    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ').toUpperCase() ||
-    'Unknown';
-  const environment = display[0]?.location || assessment.description || '—';
-  const category = assessment.title || '—';
+
+  // Use full name from backend; fall back to email prefix
+  const submittedBy = (
+    (assessment.created_by_name && assessment.created_by_name.trim()) ||
+    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ') ||
+    'Unknown'
+  ).toUpperCase();
+
+  // ── Action handlers ───────────────────────────────────────────────────────
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Safety Report — ${assessment.title}`,
+          url: window.location.href,
+        });
+      } catch {
+        // User cancelled — do nothing
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 2500);
+    }
+  };
+
+  const handlePdf = () => {
+    window.print();
+  };
+
+  const handleCsv = () => {
+    const header = ['ID', 'Severity', 'Location', 'Description', 'Status'];
+    const rows = display.map(r => [
+      r.id,
+      r.severity,
+      `"${(r.location || '').replace(/"/g, '""')}"`,
+      `"${r.description.replace(/"/g, '""')}"`,
+      r.risk_status,
+    ]);
+    const csv = [header, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `safety-report-${assessment.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Lightbox close handler ────────────────────────────────────────────────
+  const closeLightbox = () => {
+    setReportLightbox(null);
+    setReportLbNatSize(null);
+  };
 
   return (
     <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
@@ -193,49 +257,21 @@ export function ValidatedAssessmentView({
           {/* Title row */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-3">
-              <h2 className="text-base font-bold text-gray-900 leading-tight">Safety Analysis Report</h2>
+              <h2 className="text-base font-bold text-gray-900 leading-tight">{assessment.title || 'Safety Analysis Report'}</h2>
               <p className="text-[9px] text-gray-400 tracking-widest uppercase mt-0.5">
-                {viewMode === 'checklist' ? 'Analysis Title' : `Case #${caseNum}`}
+                {`Case #${caseNum}`}
               </p>
             </div>
             <span className="text-xs text-gray-400 flex-shrink-0">{formattedDate}</span>
           </div>
 
-          {/* Environment + Category */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="flex items-start gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+          {/* Description */}
+          {assessment.description && (
+            <div className="flex items-start gap-1.5 mb-3">
+              <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Environment</p>
-                <p className="text-xs font-semibold text-gray-800 truncate">{environment}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Category</p>
-                <p className="text-xs font-semibold text-gray-800 truncate">{category}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Description (checklist) or Date (full report) */}
-          {viewMode === 'checklist' ? (
-            assessment.description ? (
-              <div className="flex items-start gap-1.5 mb-3">
-                <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
-                  <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
-                </div>
-              </div>
-            ) : null
-          ) : (
-            <div className="flex items-center gap-1.5 mb-3">
-              <Calendar className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0" />
-              <div>
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Date</p>
-                <p className="text-xs font-semibold text-gray-800">{formattedDate}</p>
+                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
+                <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
               </div>
             </div>
           )}
@@ -249,7 +285,6 @@ export function ValidatedAssessmentView({
 
         {/* Findings section */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-          {/* Section divider label */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
@@ -299,7 +334,6 @@ export function ValidatedAssessmentView({
                     <p className="text-sm">No risks found</p>
                   </div>
                 )}
-                {/* Photo note */}
                 {assessment.evidences.length > 0 && (
                   <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
                     <Image className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -329,21 +363,16 @@ export function ValidatedAssessmentView({
                   );
                   return (
                     <div key={evidence.id} className="space-y-3">
-                      {/* Evidence image with caption */}
-                      <div className="rounded-xl overflow-hidden bg-gray-900">
-                        <img
-                          src={evidence.url}
-                          alt={`Evidence ${idx + 1}`}
-                          className="w-full object-cover"
-                          style={{ maxHeight: 200 }}
-                        />
-                        <div className="px-3 py-2 bg-gray-800">
-                          <p className="text-xs text-white/70">
-                            {assessment.title} — Evidence {idx + 1}
-                          </p>
-                        </div>
-                      </div>
-                      {/* Risk cards for this evidence */}
+                      <ReportEvidenceCard
+                        evidence={evidence}
+                        risks={evidenceRisks}
+                        idx={idx}
+                        onClick={() => {
+                          setReportLbNatSize(null);
+                          setReportLbIndex(idx);
+                          setReportLightbox({ evidence, risks: evidenceRisks });
+                        }}
+                      />
                       {evidenceRisks.map(risk => {
                         const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
                         return (
@@ -368,6 +397,11 @@ export function ValidatedAssessmentView({
                               >
                                 {isViolation ? 'Violation' : 'Warning'}
                               </span>
+                              {risk.location && (
+                                <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
+                                  {risk.location}
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                           </div>
@@ -416,21 +450,117 @@ export function ValidatedAssessmentView({
         className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3"
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
-        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+        <button
+          onClick={handleShare}
+          className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors active:scale-95"
+        >
           <Share2 className="w-5 h-5" />
           <span className="text-[10px] font-semibold tracking-wide">Share</span>
         </button>
         <div className="w-px h-8 bg-white/10" />
-        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+        <button
+          onClick={handlePdf}
+          className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors active:scale-95"
+        >
           <Download className="w-5 h-5" />
           <span className="text-[10px] font-semibold tracking-wide">PDF</span>
         </button>
         <div className="w-px h-8 bg-white/10" />
-        <button className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors">
+        <button
+          onClick={handleCsv}
+          className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors active:scale-95"
+        >
           <FileSpreadsheet className="w-5 h-5" />
           <span className="text-[10px] font-semibold tracking-wide">CSV</span>
         </button>
       </footer>
+
+      {/* Share link-copied toast */}
+      {shareToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg z-50 pointer-events-none">
+          Link copied to clipboard
+        </div>
+      )}
+
+      {/* Report lightbox — full-screen image with bbox overlay */}
+      {reportLightbox && (() => {
+        const lbEvidence = assessment.evidences[reportLbIndex];
+        const lbRisks = lbEvidence
+          ? display.filter(r => r.evidence?.id === lbEvidence.id || r.evidence == null)
+          : [];
+        const totalPhotos = assessment.evidences.length;
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+            onClick={closeLightbox}
+          >
+            <div
+              className="relative w-full h-full flex items-center justify-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <img
+                key={lbEvidence?.url}
+                src={lbEvidence?.url}
+                alt="Evidence expanded"
+                className="max-w-full max-h-full object-contain"
+                style={{ display: 'block' }}
+                onLoad={e => {
+                  const img = e.currentTarget;
+                  setReportLbNatSize({ w: img.naturalWidth, h: img.naturalHeight });
+                }}
+              />
+              {reportLbNatSize && lbEvidence && (
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox={`0 0 ${reportLbNatSize.w} ${reportLbNatSize.h}`}
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  {renderAllBBoxRects(lbRisks, reportLbNatSize.w, reportLbNatSize.h)}
+                </svg>
+              )}
+
+              {/* Prev button */}
+              {reportLbIndex > 0 && (
+                <button
+                  onClick={() => { setReportLbIndex(i => i - 1); setReportLbNatSize(null); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Next button */}
+              {reportLbIndex < totalPhotos - 1 && (
+                <button
+                  onClick={() => { setReportLbIndex(i => i + 1); setReportLbNatSize(null); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+
+              <button
+                onClick={closeLightbox}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Counter */}
+              {totalPhotos > 1 && (
+                <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
+                  {reportLbIndex + 1} / {totalPhotos}
+                </p>
+              )}
+              {totalPhotos === 1 && (
+                <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
+                  Tap outside to close
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -446,10 +576,11 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
   const reportDate = new Date(assessment.captured_at || assessment.created_at);
   const formattedDate = reportDate.toLocaleDateString('pt-BR');
 
-  const submittedBy =
-    assessment.created_by ||
-    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ').toUpperCase() ||
-    'Unknown';
+  const submittedBy = (
+    (assessment.created_by_name && assessment.created_by_name.trim()) ||
+    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ') ||
+    'Unknown'
+  ).toUpperCase();
 
   // Mapa de status → etapas visuais
   const steps = [
@@ -602,31 +733,18 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
         {/* Report metadata card */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-start justify-between">
-            <h2 className="text-base font-bold text-gray-900">Safety Analysis Report</h2>
+            <h2 className="text-base font-bold text-gray-900">{assessment.title || 'Safety Analysis Report'}</h2>
             <span className="text-xs text-gray-400 mt-0.5">{formattedDate}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {assessment.description && (
             <div className="bg-gray-50 rounded-xl p-3">
               <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-                <Building2 className="w-3 h-3" /> Environment
+                <FileText className="w-3 h-3" /> Description
               </p>
-              <p className="text-sm font-bold text-gray-900 truncate">{assessment.description || '—'}</p>
+              <p className="text-sm font-semibold text-gray-900">{assessment.description}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-                <Tag className="w-3 h-3" /> Category
-              </p>
-              <p className="text-sm font-bold text-gray-900 truncate">{assessment.title || '—'}</p>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-              <FileText className="w-3 h-3" /> Analysis Title
-            </p>
-            <p className="text-sm font-semibold text-gray-900">{assessment.title}</p>
-          </div>
+          )}
 
           <div className="flex items-center gap-2 pt-1">
             <User className="w-3.5 h-3.5 text-gray-400" />
@@ -660,6 +778,277 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
   );
 }
 
+/**
+ * Self-contained thumbnail card with bbox overlay.
+ * Each instance manages its own container ref + ResizeObserver so portrait
+ * photos get correct pillarbox offsets independently.
+ */
+function ImageCardWithBBox({
+  evidenceUrl,
+  imageIndex,
+  risks,
+  group,
+  groupCount,
+  onOpenLightbox,
+  renderBBoxRects,
+}: {
+  evidenceUrl: string;
+  imageIndex: number;
+  risks: RiskItem[];
+  group: 'violation' | 'warning';
+  groupCount: number;
+  onOpenLightbox: (group: 'violation' | 'warning') => void;
+  renderBBoxRects: (
+    risks: RiskItem[],
+    imgW: number,
+    imgH: number,
+    strokeColor: string,
+    strokeWidthDivisor?: number,
+  ) => React.ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [renderedRect, setRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  const computeRect = useCallback(() => {
+    if (!containerRef.current || !natSize) return;
+    const cw = containerRef.current.clientWidth;
+    const ch = containerRef.current.clientHeight;
+    const scale = Math.min(cw / natSize.w, ch / natSize.h);
+    const rw = natSize.w * scale;
+    const rh = natSize.h * scale;
+    setRenderedRect({
+      x: (cw - rw) / 2,
+      y: (ch - rh) / 2,
+      w: rw,
+      h: rh,
+    });
+  }, [natSize]);
+
+  useEffect(() => {
+    computeRect();
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => computeRect());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [computeRect]);
+
+  // Reset when image changes
+  useEffect(() => {
+    setNatSize(null);
+    setRenderedRect(null);
+  }, [evidenceUrl]);
+
+  const strokeColor = group === 'violation' ? '#ef4444' : '#f59e0b';
+
+  return (
+    <div className="relative rounded-xl overflow-hidden bg-gray-900 border border-gray-200">
+      <div
+        ref={containerRef}
+        className="relative cursor-zoom-in"
+        style={{ height: 168 }}
+        onClick={() => onOpenLightbox(group)}
+      >
+        <img
+          src={evidenceUrl}
+          alt={`Evidence ${imageIndex + 1}`}
+          className="w-full h-full object-contain"
+          onLoad={e => {
+            const img = e.currentTarget;
+            setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
+          }}
+        />
+        {natSize && renderedRect && (
+          <svg
+            className="absolute pointer-events-none"
+            style={{
+              left: renderedRect.x,
+              top: renderedRect.y,
+              width: renderedRect.w,
+              height: renderedRect.h,
+            }}
+            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
+            preserveAspectRatio="none"
+          >
+            {renderBBoxRects(risks, natSize.w, natSize.h, strokeColor, 150)}
+          </svg>
+        )}
+
+        {/* Severity chip */}
+        <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
+          group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
+        }`}>
+          <AlertTriangle className="w-3 h-3" />
+          {group === 'violation' ? 'Violation' : 'Warning'}
+          <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
+            group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
+          }`}>
+            {groupCount}
+          </span>
+        </div>
+
+        {/* Zoom button */}
+        <button
+          onClick={e => { e.stopPropagation(); onOpenLightbox(group); }}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+        >
+          <ZoomIn className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Module-level bbox helpers ─────────────────────────────────────────────────
+
+function renderBBoxRects(
+  risks: RiskItem[],
+  imgW: number,
+  imgH: number,
+  strokeColor: string,
+  strokeWidthDivisor = 150,
+): React.ReactNode {
+  return risks
+    .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4)
+    .map(risk => {
+      const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
+      const sw = Math.max(imgW, imgH) / strokeWidthDivisor;
+      return (
+        <rect
+          key={risk.id}
+          x={rx1} y={ry1}
+          width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={sw}
+          strokeLinejoin="round"
+        />
+      );
+    });
+}
+
+/** Mixed-color bbox overlay: red for violations, yellow for warnings. */
+function renderAllBBoxRects(risks: RiskItem[], imgW: number, imgH: number): React.ReactNode {
+  return risks
+    .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4)
+    .map(risk => {
+      const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
+      const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
+      const strokeColor = isViolation ? '#ef4444' : '#f59e0b';
+      const sw = Math.max(imgW, imgH) / 150;
+      return (
+        <rect
+          key={risk.id}
+          x={rx1} y={ry1}
+          width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={sw}
+          strokeLinejoin="round"
+        />
+      );
+    });
+}
+
+// ── ReportEvidenceCard ────────────────────────────────────────────────────────
+/**
+ * Clickable image card for the Full Report view.
+ * Shows bbox overlays for all risks (violations=red, warnings=yellow).
+ * Handles portrait/landscape responsiveness via ResizeObserver.
+ */
+function ReportEvidenceCard({
+  evidence,
+  risks,
+  idx,
+  onClick,
+}: {
+  evidence: { id: string; url: string };
+  risks: RiskItem[];
+  idx: number;
+  onClick: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [renderedRect, setRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  const computeRect = useCallback(() => {
+    if (!containerRef.current || !natSize) return;
+    const cw = containerRef.current.clientWidth;
+    const ch = containerRef.current.clientHeight;
+    const scale = Math.min(cw / natSize.w, ch / natSize.h);
+    const rw = natSize.w * scale;
+    const rh = natSize.h * scale;
+    setRenderedRect({ x: (cw - rw) / 2, y: (ch - rh) / 2, w: rw, h: rh });
+  }, [natSize]);
+
+  useEffect(() => {
+    computeRect();
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => computeRect());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [computeRect]);
+
+  useEffect(() => {
+    setNatSize(null);
+    setRenderedRect(null);
+  }, [evidence.url]);
+
+  const violationCount = risks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH').length;
+  const warningCount = risks.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW').length;
+
+  return (
+    <div
+      className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group"
+      onClick={onClick}
+    >
+      <div ref={containerRef} className="relative" style={{ height: 200 }}>
+        <img
+          src={evidence.url}
+          alt={`Evidence ${idx + 1}`}
+          className="w-full h-full object-contain"
+          onLoad={e => {
+            const img = e.currentTarget;
+            setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
+          }}
+        />
+        {natSize && renderedRect && (
+          <svg
+            className="absolute pointer-events-none"
+            style={{ left: renderedRect.x, top: renderedRect.y, width: renderedRect.w, height: renderedRect.h }}
+            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
+            preserveAspectRatio="none"
+          >
+            {renderAllBBoxRects(risks, natSize.w, natSize.h)}
+          </svg>
+        )}
+        {/* Hover zoom hint */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
+          <ZoomIn className="w-7 h-7 text-white drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        {/* Severity chips */}
+        <div className="absolute top-2 left-2 flex gap-1 pointer-events-none">
+          {violationCount > 0 && (
+            <span className="flex items-center gap-1 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <AlertTriangle className="w-3 h-3" /> {violationCount}
+            </span>
+          )}
+          {warningCount > 0 && (
+            <span className="flex items-center gap-1 bg-yellow-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <AlertTriangle className="w-3 h-3" /> {warningCount}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="px-3 py-2 bg-gray-800">
+        <p className="text-xs text-white/70">Evidence {idx + 1} — Tap to expand</p>
+      </div>
+    </div>
+  );
+}
+
 export function AnalysisDetailPage() {
   const navigate = useNavigate();
   const { assessmentId } = useParams<{ assessmentId: string }>();
@@ -671,44 +1060,14 @@ export function AnalysisDetailPage() {
   const [reviewComplete, setReviewComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
-  // Rect efetivo da imagem renderizada dentro do container (para posicionar o SVG)
-  const [imgRenderedRect, setImgRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const thumbContainerRef = useRef<HTMLDivElement>(null);
   // null = fechado; 'violation' | 'warning' = lightbox aberto para o grupo
   const [lightboxGroup, setLightboxGroup] = useState<'violation' | 'warning' | null>(null);
-
-  /**
-   * Calcula o rect real da imagem renderizada dentro do container
-   * (descontando letterbox criado por object-contain).
-   */
-  const computeRenderedImageRect = useCallback(() => {
-    if (!thumbContainerRef.current || !imgNaturalSize) return;
-    const containerW = thumbContainerRef.current.clientWidth;
-    const containerH = thumbContainerRef.current.clientHeight;
-    const { w: natW, h: natH } = imgNaturalSize;
-    const scale = Math.min(containerW / natW, containerH / natH);
-    const renderedW = natW * scale;
-    const renderedH = natH * scale;
-    const offsetX = (containerW - renderedW) / 2;
-    const offsetY = (containerH - renderedH) / 2;
-    setImgRenderedRect({ x: offsetX, y: offsetY, w: renderedW, h: renderedH });
-  }, [imgNaturalSize]);
-
-  // Recalcular quando o tamanho natural muda ou a janela redimensiona
-  useEffect(() => {
-    computeRenderedImageRect();
-    const container = thumbContainerRef.current;
-    if (!container) return;
-    const ro = new ResizeObserver(() => computeRenderedImageRect());
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [computeRenderedImageRect]);
+  // Natural size for lightbox image (independently tracked)
+  const [lightboxNatSize, setLightboxNatSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
-    setImgNaturalSize(null);
-    setImgRenderedRect(null);
     setLightboxGroup(null);
+    setLightboxNatSize(null);
   }, [currentImageIndex]);
 
   // Impede scroll do body quando lightbox está aberto
@@ -831,7 +1190,7 @@ export function AnalysisDetailPage() {
     if (!assessment) return;
     if (currentImageIndex < assessment.evidences.length - 1) {
       setCurrentImageIndex(prev => prev + 1);
-      setImgNaturalSize(null);
+      setLightboxNatSize(null);
     } else {
       handleFinishReview();
     }
@@ -918,14 +1277,14 @@ export function AnalysisDetailPage() {
         <ThumbsUp className="w-20 h-20 text-[#0b6b82]" strokeWidth={1.5} />
         <h1 className="text-2xl font-bold text-gray-900">Review complete!</h1>
         <button
-          onClick={() => navigate('/home')}
+          onClick={() => navigate(`/analysis/${assessmentId}/report`)}
           className="w-full max-w-sm bg-[#0b6b82] text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors"
         >
           <CheckCircle2 className="w-5 h-5" />
           View Report
         </button>
         <button
-          onClick={() => navigate('/home')}
+          onClick={() => navigate(`/analysis/${assessmentId}/report`)}
           className="text-gray-500 font-medium hover:text-gray-700 transition-colors"
         >
           Skip, view report
@@ -936,104 +1295,10 @@ export function AnalysisDetailPage() {
 
   const isLastPhoto = currentImageIndex === assessment.evidences.length - 1;
 
-  // ── Rects SVG (reutilizado no card e no lightbox) ──────────────────────────
-  const renderBBoxRects = (
-    risks: RiskItem[],
-    imgW: number,
-    imgH: number,
-    strokeColor: string,
-    strokeWidthDivisor = 150,
-  ) => (
-    <>
-      {risks
-        .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4)
-        .map(risk => {
-          const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
-          const sw = Math.max(imgW, imgH) / strokeWidthDivisor;
-          return (
-            <rect
-              key={risk.id}
-              x={rx1} y={ry1}
-              width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth={sw}
-              strokeLinejoin="round"
-            />
-          );
-        })}
-    </>
-  );
-
-  // ── Image card (thumbnail) ─────────────────────────────────────────────────
-  const renderImageCard = (group: 'violation' | 'warning') => {
-    if (!currentEvidence) return null;
-    const boxRisks = currentPhotoRisks.filter(r =>
-      group === 'violation'
-        ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
-        : r.severity === 'MEDIUM' || r.severity === 'LOW'
-    );
-    const strokeColor = group === 'violation' ? '#ef4444' : '#f59e0b';
-    const groupCount = group === 'violation' ? violationRisks.length : warningRisks.length;
-
-    return (
-      <div className="relative rounded-xl overflow-hidden bg-gray-900 border border-gray-200">
-        {/* Imagem + SVG overlay */}
-        <div
-          ref={thumbContainerRef}
-          className="relative cursor-zoom-in"
-          style={{ height: 168 }}
-          onClick={() => setLightboxGroup(group)}
-        >
-          <img
-            src={currentEvidence.url}
-            alt={`Evidence ${currentImageIndex + 1}`}
-            className="w-full h-full object-contain"
-            onLoad={e => {
-              const img = e.currentTarget;
-              setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-            }}
-          />
-          {imgNaturalSize && imgRenderedRect && (
-            <svg
-              className="absolute pointer-events-none"
-              style={{
-                left: imgRenderedRect.x,
-                top: imgRenderedRect.y,
-                width: imgRenderedRect.w,
-                height: imgRenderedRect.h,
-              }}
-              viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
-              preserveAspectRatio="none"
-            >
-              {renderBBoxRects(boxRisks, imgNaturalSize.w, imgNaturalSize.h, strokeColor, 150)}
-            </svg>
-          )}
-
-          {/* Severity chip */}
-          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
-            group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
-          }`}>
-            <AlertTriangle className="w-3 h-3" />
-            {group === 'violation' ? 'Violation' : 'Warning'}
-            <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
-              group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
-            }`}>
-              {groupCount}
-            </span>
-          </div>
-
-          {/* Zoom button */}
-          <button
-            onClick={e => { e.stopPropagation(); setLightboxGroup(group); }}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // ── Image card (thumbnail) — rendered as self-contained component ─────────
+  // Each card manages its own container ref so portrait photos get correct
+  // bounding-box positioning independently.
+  // (defined below as ImageCardWithBBox)
 
   // ── Finding card ───────────────────────────────────────────────────────────
   const renderFindingCard = (risk: RiskItem) => {
@@ -1157,7 +1422,7 @@ export function AnalysisDetailPage() {
 
   // ── Lightbox ───────────────────────────────────────────────────────────────
   const renderLightbox = () => {
-    if (lightboxGroup === null || !currentEvidence || !imgNaturalSize) return null;
+    if (lightboxGroup === null || !currentEvidence) return null;
 
     const boxRisks = currentPhotoRisks.filter(r =>
       lightboxGroup === 'violation'
@@ -1181,15 +1446,21 @@ export function AnalysisDetailPage() {
             alt={`Evidence ${currentImageIndex + 1} expanded`}
             className="max-w-full max-h-full object-contain"
             style={{ display: 'block' }}
+            onLoad={e => {
+              const img = e.currentTarget;
+              setLightboxNatSize({ w: img.naturalWidth, h: img.naturalHeight });
+            }}
           />
           {/* SVG overlay com mesma viewBox e preserveAspectRatio que o <img> */}
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {renderBBoxRects(boxRisks, imgNaturalSize.w, imgNaturalSize.h, strokeColor, 80)}
-          </svg>
+          {lightboxNatSize && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox={`0 0 ${lightboxNatSize.w} ${lightboxNatSize.h}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {renderBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h, strokeColor, 80)}
+            </svg>
+          )}
 
           {/* Severity label */}
           <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${
@@ -1212,10 +1483,36 @@ export function AnalysisDetailPage() {
             <X className="w-5 h-5" />
           </button>
 
-          {/* Dica de toque */}
-          <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">
-            Tap outside to close
-          </p>
+          {/* Prev photo */}
+          {assessment && currentImageIndex > 0 && (
+            <button
+              onClick={() => { setCurrentImageIndex(i => i - 1); setLightboxNatSize(null); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Next photo */}
+          {assessment && currentImageIndex < assessment.evidences.length - 1 && (
+            <button
+              onClick={() => { setCurrentImageIndex(i => i + 1); setLightboxNatSize(null); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Counter / dica de toque */}
+          {assessment && assessment.evidences.length > 1 ? (
+            <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
+              {currentImageIndex + 1} / {assessment.evidences.length}
+            </p>
+          ) : (
+            <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs pointer-events-none">
+              Tap outside to close
+            </p>
+          )}
         </div>
       </div>
     );
@@ -1336,7 +1633,17 @@ export function AnalysisDetailPage() {
                   {violationRisks.length}
                 </span>
               </div>
-              {renderImageCard('violation')}
+              {currentEvidence && (
+                <ImageCardWithBBox
+                  evidenceUrl={currentEvidence.url}
+                  imageIndex={currentImageIndex}
+                  risks={currentPhotoRisks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH')}
+                  group="violation"
+                  groupCount={violationRisks.length}
+                  onOpenLightbox={setLightboxGroup}
+                  renderBBoxRects={renderBBoxRects}
+                />
+              )}
               <div className="mt-2 space-y-2">
                 {violationRisks.map(renderFindingCard)}
               </div>
@@ -1355,7 +1662,17 @@ export function AnalysisDetailPage() {
                   {warningRisks.length}
                 </span>
               </div>
-              {renderImageCard('warning')}
+              {currentEvidence && (
+                <ImageCardWithBBox
+                  evidenceUrl={currentEvidence.url}
+                  imageIndex={currentImageIndex}
+                  risks={currentPhotoRisks.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW')}
+                  group="warning"
+                  groupCount={warningRisks.length}
+                  onOpenLightbox={setLightboxGroup}
+                  renderBBoxRects={renderBBoxRects}
+                />
+              )}
               <div className="mt-2 space-y-2">
                 {warningRisks.map(renderFindingCard)}
               </div>
