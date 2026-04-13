@@ -153,9 +153,6 @@ export function ValidatedAssessmentView({
     'Unknown'
   ).toUpperCase();
 
-  const environment = assessment.description || display[0]?.location || '—';
-  const category = assessment.title || '—';
-
   // ── Action handlers ───────────────────────────────────────────────────────
 
   const handleShare = async () => {
@@ -260,49 +257,21 @@ export function ValidatedAssessmentView({
           {/* Title row */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-3">
-              <h2 className="text-base font-bold text-gray-900 leading-tight">Safety Analysis Report</h2>
+              <h2 className="text-base font-bold text-gray-900 leading-tight">{assessment.title || 'Safety Analysis Report'}</h2>
               <p className="text-[9px] text-gray-400 tracking-widest uppercase mt-0.5">
-                {viewMode === 'checklist' ? 'Analysis Title' : `Case #${caseNum}`}
+                {`Case #${caseNum}`}
               </p>
             </div>
             <span className="text-xs text-gray-400 flex-shrink-0">{formattedDate}</span>
           </div>
 
-          {/* Environment + Category */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="flex items-start gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+          {/* Description */}
+          {assessment.description && (
+            <div className="flex items-start gap-1.5 mb-3">
+              <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Environment</p>
-                <p className="text-xs font-semibold text-gray-800 truncate">{environment}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Category</p>
-                <p className="text-xs font-semibold text-gray-800 truncate">{category}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Description (checklist) or Date (full report) */}
-          {viewMode === 'checklist' ? (
-            assessment.description ? (
-              <div className="flex items-start gap-1.5 mb-3">
-                <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
-                  <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
-                </div>
-              </div>
-            ) : null
-          ) : (
-            <div className="flex items-center gap-1.5 mb-3">
-              <Calendar className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0" />
-              <div>
-                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Date</p>
-                <p className="text-xs font-semibold text-gray-800">{formattedDate}</p>
+                <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
+                <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
               </div>
             </div>
           )}
@@ -764,31 +733,18 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
         {/* Report metadata card */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-start justify-between">
-            <h2 className="text-base font-bold text-gray-900">Safety Analysis Report</h2>
+            <h2 className="text-base font-bold text-gray-900">{assessment.title || 'Safety Analysis Report'}</h2>
             <span className="text-xs text-gray-400 mt-0.5">{formattedDate}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          {assessment.description && (
             <div className="bg-gray-50 rounded-xl p-3">
               <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-                <Building2 className="w-3 h-3" /> Environment
+                <FileText className="w-3 h-3" /> Description
               </p>
-              <p className="text-sm font-bold text-gray-900 truncate">{assessment.description || '—'}</p>
+              <p className="text-sm font-semibold text-gray-900">{assessment.description}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-                <Tag className="w-3 h-3" /> Category
-              </p>
-              <p className="text-sm font-bold text-gray-900 truncate">{assessment.title || '—'}</p>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
-              <FileText className="w-3 h-3" /> Analysis Title
-            </p>
-            <p className="text-sm font-semibold text-gray-900">{assessment.title}</p>
-          </div>
+          )}
 
           <div className="flex items-center gap-2 pt-1">
             <User className="w-3.5 h-3.5 text-gray-400" />
