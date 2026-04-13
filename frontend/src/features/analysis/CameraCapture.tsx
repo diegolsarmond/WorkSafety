@@ -270,7 +270,6 @@ export function CameraCapture() {
         ref={cameraInputRef}
         type="file"
         accept="image/jpeg,image/png,image/jpg,image/webp"
-        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />

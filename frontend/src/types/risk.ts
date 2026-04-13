@@ -90,6 +90,7 @@ export interface RiskAssessmentDetail {
   status_display: string;
   created_by: string | null;
   created_by_email: string;
+  created_by_name?: string;
   risks: RiskItem[];
   evidences: Evidence[];
   inferences: AIInference[];
