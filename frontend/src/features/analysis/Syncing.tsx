@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   CheckCircle2,
   Check,
@@ -18,9 +18,15 @@ import { cn } from '@/utils/cn';
 
 export function Syncing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { jobs, refresh } = useSyncQueue();
   const { setAssessmentId } = useAnalysisStore();
 
+  // ── Fluxo novo: dados vindos do CameraCapture via navigation state ─────────
+  const stateAssessmentId: string | undefined = location.state?.assessmentId;
+  const stateTitle: string | undefined = location.state?.title;
+
+  // ── Fluxo legado: dados do SyncQueue (retries / jobs pendentes) ───────────
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
 
   // Intercept back button to avoid navigation loop
@@ -31,7 +37,10 @@ export function Syncing() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [navigate]);
 
+  // Apenas rastreia jobs do SyncQueue quando não há dados no navigation state
   useEffect(() => {
+    if (stateAssessmentId) return; // novo fluxo — ignora fila
+
     if (jobs.length > 0 && !currentJob) {
       const mostRecent = jobs.reduce((latest, job) =>
         job.createdAt > latest.createdAt ? job : latest
@@ -50,9 +59,9 @@ export function Syncing() {
         });
       }
     }
-  }, [jobs, currentJob]);
+  }, [jobs, currentJob, stateAssessmentId]);
 
-  // Store assessmentId when job completes (but no auto-redirect)
+  // Store assessmentId when legacy job completes
   useEffect(() => {
     if (currentJob?.status === 'COMPLETED') {
       const assessmentId = currentJob.assessmentId || currentJob.id;
@@ -60,21 +69,27 @@ export function Syncing() {
     }
   }, [currentJob, setAssessmentId]);
 
+  // ── Valores resolvidos (novo fluxo tem prioridade) ────────────────────────
+  const resolvedAssessmentId = stateAssessmentId || currentJob?.assessmentId;
+  const resolvedTitle = stateTitle || currentJob?.assessmentDraft?.title || 'Analysis';
+
+  const isLegacyCompleted = !stateAssessmentId && currentJob?.status === 'COMPLETED';
+  const hasError = !stateAssessmentId &&
+    (currentJob?.status === 'ERROR' || currentJob?.status === 'FAILED');
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleRetry = () => { if (currentJob) refresh(); };
+
   const handleGoToQueue = () => {
-    const assessmentId = currentJob?.assessmentId || currentJob?.id;
-    if (assessmentId) {
-      navigate(`/analysis/${assessmentId}`);
-    } else {
-      navigate('/sync-queue');
+    if (resolvedAssessmentId) {
+      navigate(`/analysis/${resolvedAssessmentId}`);
     }
   };
+
   const handleGoHome = () => navigate('/home', { replace: true });
 
-  const isCompleted = currentJob?.status === 'COMPLETED';
-  const hasError = currentJob?.status === 'ERROR' || currentJob?.status === 'FAILED';
-
-  if (!currentJob) {
+  // ── Loading — apenas no fluxo legado sem job ainda ────────────────────────
+  if (!stateAssessmentId && !currentJob) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8">
         <Loader2 className="w-12 h-12 animate-spin text-[#0B7A90]" />
@@ -83,10 +98,15 @@ export function Syncing() {
     );
   }
 
+  // No novo fluxo as fotos já foram enviadas e a IA está processando
+  // No fluxo legado, isLegacyCompleted indica que o job terminou
+  const uploadDone = Boolean(stateAssessmentId) || isLegacyCompleted;
+  const processingDone = isLegacyCompleted;
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 sm:p-8 relative">
-      {/* Error toast */}
-      {hasError && (
+      {/* Error toast — apenas fluxo legado */}
+      {hasError && currentJob && (
         <div className="fixed top-4 left-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-lg z-50 flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
           <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -114,7 +134,7 @@ export function Syncing() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Photos submitted!</h2>
           <p className="text-base font-semibold text-[#0B7A90] mt-1 truncate max-w-xs">
-            {currentJob.assessmentDraft.title}
+            {resolvedTitle}
           </p>
           <p className="text-sm text-gray-500 mt-3 leading-relaxed">
             Your photos are queued for analysis. You'll be notified when they're ready for review.
@@ -131,20 +151,26 @@ export function Syncing() {
             <span className="text-xs font-bold text-emerald-600">Uploaded</span>
           </div>
 
-          <div className={cn("flex-1 h-0.5 mt-4 max-w-[40px]", isCompleted ? "bg-emerald-400" : "bg-gray-200")} />
+          <div className={cn(
+            "flex-1 h-0.5 mt-4 max-w-[40px]",
+            uploadDone ? "bg-emerald-400" : "bg-gray-200"
+          )} />
 
           {/* Processing */}
           <div className="flex flex-col items-center gap-1.5">
             <div className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center",
-              isCompleted ? "bg-emerald-500" : "bg-gray-200"
+              processingDone ? "bg-emerald-500" : "bg-gray-200"
             )}>
-              {isCompleted
+              {processingDone
                 ? <Check className="w-4 h-4 text-white" />
                 : <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
               }
             </div>
-            <span className={cn("text-xs font-bold", isCompleted ? "text-emerald-600" : "text-gray-400")}>
+            <span className={cn(
+              "text-xs font-bold",
+              processingDone ? "text-emerald-600" : "text-gray-400"
+            )}>
               Processing
             </span>
           </div>
@@ -167,7 +193,7 @@ export function Syncing() {
         style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
       >
         <div className="max-w-sm mx-auto space-y-3">
-          {hasError && currentJob.status === 'ERROR' && (
+          {hasError && currentJob?.status === 'ERROR' && (
             <Button
               onClick={handleRetry}
               className="w-full h-12 text-base rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2"
@@ -178,7 +204,8 @@ export function Syncing() {
 
           <Button
             onClick={handleGoToQueue}
-            className="w-full h-12 text-base rounded-xl bg-[#0B7A90] hover:bg-[#096375] text-white flex items-center justify-center gap-2"
+            disabled={!resolvedAssessmentId}
+            className="w-full h-12 text-base rounded-xl bg-[#0B7A90] hover:bg-[#096375] text-white flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <List className="w-5 h-5" /> Review Analysis Status
           </Button>

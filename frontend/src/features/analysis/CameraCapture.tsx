@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/ui/components/Button";
 import { useAnalysisStore } from "../../store/analysisStore";
-import { useSyncStore } from "@/store/syncStore";
+import { apiClient } from "@/services/api/apiClient";
+import { dataURLtoFile } from "@/utils/syncUtils";
 
 const TIPS_KEY = "worksafety:camera_tips_shown";
 
@@ -34,7 +35,6 @@ const TIPS = [
 export function CameraCapture() {
   const navigate = useNavigate();
   const { photos, addPhoto, removePhoto, environment, category, title, description, reset } = useAnalysisStore();
-  const { addJob } = useSyncStore();
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,18 +146,41 @@ export function CameraCapture() {
     if (photos.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await addJob(
-        {
-          title: title.trim() || `Analysis - ${environment} - ${category}`,
-          description: description.trim() || `Automated analysis for ${environment} concerning ${category}.`,
-          environment,
-          category,
-          status: "draft",
-        },
-        photos
-      );
+      const computedTitle = title.trim() || `Analysis - ${environment} - ${category}`;
+
+      // Step 1: Create the assessment
+      const createResponse = await apiClient.post("assessments/", {
+        title: computedTitle,
+        description: description.trim() || `Automated analysis for ${environment} concerning ${category}.`,
+        status: "draft",
+      });
+      const assessmentId = createResponse.data.id;
+
+      // Step 2: Upload photos as evidences
+      const formData = new FormData();
+      photos.forEach((photo) => {
+        const file = dataURLtoFile(photo.dataUrl, `evidence_${photo.id}.jpg`);
+        formData.append("images", file);
+        formData.append("timestamps", photo.timestamp);
+      });
+      await apiClient.post(`assessments/${assessmentId}/evidences/`, formData, {
+        timeout: 60000,
+        headers: { "Content-Type": undefined },
+      });
+
+      // Step 3: Transition to CAPTURED
+      await apiClient.post(`assessments/${assessmentId}/capture/`, {});
+
+      // Step 4: Transition to SYNCED (triggers AI analysis)
+      await apiClient.post(`assessments/${assessmentId}/sync/`, {});
+
       reset();
-      navigate("/analysis/syncing", { replace: true });
+      // Navigate to syncing screen — assessment ID is passed via state so
+      // "Review Analysis Status" can go directly to /analysis/{id}
+      navigate("/analysis/syncing", {
+        replace: true,
+        state: { assessmentId, title: computedTitle },
+      });
     } catch (error) {
       console.error("Error submitting analysis:", error);
       showToast("Failed to submit photos. Please try again.");

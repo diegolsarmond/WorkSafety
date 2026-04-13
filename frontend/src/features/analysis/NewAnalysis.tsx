@@ -80,6 +80,7 @@ export function NewAnalysis() {
       try {
         setLoadingEnvironments(true);
         const data = await environmentService.getAll();
+        data.sort((a, b) => a.id - b.id);
         const mapped: EnvironmentOption[] = data.map((env, index) => {
           const colors = getColorsForIndex(index);
           return { id: env.id.toString(), label: env.name, icon: getIconForEnvironment(env.name), ...colors };

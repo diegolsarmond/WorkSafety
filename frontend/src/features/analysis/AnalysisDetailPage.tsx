@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Loader2,
   ThumbsUp,
-  Search,
+  ZoomIn,
   X,
   Info,
   Image,
@@ -21,6 +21,11 @@ import {
   Share2,
   Download,
   FileSpreadsheet,
+  Check,
+  Clock,
+  ImageIcon,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { submitReview } from '@/services/risk/riskService';
@@ -29,6 +34,12 @@ import type { RiskItem, RiskAssessmentDetail } from '@/types/risk';
 interface RiskDecision {
   riskId: string;
   decision: 'approved' | 'rejected' | null;
+}
+
+interface ReviewState {
+  approvedRiskIds: string[];
+  mitigations: Record<string, string[]>;
+  customActions: Record<string, string>;
 }
 
 /**
@@ -59,37 +70,62 @@ function normalizeBBox(
 }
 
 // ── Validated read-only view (Safety Report) ──────────────────────────────
-function ValidatedAssessmentView({
+export function ValidatedAssessmentView({
   assessment,
   risks,
+  reviewState,
 }: {
   assessment: RiskAssessmentDetail;
   risks: RiskItem[];
+  reviewState?: ReviewState | null;
 }) {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'checklist' | 'full'>('checklist');
 
-  // Show only validated risks; fall back to all if statuses not yet updated
-  const accepted = risks.filter(r => r.risk_status === 'validated');
-  const display = accepted.length > 0 ? accepted : risks;
+  // Show only approved risks from the review state, then fall back to validated, then all
+  const display = useMemo(() => {
+    if (reviewState?.approvedRiskIds && reviewState.approvedRiskIds.length > 0) {
+      return risks.filter(r => reviewState.approvedRiskIds.includes(r.id));
+    }
+    const validated = risks.filter(r => r.risk_status === 'validated');
+    return validated.length > 0 ? validated : risks;
+  }, [risks, reviewState]);
 
   const violations = display.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH');
   const warnings = display.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW');
 
-  // Aggregate unique recommendations from all displayed risks
+  // Aggregate mitigations: only selected ones (+ custom actions) if review state is available
   const allRecommendations = useMemo(() => {
     const seen = new Set<string>();
     const recs: { id: string; title: string }[] = [];
     for (const risk of display) {
-      for (const rec of risk.recommendations) {
-        if (!seen.has(rec.id)) {
-          seen.add(rec.id);
-          recs.push({ id: rec.id, title: rec.title });
+      if (reviewState?.mitigations) {
+        const selectedIds = reviewState.mitigations[risk.id] ?? [];
+        for (const rec of risk.recommendations) {
+          if (selectedIds.includes(rec.id) && !seen.has(rec.id)) {
+            seen.add(rec.id);
+            recs.push({ id: rec.id, title: rec.title });
+          }
+        }
+        const custom = reviewState.customActions?.[risk.id];
+        if (custom?.trim()) {
+          const customId = `custom_${risk.id}`;
+          if (!seen.has(customId)) {
+            seen.add(customId);
+            recs.push({ id: customId, title: custom.trim() });
+          }
+        }
+      } else {
+        for (const rec of risk.recommendations) {
+          if (!seen.has(rec.id)) {
+            seen.add(rec.id);
+            recs.push({ id: rec.id, title: rec.title });
+          }
         }
       }
     }
     return recs;
-  }, [display]);
+  }, [display, reviewState]);
 
   const reportDate = new Date(assessment.captured_at || assessment.created_at);
   const formattedDate = reportDate.toLocaleDateString('pt-BR');
@@ -399,6 +435,231 @@ function ValidatedAssessmentView({
   );
 }
 
+// ── Processing view (synced / captured / draft — AI ainda não concluiu) ──────
+function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
+  const navigate = useNavigate();
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+
+  const photoCount = assessment.evidences.length;
+  const firstPhoto = assessment.evidences[0]?.url ?? null;
+
+  const reportDate = new Date(assessment.captured_at || assessment.created_at);
+  const formattedDate = reportDate.toLocaleDateString('pt-BR');
+
+  const submittedBy =
+    assessment.created_by ||
+    assessment.created_by_email?.split('@')[0]?.replace(/[._]/g, ' ').toUpperCase() ||
+    'Unknown';
+
+  // Mapa de status → etapas visuais
+  const steps = [
+    {
+      label: 'Photos uploaded',
+      done: true,
+    },
+    {
+      label: 'Images verified',
+      done: assessment.status !== 'draft',
+    },
+    {
+      label: 'Processing',
+      active: assessment.status === 'synced' || assessment.status === 'captured',
+      done: false,
+    },
+    {
+      label: 'Ready for review',
+      done: false,
+      inactive: true,
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
+      {/* Header */}
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
+        <button
+          onClick={() => navigate('/home')}
+          className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex flex-col items-center">
+          <h1 className="text-sm font-bold text-gray-900 truncate max-w-[180px]">{assessment.title}</h1>
+          <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-[#E8F4F7] text-[#0B7A90] text-[10px] font-bold">
+            <Loader2 className="w-3 h-3 animate-spin" /> Processing
+          </span>
+        </div>
+        <button
+          onClick={() => navigate('/home')}
+          className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <Home className="w-5 h-5" />
+        </button>
+      </header>
+
+      <main className="flex-1 p-4 space-y-4 pb-8 max-w-lg mx-auto w-full">
+        {/* Processing steps card */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full border-2 border-[#0B7A90] flex items-center justify-center">
+              <Loader2 className="w-4 h-4 text-[#0B7A90] animate-spin" />
+            </div>
+            <span className="text-xl font-bold text-gray-800">Being processed</span>
+          </div>
+          <div className="space-y-3">
+            {steps.map((step, i) => (
+              <div key={i} className="flex items-center gap-3">
+                {step.done ? (
+                  <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                    <Check className="w-3.5 h-3.5 text-white" />
+                  </div>
+                ) : step.active ? (
+                  <div className="w-6 h-6 rounded-full border-2 border-[#0B7A90] flex items-center justify-center flex-shrink-0">
+                    <Loader2 className="w-3.5 h-3.5 text-[#0B7A90] animate-spin" />
+                  </div>
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+                  </div>
+                )}
+                <span
+                  className={`text-sm font-semibold ${
+                    step.done
+                      ? 'text-emerald-600'
+                      : step.active
+                      ? 'text-[#0B7A90]'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Photo thumbnail placeholder */}
+        <div
+          className="relative bg-gray-200 rounded-2xl overflow-hidden aspect-video flex items-center justify-center cursor-pointer group"
+          onClick={() => firstPhoto && setExpandedPhoto(firstPhoto)}
+        >
+          {firstPhoto ? (
+            <img src={firstPhoto} alt="Evidence" className="w-full h-full object-cover" />
+          ) : (
+            <ImageIcon className="w-12 h-12 text-gray-400" />
+          )}
+          {firstPhoto && (
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+            </div>
+          )}
+          {photoCount > 0 && (
+            <span className="absolute top-3 right-3 bg-black/60 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
+              <ImageIcon className="w-3.5 h-3.5" /> {photoCount} {photoCount === 1 ? 'photo' : 'photos'}
+            </span>
+          )}
+        </div>
+
+        {/* Photo lightbox */}
+        {expandedPhoto && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setExpandedPhoto(null)}
+          >
+            <button
+              onClick={() => setExpandedPhoto(null)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={expandedPhoto}
+              alt="Evidence expanded"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            {/* Gallery navigation for multiple photos */}
+            {assessment.evidences.length > 1 && (
+              <div className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-3">
+                {assessment.evidences.map((ev, idx) => (
+                  <button
+                    key={ev.id}
+                    onClick={(e) => { e.stopPropagation(); setExpandedPhoto(ev.url); }}
+                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                      expandedPhoto === ev.url
+                        ? 'border-white scale-110'
+                        : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={ev.url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Report metadata card */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex items-start justify-between">
+            <h2 className="text-base font-bold text-gray-900">Safety Analysis Report</h2>
+            <span className="text-xs text-gray-400 mt-0.5">{formattedDate}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
+                <Building2 className="w-3 h-3" /> Environment
+              </p>
+              <p className="text-sm font-bold text-gray-900 truncate">{assessment.description || '—'}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
+                <Tag className="w-3 h-3" /> Category
+              </p>
+              <p className="text-sm font-bold text-gray-900 truncate">{assessment.title || '—'}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
+              <FileText className="w-3 h-3" /> Analysis Title
+            </p>
+            <p className="text-sm font-semibold text-gray-900">{assessment.title}</p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <User className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
+              Submitted by: <span className="text-gray-700">{submittedBy}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Waiting info box */}
+        <div className="bg-[#E8F4F7] border border-[#0B7A90]/20 rounded-2xl p-4 flex gap-3">
+          <Clock className="w-5 h-5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-[#0B7A90] mb-1">Waiting for results</p>
+            <p className="text-xs text-[#0B7A90]/80 leading-relaxed">
+              Your photos are being analyzed. You will be notified when the review is ready.
+              You can close this screen and come back later.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer note */}
+        <div className="flex items-start gap-2 px-1">
+          <AlertTriangle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Identified risks and required actions will be available for review once processing is complete.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export function AnalysisDetailPage() {
   const navigate = useNavigate();
   const { assessmentId } = useParams<{ assessmentId: string }>();
@@ -411,11 +672,42 @@ export function AnalysisDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  // Rect efetivo da imagem renderizada dentro do container (para posicionar o SVG)
+  const [imgRenderedRect, setImgRenderedRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const thumbContainerRef = useRef<HTMLDivElement>(null);
   // null = fechado; 'violation' | 'warning' = lightbox aberto para o grupo
   const [lightboxGroup, setLightboxGroup] = useState<'violation' | 'warning' | null>(null);
 
+  /**
+   * Calcula o rect real da imagem renderizada dentro do container
+   * (descontando letterbox criado por object-contain).
+   */
+  const computeRenderedImageRect = useCallback(() => {
+    if (!thumbContainerRef.current || !imgNaturalSize) return;
+    const containerW = thumbContainerRef.current.clientWidth;
+    const containerH = thumbContainerRef.current.clientHeight;
+    const { w: natW, h: natH } = imgNaturalSize;
+    const scale = Math.min(containerW / natW, containerH / natH);
+    const renderedW = natW * scale;
+    const renderedH = natH * scale;
+    const offsetX = (containerW - renderedW) / 2;
+    const offsetY = (containerH - renderedH) / 2;
+    setImgRenderedRect({ x: offsetX, y: offsetY, w: renderedW, h: renderedH });
+  }, [imgNaturalSize]);
+
+  // Recalcular quando o tamanho natural muda ou a janela redimensiona
+  useEffect(() => {
+    computeRenderedImageRect();
+    const container = thumbContainerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(() => computeRenderedImageRect());
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [computeRenderedImageRect]);
+
   useEffect(() => {
     setImgNaturalSize(null);
+    setImgRenderedRect(null);
     setLightboxGroup(null);
   }, [currentImageIndex]);
 
@@ -433,6 +725,16 @@ export function AnalysisDetailPage() {
     autoFetch: true,
     refreshInterval: 5000,
   });
+
+  const savedReviewState = useMemo<ReviewState | null>(() => {
+    if (!assessmentId) return null;
+    try {
+      const raw = localStorage.getItem(`review_state_${assessmentId}`);
+      return raw ? (JSON.parse(raw) as ReviewState) : null;
+    } catch {
+      return null;
+    }
+  }, [assessmentId]);
 
   const handleRiskDecision = (riskId: string, decision: 'approved' | 'rejected') => {
     setRiskDecisions(prev => new Map(prev).set(riskId, decision));
@@ -463,7 +765,11 @@ export function AnalysisDetailPage() {
   const handleCloseMitigation = (riskId: string) => {
     setMitigationOpen(prev => {
       const next = new Set(prev);
-      next.delete(riskId);
+      if (next.has(riskId)) {
+        next.delete(riskId);
+      } else {
+        next.add(riskId);
+      }
       return next;
     });
   };
@@ -499,6 +805,20 @@ export function AnalysisDetailPage() {
         custom_action: customMitigations.get(risk.id) ?? '',
       }));
       await submitReview(assessmentId, decisions);
+
+      // Persist review selections so the report view can filter correctly
+      const approvedRiskIds = filteredRisks
+        .filter(r => riskDecisions.get(r.id) === 'approved')
+        .map(r => r.id);
+      const reviewState: ReviewState = {
+        approvedRiskIds,
+        mitigations: Object.fromEntries(
+          [...selectedMitigations.entries()].map(([k, v]) => [k, [...v]]),
+        ),
+        customActions: Object.fromEntries(customMitigations),
+      };
+      localStorage.setItem(`review_state_${assessmentId}`, JSON.stringify(reviewState));
+
       setReviewComplete(true);
     } catch {
       setSubmitError('Failed to save review. Please try again.');
@@ -579,10 +899,17 @@ export function AnalysisDetailPage() {
     );
   }
 
-  // ── Validated / finalized read-only view ──────────────────────────────────
-  if (assessment.status === 'human_validated' || assessment.status === 'finalized') {
-    return <ValidatedAssessmentView assessment={assessment} risks={filteredRisks} />;
+  // ── Processing view (IA ainda em execução) ────────────────────────────────
+  if (
+    assessment.status === 'synced' ||
+    assessment.status === 'captured' ||
+    assessment.status === 'draft'
+  ) {
+    return <ProcessingView assessment={assessment} />;
   }
+
+  // ── Validated / finalized → fall through to the main render in read-only mode
+  const isValidated = assessment.status === 'human_validated' || assessment.status === 'finalized';
 
   // ── Completion screen ──────────────────────────────────────────────────────
   if (reviewComplete) {
@@ -653,6 +980,7 @@ export function AnalysisDetailPage() {
       <div className="relative rounded-xl overflow-hidden bg-gray-900 border border-gray-200">
         {/* Imagem + SVG overlay */}
         <div
+          ref={thumbContainerRef}
           className="relative cursor-zoom-in"
           style={{ height: 168 }}
           onClick={() => setLightboxGroup(group)}
@@ -666,11 +994,17 @@ export function AnalysisDetailPage() {
               setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
             }}
           />
-          {imgNaturalSize && (
+          {imgNaturalSize && imgRenderedRect && (
             <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
+              className="absolute pointer-events-none"
+              style={{
+                left: imgRenderedRect.x,
+                top: imgRenderedRect.y,
+                width: imgRenderedRect.w,
+                height: imgRenderedRect.h,
+              }}
               viewBox={`0 0 ${imgNaturalSize.w} ${imgNaturalSize.h}`}
-              preserveAspectRatio="xMidYMid meet"
+              preserveAspectRatio="none"
             >
               {renderBBoxRects(boxRisks, imgNaturalSize.w, imgNaturalSize.h, strokeColor, 150)}
             </svg>
@@ -694,7 +1028,7 @@ export function AnalysisDetailPage() {
             onClick={e => { e.stopPropagation(); setLightboxGroup(group); }}
             className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-colors"
           >
-            <Search className="w-3.5 h-3.5" />
+            <ZoomIn className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -714,15 +1048,15 @@ export function AnalysisDetailPage() {
       <div key={risk.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-4">
           {/* Description row */}
-          <div className="flex items-start gap-2 mb-3">
+          <div className={`flex items-start gap-2 ${isValidated ? '' : 'mb-3'}`}>
             <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isViolation ? 'text-red-500' : 'text-yellow-500'}`} />
             <p className={`text-sm font-medium leading-snug ${isRejected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
               {risk.description}
             </p>
           </div>
 
-          {/* Badge + Undo (post-decision) */}
-          {(isAccepted || isRejected) && (
+          {/* Badge + Undo (post-decision) — hidden for validated */}
+          {!isValidated && (isAccepted || isRejected) && (
             <div className="flex items-center gap-2 mb-3">
               {isAccepted && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#0b6b82] bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
@@ -736,15 +1070,15 @@ export function AnalysisDetailPage() {
               )}
               <button
                 onClick={() => handleUndo(risk.id)}
-                className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" /> Undo
               </button>
             </div>
           )}
 
-          {/* Accept / Reject buttons (undecided) */}
-          {!isAccepted && !isRejected && (
+          {/* Accept / Reject buttons (undecided) — hidden for validated */}
+          {!isValidated && !isAccepted && !isRejected && (
             <div className="flex gap-2">
               <button
                 onClick={() => handleRiskDecision(risk.id, 'approved')}
@@ -762,48 +1096,59 @@ export function AnalysisDetailPage() {
           )}
         </div>
 
-        {/* Mitigation panel */}
-        {isAccepted && hasMitigation && (
-          <div className="border-t border-teal-100 bg-teal-50/40 p-4">
-            <div className="flex items-center justify-between mb-3">
+        {/* Suggested Mitigations panel */}
+        {isAccepted && (
+          <div className="border-t border-teal-100 bg-teal-50/40">
+            <button
+              type="button"
+              onClick={() => handleCloseMitigation(risk.id)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-teal-100/50 transition-colors"
+            >
               <span className="text-xs font-bold text-[#0b6b82] tracking-wider uppercase">
-                Mitigation{' '}
+                Suggested Mitigations{' '}
                 <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span>
               </span>
-              <button
-                onClick={() => handleCloseMitigation(risk.id)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {risk.recommendations.length > 0 && (
-              <div className="flex flex-col gap-2 mb-3">
-                {risk.recommendations.map(rec => {
-                  const isSelected = selectedRecs.has(rec.id);
-                  return (
-                    <button
-                      key={rec.id}
-                      onClick={() => handleToggleMitigationChip(risk.id, rec.id)}
-                      className={`text-left text-sm font-medium py-2 px-3 rounded-lg border transition-colors ${
-                        isSelected
-                          ? 'bg-[#0b6b82] text-white border-[#0b6b82]'
-                          : 'bg-white text-[#0b6b82] border-[#0b6b82]/50 hover:border-[#0b6b82]'
-                      }`}
-                    >
-                      {rec.title}
-                    </button>
-                  );
-                })}
+              <ChevronDown className={`w-4 h-4 text-[#0b6b82] transition-transform duration-200 ${hasMitigation ? 'rotate-180' : ''}`} />
+            </button>
+
+            {mitigationOpen.has(risk.id) && (
+              <div className="px-4 pb-4 pt-1">
+                {risk.recommendations.length > 0 && (
+                  <div className="flex flex-col gap-2 mb-3">
+                    {risk.recommendations.map(rec => {
+                      const isSelected = selectedRecs.has(rec.id);
+                      return (
+                        <label
+                          key={rec.id}
+                          onClick={() => handleToggleMitigationChip(risk.id, rec.id)}
+                          className="flex items-start gap-2.5 cursor-pointer group"
+                        >
+                          <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                            isSelected
+                              ? 'bg-[#0b6b82] border-[#0b6b82]'
+                              : 'bg-white border-gray-300 group-hover:border-[#0b6b82]'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </span>
+                          <span className={`text-sm leading-snug transition-colors ${
+                            isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'
+                          }`}>
+                            {rec.title}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                <textarea
+                  value={customMitigations.get(risk.id) ?? ''}
+                  onChange={e => handleCustomMitigation(risk.id, e.target.value)}
+                  placeholder="Or describe a custom action..."
+                  rows={2}
+                  className="w-full text-sm text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[#0b6b82]"
+                />
               </div>
             )}
-            <textarea
-              value={customMitigations.get(risk.id) ?? ''}
-              onChange={e => handleCustomMitigation(risk.id, e.target.value)}
-              placeholder="Or describe a custom action..."
-              rows={2}
-              className="w-full text-sm text-gray-700 placeholder-gray-400 bg-white border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[#0b6b82]"
-            />
           </div>
         )}
       </div>
@@ -890,10 +1235,14 @@ export function AnalysisDetailPage() {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-base font-bold text-gray-900">
-            #{String(assessment.id).slice(0, 8).toUpperCase()}
+            {assessment.title || `#${String(assessment.id).slice(0, 8).toUpperCase()}`}
           </h1>
-          <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase">
-            Pending Review
+          <p className={`text-[11px] font-semibold tracking-widest uppercase ${
+            isValidated ? 'text-emerald-500' : 'text-gray-400'
+          }`}>
+            {isValidated
+              ? (assessment.status === 'finalized' ? 'Done' : 'Validated')
+              : 'Pending Review'}
           </p>
         </div>
         <button
@@ -904,39 +1253,41 @@ export function AnalysisDetailPage() {
         </button>
       </header>
 
-      {/* ── Progress section ── */}
-      <div className="bg-white px-4 pt-4 pb-3 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-bold text-gray-900">
-            Photo {currentImageIndex + 1} of {assessment.evidences.length}
-          </span>
-          <span className="text-sm font-bold text-[#0b6b82]">
-            {percentReviewed}% reviewed
-          </span>
-        </div>
-        {assessment.evidences.length > 1 && (
-          <div className="flex items-center">
-            {assessment.evidences.map((_, idx) => (
-              <React.Fragment key={idx}>
-                {idx > 0 && (
-                  <div
-                    className={`flex-1 h-0.5 ${idx <= currentImageIndex ? 'bg-[#0b6b82]' : 'bg-gray-200'}`}
-                  />
-                )}
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${
-                    idx <= currentImageIndex
-                      ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
-                      : 'bg-white border-gray-300 text-gray-400'
-                  }`}
-                >
-                  {idx + 1}
-                </div>
-              </React.Fragment>
-            ))}
+      {/* ── Progress section (hidden for validated) ── */}
+      {!isValidated && (
+        <div className="bg-white px-4 pt-4 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-gray-900">
+              Photo {currentImageIndex + 1} of {assessment.evidences.length}
+            </span>
+            <span className="text-sm font-bold text-[#0b6b82]">
+              {percentReviewed}% reviewed
+            </span>
           </div>
-        )}
-      </div>
+          {assessment.evidences.length > 1 && (
+            <div className="flex items-center">
+              {assessment.evidences.map((_, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && (
+                    <div
+                      className={`flex-1 h-0.5 ${idx <= currentImageIndex ? 'bg-[#0b6b82]' : 'bg-gray-200'}`}
+                    />
+                  )}
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${
+                      idx <= currentImageIndex
+                        ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
+                        : 'bg-white border-gray-300 text-gray-400'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Date / Location row ── */}
       {currentEvidence && (
@@ -958,12 +1309,14 @@ export function AnalysisDetailPage() {
               {assessment.title || 'Scaffolding Area'}
             </span>
           </div>
-          <div className="flex items-start gap-1.5 mt-2.5">
-            <Info className="w-3.5 h-3.5 text-[#0b6b82] flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-[#0b6b82] leading-snug">
-              Review is <strong>optional</strong> — accept or reject what you see. You can skip to the next photo at any time.
-            </p>
-          </div>
+          {!isValidated && (
+            <div className="flex items-start gap-1.5 mt-2.5">
+              <Info className="w-3.5 h-3.5 text-[#0b6b82] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#0b6b82] leading-snug">
+                Review is <strong>optional</strong> — accept or reject what you see. You can skip to the next photo at any time.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1031,25 +1384,38 @@ export function AnalysisDetailPage() {
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         <div className="max-w-3xl mx-auto">
-          {submitError && (
-            <p className="text-center text-xs text-red-500 mb-2">{submitError}</p>
+          {isValidated ? (
+            <>
+              <button
+                onClick={() => navigate(`/analysis/${assessmentId}/report`)}
+                className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors"
+              >
+                <CheckCircle2 className="w-5 h-5" /> View Report
+              </button>
+            </>
+          ) : (
+            <>
+              {submitError && (
+                <p className="text-center text-xs text-red-500 mb-2">{submitError}</p>
+              )}
+              <button
+                onClick={handleNextPhoto}
+                disabled={isSubmitting}
+                className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                ) : isLastPhoto ? (
+                  'Finish Review'
+                ) : (
+                  <>Next Photo <span className="text-lg leading-none">›</span></>
+                )}
+              </button>
+              <p className="text-center text-xs text-gray-400 mt-2">
+                Review is optional — skip anytime to generate the report
+              </p>
+            </>
           )}
-          <button
-            onClick={handleNextPhoto}
-            disabled={isSubmitting}
-            className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors disabled:opacity-60"
-          >
-            {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-            ) : isLastPhoto ? (
-              'Finish Review'
-            ) : (
-              <>Next Photo <span className="text-lg leading-none">›</span></>
-            )}
-          </button>
-          <p className="text-center text-xs text-gray-400 mt-2">
-            Review is optional — skip anytime to generate the report
-          </p>
         </div>
       </footer>
 
