@@ -228,21 +228,19 @@ export function ValidatedAssessmentView({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setViewMode('checklist')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-              viewMode === 'checklist'
-                ? 'bg-[#0B7A90] text-white'
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'checklist'
+              ? 'bg-[#0B7A90] text-white'
+              : 'text-gray-500 hover:bg-gray-100'
+              }`}
           >
             Checklist
           </button>
           <button
             onClick={() => setViewMode('full')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-              viewMode === 'full'
-                ? 'bg-[#0B7A90] text-white'
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'full'
+              ? 'bg-[#0B7A90] text-white'
+              : 'text-gray-500 hover:bg-gray-100'
+              }`}
           >
             Full Report
           </button>
@@ -378,22 +376,19 @@ export function ValidatedAssessmentView({
                         return (
                           <div
                             key={risk.id}
-                            className={`rounded-xl border p-3 ${
-                              isViolation
-                                ? 'border-red-100 bg-red-50/40'
-                                : 'border-yellow-100 bg-yellow-50/40'
-                            }`}
+                            className={`rounded-xl border p-3 ${isViolation
+                              ? 'border-red-100 bg-red-50/40'
+                              : 'border-yellow-100 bg-yellow-50/40'
+                              }`}
                           >
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <AlertTriangle
-                                className={`w-3.5 h-3.5 flex-shrink-0 ${
-                                  isViolation ? 'text-red-500' : 'text-yellow-500'
-                                }`}
+                                className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
+                                  }`}
                               />
                               <span
-                                className={`text-[10px] font-bold tracking-widest uppercase ${
-                                  isViolation ? 'text-red-500' : 'text-yellow-600'
-                                }`}
+                                className={`text-[10px] font-bold tracking-widest uppercase ${isViolation ? 'text-red-500' : 'text-yellow-600'
+                                  }`}
                               >
                                 {isViolation ? 'Violation' : 'Warning'}
                               </span>
@@ -654,13 +649,12 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
                   </div>
                 )}
                 <span
-                  className={`text-sm font-semibold ${
-                    step.done
-                      ? 'text-emerald-600'
-                      : step.active
+                  className={`text-sm font-semibold ${step.done
+                    ? 'text-emerald-600'
+                    : step.active
                       ? 'text-[#0B7A90]'
                       : 'text-gray-400'
-                  }`}
+                    }`}
                 >
                   {step.label}
                 </span>
@@ -716,11 +710,10 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
                   <button
                     key={ev.id}
                     onClick={(e) => { e.stopPropagation(); setExpandedPhoto(ev.url); }}
-                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                      expandedPhoto === ev.url
-                        ? 'border-white scale-110'
-                        : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
-                    }`}
+                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${expandedPhoto === ev.url
+                      ? 'border-white scale-110'
+                      : 'border-white/30 hover:border-white/60 opacity-70 hover:opacity-100'
+                      }`}
                   >
                     <img src={ev.url} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
                   </button>
@@ -835,7 +828,7 @@ function ImageCardWithBBox({
             viewBox={`0 0 ${natSize.w} ${natSize.h}`}
             preserveAspectRatio="xMidYMid meet"
           >
-            {group === 'all' 
+            {group === 'all'
               ? renderAllBBoxRects(risks, natSize.w, natSize.h)
               : renderBBoxRects(risks, natSize.w, natSize.h, strokeColor, 150)}
           </svg>
@@ -843,22 +836,20 @@ function ImageCardWithBBox({
 
         {/* Severity chip or all chip */}
         {group !== 'all' ? (
-          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${
-            group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
-          }`}>
+          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
+            }`}>
             <AlertTriangle className="w-3 h-3" />
             {group === 'violation' ? 'Violation' : 'Warning'}
-            <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
-              group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
-            }`}>
+            <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
+              }`}>
               {groupCount}
             </span>
           </div>
         ) : (
           <div className="absolute top-4 left-4 pointer-events-none">
-             <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full">
-                <span className="text-white text-xs font-bold whitespace-nowrap">Scaffolding Area</span>
-             </div>
+            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full">
+
+            </div>
           </div>
         )}
 
@@ -1356,16 +1347,14 @@ export function AnalysisDetailPage() {
                           onClick={() => handleToggleMitigationChip(risk.id, rec.id)}
                           className="flex items-start gap-2.5 cursor-pointer group"
                         >
-                          <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                            isSelected
-                              ? 'bg-[#0b6b82] border-[#0b6b82]'
-                              : 'bg-white border-gray-300 group-hover:border-[#0b6b82]'
-                          }`}>
+                          <span className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected
+                            ? 'bg-[#0b6b82] border-[#0b6b82]'
+                            : 'bg-white border-gray-300 group-hover:border-[#0b6b82]'
+                            }`}>
                             {isSelected && <Check className="w-3 h-3 text-white" />}
                           </span>
-                          <span className={`text-sm leading-snug transition-colors ${
-                            isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'
-                          }`}>
+                          <span className={`text-sm leading-snug transition-colors ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'
+                            }`}>
                             {rec.title}
                           </span>
                         </label>
@@ -1392,14 +1381,14 @@ export function AnalysisDetailPage() {
   const renderLightbox = () => {
     if (lightboxGroup === null || !currentEvidence) return null;
 
-    const boxRisks = lightboxGroup === 'all' 
+    const boxRisks = lightboxGroup === 'all'
       ? currentPhotoRisks
       : currentPhotoRisks.filter(r =>
-          lightboxGroup === 'violation'
-            ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
-            : r.severity === 'MEDIUM' || r.severity === 'LOW'
-        );
-    const strokeColor = lightboxGroup === 'all' 
+        lightboxGroup === 'violation'
+          ? r.severity === 'CRITICAL' || r.severity === 'HIGH'
+          : r.severity === 'MEDIUM' || r.severity === 'LOW'
+      );
+    const strokeColor = lightboxGroup === 'all'
       ? '#ef4444' // fallback for direct call
       : (lightboxGroup === 'violation' ? '#ef4444' : '#f59e0b');
 
@@ -1430,7 +1419,7 @@ export function AnalysisDetailPage() {
               viewBox={`0 0 ${lightboxNatSize.w} ${lightboxNatSize.h}`}
               preserveAspectRatio="xMidYMid meet"
             >
-              {lightboxGroup === 'all' 
+              {lightboxGroup === 'all'
                 ? renderAllBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h)
                 : renderBBoxRects(boxRisks, lightboxNatSize.w, lightboxNatSize.h, strokeColor, 80)}
             </svg>
@@ -1438,11 +1427,10 @@ export function AnalysisDetailPage() {
 
           {/* Severity label */}
           {lightboxGroup !== 'all' && (
-            <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${
-              lightboxGroup === 'violation'
-                ? 'bg-red-500/90 text-white'
-                : 'bg-yellow-500/90 text-white'
-            }`}>
+            <div className={`absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold ${lightboxGroup === 'violation'
+              ? 'bg-red-500/90 text-white'
+              : 'bg-yellow-500/90 text-white'
+              }`}>
               <AlertTriangle className="w-4 h-4" />
               {lightboxGroup === 'violation' ? 'Violations' : 'Warnings'}
               <span className="ml-0.5 bg-white/30 rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold">
@@ -1510,9 +1498,8 @@ export function AnalysisDetailPage() {
           <h1 className="text-base font-bold text-gray-900">
             {assessment.title || `#${String(assessment.id).slice(0, 8).toUpperCase()}`}
           </h1>
-          <p className={`text-[11px] font-semibold tracking-widest uppercase ${
-            isValidated ? 'text-emerald-500' : 'text-gray-400'
-          }`}>
+          <p className={`text-[11px] font-semibold tracking-widest uppercase ${isValidated ? 'text-emerald-500' : 'text-gray-400'
+            }`}>
             {isValidated
               ? (assessment.status === 'finalized' ? 'Done' : 'Validated')
               : 'Pending Review'}
@@ -1547,11 +1534,10 @@ export function AnalysisDetailPage() {
                     />
                   )}
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${
-                      idx <= currentImageIndex
-                        ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
-                        : 'bg-white border-gray-300 text-gray-400'
-                    }`}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${idx <= currentImageIndex
+                      ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
+                      : 'bg-white border-gray-300 text-gray-400'
+                      }`}
                   >
                     {idx + 1}
                   </div>
@@ -1579,7 +1565,7 @@ export function AnalysisDetailPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap flex-shrink-0">
-              {assessment.title || 'Scaffolding Area'}
+              {assessment.title || ''}
             </span>
           </div>
           {!isValidated && (
@@ -1621,7 +1607,7 @@ export function AnalysisDetailPage() {
                   }
                 }}
               />
-              
+
               {/* Pagination Dots */}
               {assessment.evidences.length > 1 && (
                 <div className="flex justify-center mt-3 mb-1">
@@ -1629,9 +1615,8 @@ export function AnalysisDetailPage() {
                     {assessment.evidences.map((_, idx) => (
                       <div
                         key={idx}
-                        className={`h-1.5 rounded-full transition-all ${
-                          idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
-                        }`}
+                        className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+                          }`}
                       />
                     ))}
                   </div>
