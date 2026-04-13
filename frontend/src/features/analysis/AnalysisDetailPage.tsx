@@ -70,7 +70,7 @@ function normalizeBBox(
 }
 
 // ── Validated read-only view (Safety Report) ──────────────────────────────
-function ValidatedAssessmentView({
+export function ValidatedAssessmentView({
   assessment,
   risks,
   reviewState,
@@ -908,10 +908,8 @@ export function AnalysisDetailPage() {
     return <ProcessingView assessment={assessment} />;
   }
 
-  // ── Validated / finalized read-only view ──────────────────────────────────
-  if (assessment.status === 'human_validated' || assessment.status === 'finalized') {
-    return <ValidatedAssessmentView assessment={assessment} risks={filteredRisks} reviewState={savedReviewState} />;
-  }
+  // ── Validated / finalized → fall through to the main render in read-only mode
+  const isValidated = assessment.status === 'human_validated' || assessment.status === 'finalized';
 
   // ── Completion screen ──────────────────────────────────────────────────────
   if (reviewComplete) {
@@ -1050,15 +1048,15 @@ export function AnalysisDetailPage() {
       <div key={risk.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-4">
           {/* Description row */}
-          <div className="flex items-start gap-2 mb-3">
+          <div className={`flex items-start gap-2 ${isValidated ? '' : 'mb-3'}`}>
             <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isViolation ? 'text-red-500' : 'text-yellow-500'}`} />
             <p className={`text-sm font-medium leading-snug ${isRejected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
               {risk.description}
             </p>
           </div>
 
-          {/* Badge + Undo (post-decision) */}
-          {(isAccepted || isRejected) && (
+          {/* Badge + Undo (post-decision) — hidden for validated */}
+          {!isValidated && (isAccepted || isRejected) && (
             <div className="flex items-center gap-2 mb-3">
               {isAccepted && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#0b6b82] bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
@@ -1079,8 +1077,8 @@ export function AnalysisDetailPage() {
             </div>
           )}
 
-          {/* Accept / Reject buttons (undecided) */}
-          {!isAccepted && !isRejected && (
+          {/* Accept / Reject buttons (undecided) — hidden for validated */}
+          {!isValidated && !isAccepted && !isRejected && (
             <div className="flex gap-2">
               <button
                 onClick={() => handleRiskDecision(risk.id, 'approved')}
@@ -1237,10 +1235,14 @@ export function AnalysisDetailPage() {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-base font-bold text-gray-900">
-            #{String(assessment.id).slice(0, 8).toUpperCase()}
+            {assessment.title || `#${String(assessment.id).slice(0, 8).toUpperCase()}`}
           </h1>
-          <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase">
-            Pending Review
+          <p className={`text-[11px] font-semibold tracking-widest uppercase ${
+            isValidated ? 'text-emerald-500' : 'text-gray-400'
+          }`}>
+            {isValidated
+              ? (assessment.status === 'finalized' ? 'Done' : 'Validated')
+              : 'Pending Review'}
           </p>
         </div>
         <button
@@ -1251,39 +1253,41 @@ export function AnalysisDetailPage() {
         </button>
       </header>
 
-      {/* ── Progress section ── */}
-      <div className="bg-white px-4 pt-4 pb-3 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-bold text-gray-900">
-            Photo {currentImageIndex + 1} of {assessment.evidences.length}
-          </span>
-          <span className="text-sm font-bold text-[#0b6b82]">
-            {percentReviewed}% reviewed
-          </span>
-        </div>
-        {assessment.evidences.length > 1 && (
-          <div className="flex items-center">
-            {assessment.evidences.map((_, idx) => (
-              <React.Fragment key={idx}>
-                {idx > 0 && (
-                  <div
-                    className={`flex-1 h-0.5 ${idx <= currentImageIndex ? 'bg-[#0b6b82]' : 'bg-gray-200'}`}
-                  />
-                )}
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${
-                    idx <= currentImageIndex
-                      ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
-                      : 'bg-white border-gray-300 text-gray-400'
-                  }`}
-                >
-                  {idx + 1}
-                </div>
-              </React.Fragment>
-            ))}
+      {/* ── Progress section (hidden for validated) ── */}
+      {!isValidated && (
+        <div className="bg-white px-4 pt-4 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-gray-900">
+              Photo {currentImageIndex + 1} of {assessment.evidences.length}
+            </span>
+            <span className="text-sm font-bold text-[#0b6b82]">
+              {percentReviewed}% reviewed
+            </span>
           </div>
-        )}
-      </div>
+          {assessment.evidences.length > 1 && (
+            <div className="flex items-center">
+              {assessment.evidences.map((_, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && (
+                    <div
+                      className={`flex-1 h-0.5 ${idx <= currentImageIndex ? 'bg-[#0b6b82]' : 'bg-gray-200'}`}
+                    />
+                  )}
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${
+                      idx <= currentImageIndex
+                        ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
+                        : 'bg-white border-gray-300 text-gray-400'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Date / Location row ── */}
       {currentEvidence && (
@@ -1305,12 +1309,14 @@ export function AnalysisDetailPage() {
               {assessment.title || 'Scaffolding Area'}
             </span>
           </div>
-          <div className="flex items-start gap-1.5 mt-2.5">
-            <Info className="w-3.5 h-3.5 text-[#0b6b82] flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-[#0b6b82] leading-snug">
-              Review is <strong>optional</strong> — accept or reject what you see. You can skip to the next photo at any time.
-            </p>
-          </div>
+          {!isValidated && (
+            <div className="flex items-start gap-1.5 mt-2.5">
+              <Info className="w-3.5 h-3.5 text-[#0b6b82] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#0b6b82] leading-snug">
+                Review is <strong>optional</strong> — accept or reject what you see. You can skip to the next photo at any time.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1378,25 +1384,38 @@ export function AnalysisDetailPage() {
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         <div className="max-w-3xl mx-auto">
-          {submitError && (
-            <p className="text-center text-xs text-red-500 mb-2">{submitError}</p>
+          {isValidated ? (
+            <>
+              <button
+                onClick={() => navigate(`/analysis/${assessmentId}/report`)}
+                className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors"
+              >
+                <CheckCircle2 className="w-5 h-5" /> View Report
+              </button>
+            </>
+          ) : (
+            <>
+              {submitError && (
+                <p className="text-center text-xs text-red-500 mb-2">{submitError}</p>
+              )}
+              <button
+                onClick={handleNextPhoto}
+                disabled={isSubmitting}
+                className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                ) : isLastPhoto ? (
+                  'Finish Review'
+                ) : (
+                  <>Next Photo <span className="text-lg leading-none">›</span></>
+                )}
+              </button>
+              <p className="text-center text-xs text-gray-400 mt-2">
+                Review is optional — skip anytime to generate the report
+              </p>
+            </>
           )}
-          <button
-            onClick={handleNextPhoto}
-            disabled={isSubmitting}
-            className="w-full bg-[#0b6b82] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0a5a70] transition-colors disabled:opacity-60"
-          >
-            {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-            ) : isLastPhoto ? (
-              'Finish Review'
-            ) : (
-              <>Next Photo <span className="text-lg leading-none">›</span></>
-            )}
-          </button>
-          <p className="text-center text-xs text-gray-400 mt-2">
-            Review is optional — skip anytime to generate the report
-          </p>
         </div>
       </footer>
 
