@@ -80,10 +80,6 @@ export function useRiskAssessment(
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiProcessingError, setAiProcessingError] = useState<string | null>(null);
   
-  // Estado para rastrear timeout do processamento de IA (5 minutos = 300000ms)
-  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
-  const PROCESSING_TIMEOUT = 5 * 60 * 1000; // 5 minutos
-  
   // Fetch da avaliação
   const fetchAssessment = useCallback(async () => {
     if (!assessmentId) {
@@ -94,76 +90,18 @@ export function useRiskAssessment(
       });
       return;
     }
-    
-    // Só mostra loading na primeira carga (não durante polling)
-    setScreenState((prev) => ({
-      type: 'loading',
-      message: prev.type === 'loading' && prev.message?.includes('AI') 
-        ? prev.message 
-        : 'Loading assessment...',
-    }));
-    
+
+    // Só mostra loading na primeira carga (não durante polling com dados já visíveis)
+    setScreenState((prev) =>
+      prev.type === 'data'
+        ? prev
+        : { type: 'loading', message: 'Loading assessment...' }
+    );
+
     try {
       const data = await getAssessmentById(assessmentId);
-      
-      // Verificar se está em processamento de IA (synced)
-      if (data.status === 'synced') {
-        // Rastrear quando começou o processamento
-        if (!processingStartTime) {
-          setProcessingStartTime(Date.now());
-        }
-        
-        // Verificar se passou o timeout
-        const timeElapsed = Date.now() - (processingStartTime || Date.now());
-        if (timeElapsed > PROCESSING_TIMEOUT) {
-          // Timeout: A IA não processou a tempo.
-          // Se não tem riscos, mostrar o assessment mas com status synced
-          // para que o UI possa mostrar botão de "Processar IA"
-          console.warn('AI processing timeout exceeded, showing assessment with pending analysis');
-          setScreenState({
-            type: 'data',
-            assessment: data,
-          });
-          return;
-        }
-        
-        setScreenState({
-          type: 'loading',
-          message: 'AI is analyzing the images...',
-        });
-        return;
-      }
-      
-      // Se não está mais em synced, limpar o timer
-      setProcessingStartTime(null);
-      
-      if (data.status === 'error' || data.status === 'error_ai') {
-        if (data.risks.length > 0) {
-          setScreenState({
-            type: 'data',
-            assessment: data,
-          });
-          return;
-        }
 
-        setScreenState({
-          type: 'error',
-          message: 'AI processing failed. Please try again or contact support.',
-          canRetry: true,
-        });
-        return;
-      }
-      
-      // Status draft ou captured (ainda não processado)
-      if (data.status === 'draft' || data.status === 'captured') {
-        setScreenState({
-          type: 'data',
-          assessment: data,
-        });
-        return;
-      }
-      
-      // Sempre mostrar os dados se tivermos uma resposta válida da API
+      // Sempre passa os dados para a UI — cada estado é renderizado pela tela
       setScreenState({
         type: 'data',
         assessment: data,
@@ -215,23 +153,13 @@ export function useRiskAssessment(
   // Disparar processamento de IA manualmente
   const triggerAIProcessing = useCallback(async () => {
     if (!assessmentId) return;
-    
+
     setIsProcessingAI(true);
     setAiProcessingError(null);
-    
+
     try {
       await processAIAssessment(assessmentId);
-      
-      // Resetar timer de processamento para dar mais tempo
-      setProcessingStartTime(Date.now());
-      
-      // Mostrar loading de IA
-      setScreenState({
-        type: 'loading',
-        message: 'AI is analyzing the images...',
-      });
-      
-      // Aguardar um pouco e então fazer polling
+      // Aguardar um pouco e então fazer polling para atualizar o status
       setTimeout(() => {
         fetchAssessment();
       }, 3000);
@@ -245,41 +173,33 @@ export function useRiskAssessment(
       setIsProcessingAI(false);
     }
   }, [assessmentId, fetchAssessment]);
-  
+
   // Fetch inicial
   useEffect(() => {
-    // Resetar o timer quando mudar de assessment
-    setProcessingStartTime(null);
-    
     if (autoFetch && assessmentId) {
       fetchAssessment();
     }
   }, [autoFetch, assessmentId, fetchAssessment]);
   
-  // Resetar o timer de processamento quando mudar de assessment ou quando deixar de estar em loading
-  useEffect(() => {
-    if (screenState.type !== 'loading' || !screenState.message?.includes('AI')) {
-      setProcessingStartTime(null);
-    }
-  }, [screenState]);
-  
   // Refresh automático em intervalos (para atualizações da IA)
   useEffect(() => {
     if (!refreshInterval || !assessmentId) return;
-    
-    // Só fazer polling se estiver aguardando processamento
-    if (screenState.type !== 'loading') return;
-    
-    // Intervalo mais curto quando está processando IA
-    const isProcessing = screenState.message?.includes('AI');
-    const effectiveInterval = isProcessing ? 5000 : refreshInterval; // 5s quando processando
-    
+
+    // Continua polling enquanto estiver carregando ou com status que aguarda processamento
+    const isAwaitingProcessing =
+      screenState.type === 'loading' ||
+      (screenState.type === 'data' &&
+        (screenState.assessment?.status === 'synced' ||
+          screenState.assessment?.status === 'captured'));
+
+    if (!isAwaitingProcessing) return;
+
     const interval = setInterval(() => {
-      refresh();
-    }, effectiveInterval);
-    
+      fetchAssessment();
+    }, refreshInterval);
+
     return () => clearInterval(interval);
-  }, [refreshInterval, assessmentId, refresh, screenState]);
+  }, [refreshInterval, assessmentId, fetchAssessment, screenState]);
   
   // Computar dados derivados
   const assessment = useMemo(() => {
