@@ -29,6 +29,15 @@ export function Syncing() {
   // ── Fluxo legado: dados do SyncQueue (retries / jobs pendentes) ───────────
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
 
+  // Redirect to analysis page after 3 seconds when we have an assessmentId
+  useEffect(() => {
+    if (!stateAssessmentId) return;
+    const timer = setTimeout(() => {
+      navigate(`/analysis/${stateAssessmentId}`, { replace: true });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [stateAssessmentId, navigate]);
+
   // Intercept back button to avoid navigation loop
   useEffect(() => {
     window.history.pushState(null, '', window.location.href);

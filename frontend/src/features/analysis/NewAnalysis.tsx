@@ -165,9 +165,10 @@ export function NewAnalysis() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. North Sector Safety Check"
-            maxLength={120}
+            maxLength={50}
             className="w-full h-14 px-4 rounded-2xl border border-gray-200 bg-white text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0B7A90] shadow-sm"
           />
+
         </section>
 
         {/* DESCRIPTION */}

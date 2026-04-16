@@ -255,7 +255,7 @@ export function ValidatedAssessmentView({
           {/* Title row */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0 pr-3">
-              <h2 className="text-base font-bold text-gray-900 leading-tight">{assessment.title || 'Safety Analysis Report'}</h2>
+              <h2 className="text-base font-bold text-gray-900 leading-tight break-words">{assessment.title || 'Safety Analysis Report'}</h2>
               <p className="text-[9px] text-gray-400 tracking-widest uppercase mt-0.5">
                 {`Case #${caseNum}`}
               </p>
@@ -269,7 +269,7 @@ export function ValidatedAssessmentView({
               <FileText className="w-3.5 h-3.5 text-[#0B7A90] flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-[9px] text-gray-400 tracking-widest uppercase font-bold">Description</p>
-                <p className="text-xs text-gray-700 leading-snug">{assessment.description}</p>
+                <p className="text-xs text-gray-700 leading-snug break-words">{assessment.description}</p>
               </div>
             </div>
           )}
@@ -307,6 +307,11 @@ export function ValidatedAssessmentView({
                         </span>
                       )}
                     </div>
+                    {risk.rule_id && (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
+                        {risk.rule_id}
+                      </span>
+                    )}
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
                 ))}
@@ -323,6 +328,11 @@ export function ValidatedAssessmentView({
                         </span>
                       )}
                     </div>
+                    {risk.rule_id && (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
+                        {risk.rule_id}
+                      </span>
+                    )}
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
                 ))}
@@ -371,7 +381,11 @@ export function ValidatedAssessmentView({
                           setReportLightbox({ evidence, risks: evidenceRisks });
                         }}
                       />
-                      {evidenceRisks.map(risk => {
+                      {[...evidenceRisks].sort((a, b) => {
+                        const aIsViolation = a.severity === 'CRITICAL' || a.severity === 'HIGH';
+                        const bIsViolation = b.severity === 'CRITICAL' || b.severity === 'HIGH';
+                        return aIsViolation === bIsViolation ? 0 : aIsViolation ? -1 : 1;
+                      }).map(risk => {
                         const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
                         return (
                           <div
@@ -398,6 +412,11 @@ export function ValidatedAssessmentView({
                                 </span>
                               )}
                             </div>
+                            {risk.rule_id && (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
+                                {risk.rule_id}
+                              </span>
+                            )}
                             <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                           </div>
                         );
