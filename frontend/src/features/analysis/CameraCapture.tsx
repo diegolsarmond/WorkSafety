@@ -48,6 +48,7 @@ export function CameraCapture() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -150,8 +151,14 @@ export function CameraCapture() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.type.startsWith("video/")) {
+        showToast("Videos are not allowed. Please select an image.");
+        e.target.value = "";
+        return;
+      }
       if (photos.length >= 10) {
         showToast("Maximum 10 photos allowed per analysis.");
+        e.target.value = "";
         return;
       }
       processAndSaveImage(file);
@@ -372,13 +379,22 @@ export function CameraCapture() {
 
           {/* Photo thumbnails */}
           {photos.map((photo) => (
-            <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
-              <img src={photo.dataUrl} alt="" className="w-full h-full object-cover" />
+            <div
+              key={photo.id}
+              className="relative rounded-2xl overflow-hidden shadow-sm cursor-pointer"
+              style={{ aspectRatio: '1 / 1' }}
+              onClick={() => setExpandedPhoto(photo.dataUrl)}
+            >
+              <img
+                src={photo.dataUrl}
+                alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+              />
               <button
-                onClick={() => removePhoto(photo.id)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center active:scale-95"
+                onClick={(e) => { e.stopPropagation(); removePhoto(photo.id); }}
+                className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center active:scale-95 z-10"
               >
-                <X className="w-3.5 h-3.5 text-white" />
+                <X className="w-4 h-4 text-white" />
               </button>
             </div>
           ))}
@@ -393,6 +409,26 @@ export function CameraCapture() {
           </p>
         </div>
       </main>
+
+      {/* Lightbox */}
+      {expandedPhoto && (
+        <div
+          className="fixed inset-0 bg-black z-50"
+          onClick={() => setExpandedPhoto(null)}
+        >
+          <button
+            onClick={() => setExpandedPhoto(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center z-10"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+          <img
+            src={expandedPhoto}
+            alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+          />
+        </div>
+      )}
 
       {/* Footer CTA */}
       <div
