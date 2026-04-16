@@ -610,7 +610,7 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex flex-col items-center">
-          <h1 className="text-sm font-bold text-gray-900 truncate max-w-[180px]">{assessment.title}</h1>
+          <h1 className="text-sm font-bold text-gray-900 break-all line-clamp-2 max-w-[180px]">{assessment.title}</h1>
           <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-[#E8F4F7] text-[#0B7A90] text-[10px] font-bold">
             <Loader2 className="w-3 h-3 animate-spin" /> Processing
           </span>
@@ -726,7 +726,7 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
         {/* Report metadata card */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-start justify-between">
-            <h2 className="text-base font-bold text-gray-900">{assessment.title || 'Safety Analysis Report'}</h2>
+            <h2 className="text-base font-bold text-gray-900 break-all">{assessment.title || 'Safety Analysis Report'}</h2>
             <span className="text-xs text-gray-400 mt-0.5">{formattedDate}</span>
           </div>
 
@@ -735,7 +735,7 @@ function ProcessingView({ assessment }: { assessment: RiskAssessmentDetail }) {
               <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex items-center gap-1 mb-1">
                 <FileText className="w-3 h-3" /> Description
               </p>
-              <p className="text-sm font-semibold text-gray-900">{assessment.description}</p>
+              <p className="text-sm font-semibold text-gray-900 break-words">{assessment.description}</p>
             </div>
           )}
 
@@ -822,17 +822,7 @@ function ImageCardWithBBox({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {natSize && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {group === 'all'
-              ? renderAllBBoxRects(risks, natSize.w, natSize.h)
-              : renderBBoxRects(risks, natSize.w, natSize.h, strokeColor, 150)}
-          </svg>
-        )}
+        {/* Bounding boxes shown only in lightbox, not in thumbnails */}
 
         {/* Severity chip or all chip */}
         {group !== 'all' ? (
@@ -1495,7 +1485,7 @@ export function AnalysisDetailPage() {
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
         <div className="flex-1 text-center">
-          <h1 className="text-base font-bold text-gray-900">
+          <h1 className="text-base font-bold text-gray-900 break-all line-clamp-2">
             {assessment.title || `#${String(assessment.id).slice(0, 8).toUpperCase()}`}
           </h1>
           <p className={`text-[11px] font-semibold tracking-widest uppercase ${isValidated ? 'text-emerald-500' : 'text-gray-400'
@@ -1560,11 +1550,11 @@ export function AnalysisDetailPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Location</p>
-              <p className="text-sm font-semibold text-gray-900 truncate">
+              <p className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
                 {assessment.description || 'North Sector'}
               </p>
             </div>
-            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full whitespace-nowrap flex-shrink-0">
+            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full max-w-[100px] truncate flex-shrink-0">
               {assessment.title || ''}
             </span>
           </div>
@@ -1583,62 +1573,76 @@ export function AnalysisDetailPage() {
       <main className="flex-1 overflow-y-auto pb-28">
         <div className="max-w-3xl mx-auto w-full space-y-0">
 
-          {/* Unified Photo View */}
-          {currentEvidence && (
+          {/* Violation section */}
+          {violationRisks.length > 0 && currentEvidence && (
             <div className="pt-4 px-4 pb-1">
+              {/* Section header */}
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span className="text-sm font-bold text-red-500 tracking-wide uppercase">Violation</span>
+                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+                  {violationRisks.length}
+                </span>
+              </div>
+              {/* Image card — violations only */}
               <ImageCardWithBBox
                 evidenceUrl={currentEvidence.url}
                 imageIndex={currentImageIndex}
                 totalImages={assessment.evidences.length}
-                risks={currentPhotoRisks}
-                group="all"
-                groupCount={currentPhotoRisks.length}
+                risks={violationRisks}
+                group="violation"
+                groupCount={violationRisks.length}
                 onOpenLightbox={setLightboxGroup}
-                onNext={() => {
-                  if (currentImageIndex < assessment.evidences.length - 1) {
-                    setCurrentImageIndex(i => i + 1);
-                    setLightboxNatSize(null);
-                  }
-                }}
-                onPrev={() => {
-                  if (currentImageIndex > 0) {
-                    setCurrentImageIndex(i => i - 1);
-                    setLightboxNatSize(null);
-                  }
-                }}
+                onNext={currentImageIndex < assessment.evidences.length - 1 ? () => { setCurrentImageIndex(i => i + 1); setLightboxNatSize(null); } : undefined}
+                onPrev={currentImageIndex > 0 ? () => { setCurrentImageIndex(i => i - 1); setLightboxNatSize(null); } : undefined}
               />
-
-              {/* Pagination Dots */}
-              {assessment.evidences.length > 1 && (
-                <div className="flex justify-center mt-3 mb-1">
-                  <div className="inline-flex gap-1.5 px-3 py-1.5 bg-black/50 rounded-full">
-                    {assessment.evidences.map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
-                          }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Violation section */}
-          {violationRisks.length > 0 && (
-            <div className="pt-2 px-4 pb-1 mt-4">
-              <div className="mt-2 space-y-2">
+              {/* Finding cards */}
+              <div className="mt-3 space-y-2">
                 {violationRisks.map(renderFindingCard)}
               </div>
             </div>
           )}
 
           {/* Warning section */}
-          {warningRisks.length > 0 && (
-            <div className="pt-2 px-4 pb-1 mt-4">
-              <div className="mt-2 space-y-2">
+          {warningRisks.length > 0 && currentEvidence && (
+            <div className="pt-4 px-4 pb-1">
+              {/* Section header */}
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                <span className="text-sm font-bold text-yellow-600 tracking-wide uppercase">Warning</span>
+                <span className="w-5 h-5 rounded-full bg-yellow-500 text-white text-[11px] font-bold flex items-center justify-center">
+                  {warningRisks.length}
+                </span>
+              </div>
+              {/* Image card — warnings only */}
+              <ImageCardWithBBox
+                evidenceUrl={currentEvidence.url}
+                imageIndex={currentImageIndex}
+                totalImages={assessment.evidences.length}
+                risks={warningRisks}
+                group="warning"
+                groupCount={warningRisks.length}
+                onOpenLightbox={setLightboxGroup}
+                onNext={currentImageIndex < assessment.evidences.length - 1 ? () => { setCurrentImageIndex(i => i + 1); setLightboxNatSize(null); } : undefined}
+                onPrev={currentImageIndex > 0 ? () => { setCurrentImageIndex(i => i - 1); setLightboxNatSize(null); } : undefined}
+              />
+              {/* Finding cards */}
+              <div className="mt-3 space-y-2">
                 {warningRisks.map(renderFindingCard)}
+              </div>
+            </div>
+          )}
+
+          {/* Pagination Dots (shown when there are evidences) */}
+          {assessment.evidences.length > 1 && currentPhotoRisks.length > 0 && (
+            <div className="flex justify-center mt-3 mb-1">
+              <div className="inline-flex gap-1.5 px-3 py-1.5 bg-black/50 rounded-full">
+                {assessment.evidences.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/40'}`}
+                  />
+                ))}
               </div>
             </div>
           )}
