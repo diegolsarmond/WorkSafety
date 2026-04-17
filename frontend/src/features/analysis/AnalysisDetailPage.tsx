@@ -109,7 +109,6 @@ export function ValidatedAssessmentView({
   reviewState?: ReviewState | null;
 }) {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'checklist' | 'full'>('checklist');
   const [reportLightbox, setReportLightbox] = useState<{
     evidence: { id: string; url: string };
     risks: RiskItem[];
@@ -229,9 +228,9 @@ export function ValidatedAssessmentView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col report-print-root">
       {/* Header */}
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 print-hidden">
         <button
           onClick={() => navigate(-1)}
           className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
@@ -247,35 +246,8 @@ export function ValidatedAssessmentView({
         </button>
       </header>
 
-      {/* FORMAT toggle */}
-      <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-center gap-3">
-        <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex-shrink-0">
-          Format:
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setViewMode('checklist')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'checklist'
-              ? 'bg-[#0B7A90] text-white'
-              : 'text-gray-500 hover:bg-gray-100'
-              }`}
-          >
-            Checklist
-          </button>
-          <button
-            onClick={() => setViewMode('full')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'full'
-              ? 'bg-[#0B7A90] text-white'
-              : 'text-gray-500 hover:bg-gray-100'
-              }`}
-          >
-            Full Report
-          </button>
-        </div>
-      </div>
-
       {/* Scrollable content */}
-      <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4">
+      <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4 print-main">
 
         {/* Report info card */}
         <div className="bg-white rounded-2xl px-4 pt-4 pb-3 shadow-sm">
@@ -309,140 +281,74 @@ export function ValidatedAssessmentView({
         </div>
 
         {/* Findings section */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm print-card">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
-              {viewMode === 'checklist' ? 'Risk Checklist' : 'Evidence & Findings'}
+              Evidence &amp; Findings
             </span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
           <div className="p-4 space-y-3">
-            {viewMode === 'checklist' ? (
-              <>
-                {violations.map(risk => (
-                  <div key={risk.id} className="rounded-xl border border-red-100 bg-red-50/40 p-3">
-                    <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                      <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                      {getRuleLabel(risk.rule_id) && (
-                        <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
-                          {getRuleLabel(risk.rule_id)}
-                        </span>
-                      )}
-                      {risk.location && (
-                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                          {risk.location}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
-                  </div>
-                ))}
-                {warnings.map(risk => (
-                  <div key={risk.id} className="rounded-xl border border-yellow-100 bg-yellow-50/40 p-3">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                      <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
-                        Warning
-                      </span>
-                      {risk.location && (
-                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                          {risk.location}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
-                  </div>
-                ))}
-                {display.length === 0 && (
-                  <div className="text-center py-6 text-gray-400">
-                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No risks found</p>
-                  </div>
-                )}
-                {assessment.evidences.length > 0 && (
-                  <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
-                    <Image className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-gray-500 leading-snug">
-                      Photos are not shown in checklist format. Switch to{' '}
-                      <button
-                        onClick={() => setViewMode('full')}
-                        className="text-[#0B7A90] font-semibold underline"
+            {assessment.evidences.length === 0 && (
+              <div className="flex items-center justify-center py-10 text-gray-200">
+                <Image className="w-16 h-16" strokeWidth={1} />
+              </div>
+            )}
+            {assessment.evidences.map((evidence, idx) => {
+              const evidenceRisks = display.filter(
+                r => r.evidence?.id === evidence.id || r.evidence == null,
+              );
+              return (
+                <div key={evidence.id} className="space-y-3 print-evidence-block">
+                  <ReportEvidenceCard
+                    evidence={evidence}
+                    risks={evidenceRisks}
+                    idx={idx}
+                    onClick={() => {
+                      setReportLbNatSize(null);
+                      setReportLbIndex(idx);
+                      setReportLightbox({ evidence, risks: evidenceRisks });
+                    }}
+                  />
+                  {[...evidenceRisks].sort((a, b) => {
+                    const aIsViolation = a.severity === 'CRITICAL' || a.severity === 'HIGH';
+                    const bIsViolation = b.severity === 'CRITICAL' || b.severity === 'HIGH';
+                    return aIsViolation === bIsViolation ? 0 : aIsViolation ? -1 : 1;
+                  }).map(risk => {
+                    const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
+                    return (
+                      <div
+                        key={risk.id}
+                        className={`rounded-xl border p-3 ${isViolation
+                          ? 'border-red-100 bg-red-50/40'
+                          : 'border-yellow-100 bg-yellow-50/40'
+                          }`}
                       >
-                        Full Report
-                      </button>{' '}
-                      to view evidence images.
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                {assessment.evidences.length === 0 && (
-                  <div className="flex items-center justify-center py-10 text-gray-200">
-                    <Image className="w-16 h-16" strokeWidth={1} />
-                  </div>
-                )}
-                {assessment.evidences.map((evidence, idx) => {
-                  const evidenceRisks = display.filter(
-                    r => r.evidence?.id === evidence.id || r.evidence == null,
-                  );
-                  return (
-                    <div key={evidence.id} className="space-y-3">
-                      <ReportEvidenceCard
-                        evidence={evidence}
-                        risks={evidenceRisks}
-                        idx={idx}
-                        onClick={() => {
-                          setReportLbNatSize(null);
-                          setReportLbIndex(idx);
-                          setReportLightbox({ evidence, risks: evidenceRisks });
-                        }}
-                      />
-                      {[...evidenceRisks].sort((a, b) => {
-                        const aIsViolation = a.severity === 'CRITICAL' || a.severity === 'HIGH';
-                        const bIsViolation = b.severity === 'CRITICAL' || b.severity === 'HIGH';
-                        return aIsViolation === bIsViolation ? 0 : aIsViolation ? -1 : 1;
-                      }).map(risk => {
-                        const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
-                        return (
-                          <div
-                            key={risk.id}
-                            className={`rounded-xl border p-3 ${isViolation
-                              ? 'border-red-100 bg-red-50/40'
-                              : 'border-yellow-100 bg-yellow-50/40'
+                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                          <AlertTriangle
+                            className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
                               }`}
-                          >
-                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                              <AlertTriangle
-                                className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
-                                  }`}
-                              />
-                              {isViolation && getRuleLabel(risk.rule_id) && (
-                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
-                                  {getRuleLabel(risk.rule_id)}
-                                </span>
-                              )}
-                              {!isViolation && (
-                                <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
-                                  Warning
-                                </span>
-                              )}
-                              {risk.location && (
-                                <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                                  {risk.location}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </>
+                          />
+                          {isViolation && getRuleLabel(risk.rule_id) && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
+                              {getRuleLabel(risk.rule_id)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {display.length === 0 && (
+              <div className="text-center py-6 text-gray-400">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No risks found</p>
+              </div>
             )}
           </div>
         </div>
@@ -479,7 +385,7 @@ export function ValidatedAssessmentView({
 
       {/* Footer: Share / PDF / CSV */}
       <footer
-        className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3"
+        className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3 print-hidden"
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
         <button
@@ -1031,21 +937,47 @@ function ReportEvidenceCard({
   idx: number;
   onClick: () => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [displaySize, setDisplaySize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     setNatSize(null);
+    setDisplaySize(null);
   }, [evidence.url]);
 
-  const violationCount = risks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH').length;
-  const warningCount = risks.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW').length;
+  // Compute the actual rendered image area inside the object-contain container
+  const computeDisplaySize = useCallback(() => {
+    if (!containerRef.current || !natSize) return;
+    const container = containerRef.current;
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
+    const imgAspect = natSize.w / natSize.h;
+    const containerAspect = containerW / containerH;
+    let renderedW: number, renderedH: number;
+    if (imgAspect > containerAspect) {
+      renderedW = containerW;
+      renderedH = containerW / imgAspect;
+    } else {
+      renderedH = containerH;
+      renderedW = containerH * imgAspect;
+    }
+    setDisplaySize({ w: renderedW, h: renderedH });
+  }, [natSize]);
+
+  useEffect(() => {
+    computeDisplaySize();
+    const observer = new ResizeObserver(computeDisplaySize);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [computeDisplaySize]);
 
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group"
+      className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group print-evidence-card"
       onClick={onClick}
     >
-      <div className="relative" style={{ height: 200 }}>
+      <div ref={containerRef} className="relative report-evidence-img-container">
         <img
           src={evidence.url}
           alt={`Evidence ${idx + 1}`}
@@ -1055,15 +987,27 @@ function ReportEvidenceCard({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {/* Bounding boxes hidden in thumbnail — visible only in expanded lightbox */}
+        {/* Bounding boxes rendered directly on the card for PDF output */}
+        {natSize && displaySize && (
+          <svg
+            className="absolute pointer-events-none"
+            style={{
+              width: displaySize.w,
+              height: displaySize.h,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {renderAllBBoxRects(risks, natSize.w, natSize.h)}
+          </svg>
+        )}
         {/* Hover zoom hint */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none print-hidden">
           <ZoomIn className="w-7 h-7 text-white drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
-        {/* Severity chips removed from thumbnail — shown only in lightbox */}
-      </div>
-      <div className="px-3 py-2 bg-gray-800">
-        <p className="text-xs text-white/70">Evidence {idx + 1} — Tap to expand</p>
       </div>
     </div>
   );
