@@ -109,6 +109,7 @@ export function ValidatedAssessmentView({
   reviewState?: ReviewState | null;
 }) {
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<'checklist' | 'full'>('checklist');
   const [reportLightbox, setReportLightbox] = useState<{
     evidence: { id: string; url: string };
     risks: RiskItem[];
@@ -246,6 +247,28 @@ export function ValidatedAssessmentView({
         </button>
       </header>
 
+      {/* View mode toggle */}
+      <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-center justify-center gap-1 print-hidden">
+        <button
+          onClick={() => setViewMode('checklist')}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'checklist'
+            ? 'bg-[#0B7A90] text-white'
+            : 'text-gray-500 hover:bg-gray-100'
+            }`}
+        >
+          Checklist
+        </button>
+        <button
+          onClick={() => setViewMode('full')}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'full'
+            ? 'bg-[#0B7A90] text-white'
+            : 'text-gray-500 hover:bg-gray-100'
+            }`}
+        >
+          Full Report
+        </button>
+      </div>
+
       {/* Scrollable content */}
       <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4 print-main">
 
@@ -285,70 +308,113 @@ export function ValidatedAssessmentView({
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
-              Evidence &amp; Findings
+              {viewMode === 'checklist' ? 'Risk Checklist' : 'Evidence & Findings'}
             </span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
           <div className="p-4 space-y-3">
-            {assessment.evidences.length === 0 && (
-              <div className="flex items-center justify-center py-10 text-gray-200">
-                <Image className="w-16 h-16" strokeWidth={1} />
-              </div>
-            )}
-            {assessment.evidences.map((evidence, idx) => {
-              const evidenceRisks = display.filter(
-                r => r.evidence?.id === evidence.id || r.evidence == null,
-              );
-              return (
-                <div key={evidence.id} className="space-y-3 print-evidence-block">
-                  <ReportEvidenceCard
-                    evidence={evidence}
-                    risks={evidenceRisks}
-                    idx={idx}
-                    onClick={() => {
-                      setReportLbNatSize(null);
-                      setReportLbIndex(idx);
-                      setReportLightbox({ evidence, risks: evidenceRisks });
-                    }}
-                  />
-                  {[...evidenceRisks].sort((a, b) => {
-                    const aIsViolation = a.severity === 'CRITICAL' || a.severity === 'HIGH';
-                    const bIsViolation = b.severity === 'CRITICAL' || b.severity === 'HIGH';
-                    return aIsViolation === bIsViolation ? 0 : aIsViolation ? -1 : 1;
-                  }).map(risk => {
-                    const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
-                    return (
-                      <div
-                        key={risk.id}
-                        className={`rounded-xl border p-3 ${isViolation
-                          ? 'border-red-100 bg-red-50/40'
-                          : 'border-yellow-100 bg-yellow-50/40'
-                          }`}
+            {viewMode === 'checklist' ? (
+              <>
+                {violations.map(risk => (
+                  <div key={risk.id} className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      {getRuleLabel(risk.rule_id) && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+                          {getRuleLabel(risk.rule_id)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                  </div>
+                ))}
+                {warnings.map(risk => (
+                  <div key={risk.id} className="rounded-xl border border-yellow-100 bg-yellow-50/40 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                    </div>
+                    <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                  </div>
+                ))}
+                {display.length === 0 && (
+                  <div className="text-center py-6 text-gray-400">
+                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No risks found</p>
+                  </div>
+                )}
+                {assessment.evidences.length > 0 && (
+                  <div className="flex items-start gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                    <Image className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-gray-500 leading-snug">
+                      Photos are not shown in checklist format. Switch to{' '}
+                      <button
+                        onClick={() => setViewMode('full')}
+                        className="text-[#0B7A90] font-semibold underline"
                       >
-                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                          <AlertTriangle
-                            className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
+                        Full Report
+                      </button>{' '}
+                      to view evidence images.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {assessment.evidences.length === 0 && (
+                  <div className="flex items-center justify-center py-10 text-gray-200">
+                    <Image className="w-16 h-16" strokeWidth={1} />
+                  </div>
+                )}
+                {assessment.evidences.map((evidence, idx) => {
+                  const evidenceRisks = display.filter(
+                    r => r.evidence?.id === evidence.id || r.evidence == null,
+                  );
+                  return (
+                    <div key={evidence.id} className="space-y-3 print-evidence-block">
+                      <ReportEvidenceCard
+                        evidence={evidence}
+                        risks={evidenceRisks}
+                        idx={idx}
+                        onClick={() => {
+                          setReportLbNatSize(null);
+                          setReportLbIndex(idx);
+                          setReportLightbox({ evidence, risks: evidenceRisks });
+                        }}
+                      />
+                      {[...evidenceRisks].sort((a, b) => {
+                        const aIsViolation = a.severity === 'CRITICAL' || a.severity === 'HIGH';
+                        const bIsViolation = b.severity === 'CRITICAL' || b.severity === 'HIGH';
+                        return aIsViolation === bIsViolation ? 0 : aIsViolation ? -1 : 1;
+                      }).map(risk => {
+                        const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
+                        return (
+                          <div
+                            key={risk.id}
+                            className={`rounded-xl border p-3 ${isViolation
+                              ? 'border-red-100 bg-red-50/40'
+                              : 'border-yellow-100 bg-yellow-50/40'
                               }`}
-                          />
-                          {isViolation && getRuleLabel(risk.rule_id) && (
-                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
-                              {getRuleLabel(risk.rule_id)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-            {display.length === 0 && (
-              <div className="text-center py-6 text-gray-400">
-                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No risks found</p>
-              </div>
+                          >
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                              <AlertTriangle
+                                className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
+                                  }`}
+                              />
+                              {isViolation && getRuleLabel(risk.rule_id) && (
+                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
+                                  {getRuleLabel(risk.rule_id)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
         </div>

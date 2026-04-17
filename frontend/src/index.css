@@ -177,3 +177,66 @@ img {
     padding-bottom: 0.5rem;
   }
 }
+
+/* ===== Report evidence image container ===== */
+.report-evidence-img-container {
+  height: 320px;
+}
+
+/* ===== Print / PDF Styles for Safety Report ===== */
+@media print {
+  /* Hide interactive-only elements */
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Reset page layout */
+  html, body {
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Remove fixed positioning, backgrounds, shadows */
+  .report-print-root {
+    min-height: auto !important;
+    background: white !important;
+  }
+
+  .print-main {
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+    break-inside: avoid;
+  }
+
+  /* Evidence images: auto height, full width for PDF */
+  .report-evidence-img-container {
+    height: auto !important;
+    max-height: 400px;
+  }
+
+  .print-evidence-card {
+    break-inside: avoid;
+    border: 1px solid #d1d5db !important;
+    border-radius: 0.75rem;
+  }
+
+  /* Evidence blocks should not break across pages */
+  .print-evidence-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure SVG bounding boxes print with color */
+  svg rect, svg text {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
