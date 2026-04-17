@@ -54,6 +54,13 @@ export function useAIQueue(): UseAIQueueReturn {
   const [error, setError] = useState<string | null>(null);
 
   const fetchQueue = useCallback(async () => {
+    // Don't try to fetch when offline
+    if (!navigator.onLine) {
+      setIsLoading(false);
+      setError('You are offline');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -69,7 +76,12 @@ export function useAIQueue(): UseAIQueueReturn {
         total: 0,
       });
     } catch (err) {
-      setError('Error loading AI processing queue');
+      // If went offline during request, don't show error
+      if (!navigator.onLine) {
+        setError('You are offline');
+      } else {
+        setError('Error loading AI processing queue');
+      }
     } finally {
       setIsLoading(false);
     }

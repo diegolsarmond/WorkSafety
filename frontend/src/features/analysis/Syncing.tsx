@@ -8,6 +8,8 @@ import {
   RefreshCw,
   List,
   Home,
+  WifiOff,
+  CloudUpload,
 } from "lucide-react";
 import { Button } from '@/ui/components/Button';
 import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
@@ -25,6 +27,7 @@ export function Syncing() {
   // ── Fluxo novo: dados vindos do CameraCapture via navigation state ─────────
   const stateAssessmentId: string | undefined = location.state?.assessmentId;
   const stateTitle: string | undefined = location.state?.title;
+  const isOfflineDraft: boolean = location.state?.offlineDraft === true;
 
   // ── Fluxo legado: dados do SyncQueue (retries / jobs pendentes) ───────────
   const [currentJob, setCurrentJob] = useState<SyncJob | null>(null);
@@ -48,7 +51,7 @@ export function Syncing() {
 
   // Apenas rastreia jobs do SyncQueue quando não há dados no navigation state
   useEffect(() => {
-    if (stateAssessmentId) return; // novo fluxo — ignora fila
+    if (stateAssessmentId || isOfflineDraft) return; // novo fluxo — ignora fila
 
     if (jobs.length > 0 && !currentJob) {
       const mostRecent = jobs.reduce((latest, job) =>
@@ -68,7 +71,7 @@ export function Syncing() {
         });
       }
     }
-  }, [jobs, currentJob, stateAssessmentId]);
+  }, [jobs, currentJob, stateAssessmentId, isOfflineDraft]);
 
   // Store assessmentId when legacy job completes
   useEffect(() => {
@@ -82,8 +85,8 @@ export function Syncing() {
   const resolvedAssessmentId = stateAssessmentId || currentJob?.assessmentId;
   const resolvedTitle = stateTitle || currentJob?.assessmentDraft?.title || 'Analysis';
 
-  const isLegacyCompleted = !stateAssessmentId && currentJob?.status === 'COMPLETED';
-  const hasError = !stateAssessmentId &&
+  const isLegacyCompleted = !stateAssessmentId && !isOfflineDraft && currentJob?.status === 'COMPLETED';
+  const hasError = !stateAssessmentId && !isOfflineDraft &&
     (currentJob?.status === 'ERROR' || currentJob?.status === 'FAILED');
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -96,6 +99,79 @@ export function Syncing() {
   };
 
   const handleGoHome = () => navigate('/home', { replace: true });
+
+  // ── Offline Draft UI ──────────────────────────────────────────────────────
+  if (isOfflineDraft) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 sm:p-8 relative">
+        {/* Main card */}
+        <div className="w-full max-w-sm flex flex-col items-center text-center gap-4">
+          {/* Icon */}
+          <div className="w-24 h-24 rounded-full bg-amber-50 border-4 border-amber-200 flex items-center justify-center mb-2">
+            <WifiOff className="w-12 h-12 text-amber-500" />
+          </div>
+
+          {/* Headings */}
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Draft saved!</h2>
+            <p className="text-base font-semibold text-[#0B7A90] mt-1 truncate max-w-xs">
+              {resolvedTitle}
+            </p>
+            <p className="text-sm text-gray-500 mt-3 leading-relaxed">
+              You are offline. Your analysis has been saved locally and will be
+              sent automatically when you reconnect.
+            </p>
+          </div>
+
+          {/* Status pipeline */}
+          <div className="flex items-start gap-2 mt-2 w-full justify-center">
+            {/* Saved locally */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-xs font-bold text-emerald-600">Saved</span>
+            </div>
+
+            <div className="flex-1 h-0.5 mt-4 bg-gray-200 max-w-[40px]" />
+
+            {/* Waiting sync */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center">
+                <CloudUpload className="w-4 h-4 text-amber-500" />
+              </div>
+              <span className="text-xs font-bold text-amber-500">Pending</span>
+            </div>
+
+            <div className="flex-1 h-0.5 mt-4 bg-gray-200 max-w-[40px]" />
+
+            {/* Processing */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center">
+                <span className="w-2 h-2 rounded-full bg-gray-300 block" />
+              </div>
+              <span className="text-xs font-bold text-gray-400">Analysis</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div
+          className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 space-y-3"
+          style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+        >
+          <div className="max-w-sm mx-auto space-y-3">
+            <Button
+              onClick={handleGoHome}
+              className="w-full h-12 text-base rounded-xl bg-[#0B7A90] hover:bg-[#096375] text-white flex items-center justify-center gap-2"
+            >
+              <Home className="w-5 h-5" /> Back to Home
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Loading — apenas no fluxo legado sem job ainda ────────────────────────
   if (!stateAssessmentId && !currentJob) {

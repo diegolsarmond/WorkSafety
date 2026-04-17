@@ -9,10 +9,15 @@ import {
   ArrowLeft,
   Brain,
   Image as ImageIcon,
-  AlertTriangle
+  AlertTriangle,
+  CloudUpload,
+  WifiOff,
 } from 'lucide-react';
 import { useAIQueue, AIQueueItem } from '../hooks/useAIQueue';
+import { useSyncQueue } from '@/hooks/sync/useSyncQueue';
+import { SyncJobItem } from '@/features/sync/components/SyncJobItem';
 import { Button } from '@/ui/components/Button';
+import { isOnline } from '@/utils/syncUtils';
 
 // Mapper to translate ai_status to English display label
 const getStatusLabel = (item: AIQueueItem) => {
@@ -26,33 +31,47 @@ const getStatusLabel = (item: AIQueueItem) => {
 };
 
 type FilterType = 'all' | 'processing' | 'pending' | 'completed' | 'error';
+type TabType = 'ai' | 'sync';
 
 /**
  * AI Processing Queue Page
  * 
- * Displays all assessments in AI processing from the backend:
- * - Pending (synced, waiting for processing)
- * - Processing (running)
- * - Completed (succeeded)
- * - Error (error_ai / failed)
+ * Tab 1 - AI Queue: Displays all assessments in AI processing from the backend
+ * Tab 2 - Sync Queue: Displays local offline drafts pending synchronization
  */
 export function AIQueuePage() {
   const navigate = useNavigate();
   const { queue, counts, isLoading, error, refresh } = useAIQueue();
+  const syncQueue = useSyncQueue();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // Auto-select sync tab if offline or has sync jobs
+    return !isOnline() ? 'sync' : 'ai';
+  });
 
-  // Agrupa itens por status
+  const online = isOnline();
+
+  // ── AI Queue grouping ─────────────────────────────────────────────────────
   const processingItems = queue.filter(item => item.ai_status === 'running');
   const pendingItems = queue.filter(item => item.ai_status === 'pending');
   const errorItems = queue.filter(item => item.status === 'error_ai' || item.ai_status === 'failed');
   const completedItems = queue.filter(item => item.ai_status === 'succeeded');
-
   const hasAnyItems = queue.length > 0;
 
   const showProcessing = activeFilter === 'all' || activeFilter === 'processing';
   const showPending = activeFilter === 'all' || activeFilter === 'pending';
   const showCompleted = activeFilter === 'all' || activeFilter === 'completed';
   const showError = activeFilter === 'all' || activeFilter === 'error';
+
+  // ── Sync Queue grouping ───────────────────────────────────────────────────
+  const syncJobs = syncQueue.jobs;
+  const syncingJobs = syncJobs.filter(j => j.status === 'SYNCING');
+  const pendingSyncJobs = syncJobs.filter(j => j.status === 'PENDING');
+  const failedSyncJobs = syncJobs.filter(j => j.status === 'FAILED');
+  const errorSyncJobs = syncJobs.filter(j => j.status === 'ERROR');
+  const hasAnySyncJobs = syncJobs.length > 0;
+
+  const syncBadgeCount = syncQueue.pendingCount + syncQueue.failedCount + syncQueue.errorCount;
 
   const toggleFilter = (filter: FilterType) => {
     setActiveFilter(current => current === filter ? 'all' : filter);
@@ -105,6 +124,13 @@ export function AIQueuePage() {
     }
   };
 
+  const handleRetryAllSync = async () => {
+    const failedAndError = syncJobs.filter(j => j.status === 'FAILED' || j.status === 'ERROR');
+    for (const job of failedAndError) {
+      await syncQueue.retryJob(job.id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -120,30 +146,79 @@ export function AIQueuePage() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
                <Brain className="w-6 h-6 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">AI Processing Queue</h1>
+              <h1 className="text-xl font-bold text-gray-900">Processing Queue</h1>
             </div>
-            <p className="text-sm text-gray-500">
-              {counts.processing > 0 && `${counts.processing} processing`}
-              {counts.pending > 0 && `, ${counts.pending} pending`}
-              {counts.error > 0 && `, ${counts.error} error${counts.error > 1 ? 's' : ''}`}
-              {!hasAnyItems && 'No active processing'}
-            </p>
+            {activeTab === 'ai' ? (
+              <p className="text-sm text-gray-500">
+                {counts.processing > 0 && `${counts.processing} processing`}
+                {counts.pending > 0 && `, ${counts.pending} pending`}
+                {counts.error > 0 && `, ${counts.error} error${counts.error > 1 ? 's' : ''}`}
+                {!hasAnyItems && !error && 'No active processing'}
+                {error && !online && 'Offline'}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">
+                {syncQueue.pendingCount > 0 && `${syncQueue.pendingCount} pending`}
+                {syncQueue.failedCount > 0 && `, ${syncQueue.failedCount} failed`}
+                {syncQueue.errorCount > 0 && `, ${syncQueue.errorCount} error${syncQueue.errorCount > 1 ? 's' : ''}`}
+                {!hasAnySyncJobs && 'All synced'}
+              </p>
+            )}
           </div>
 
           {/* Refresh button */}
           <button
-            onClick={refresh}
-            disabled={isLoading}
+            onClick={activeTab === 'ai' ? refresh : syncQueue.refresh}
+            disabled={activeTab === 'ai' ? isLoading : syncQueue.isProcessing}
             className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
             title="Refresh"
           >
-            <RefreshCw className={`w-5 h-5 text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 text-gray-600 ${(activeTab === 'ai' ? isLoading : syncQueue.isProcessing) ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
-        {/* Counter summary as Filters */}
-        {hasAnyItems && (
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto hide-scrollbar">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'ai'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Brain className="w-4 h-4" />
+            AI Queue
+          </button>
+          <button
+            onClick={() => setActiveTab('sync')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'sync'
+                ? 'border-amber-500 text-amber-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <CloudUpload className="w-4 h-4" />
+            Sync Queue
+            {syncBadgeCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold rounded-full bg-amber-500 text-white min-w-[20px] text-center">
+                {syncBadgeCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Offline banner */}
+        {!online && (
+          <div className="bg-gray-100 border-b border-gray-200 px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
+            <WifiOff className="w-4 h-4" />
+            <span>You are offline. Sync will resume automatically when connected.</span>
+          </div>
+        )}
+
+        {/* AI Queue filter chips (only on AI tab) */}
+        {activeTab === 'ai' && hasAnyItems && (
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto hide-scrollbar">
             <button 
               onClick={() => toggleFilter('processing')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors border ${
@@ -201,154 +276,278 @@ export function AIQueuePage() {
         )}
       </header>
 
-      {/* Conteúdo */}
-      <main className="p-4 pb-32">
-        {isLoading && queue.length === 0 ? (
-          // Estado de loading inicial
-          <div className="min-h-[300px] flex items-center justify-center">
-            <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
-          </div>
-        ) : error ? (
-          // Estado de erro
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <AlertCircle className="w-10 h-10 text-red-500" />
+      {/* ── AI Queue Tab Content ─────────────────────────────────────────── */}
+      {activeTab === 'ai' && (
+        <main className="p-4 pb-32">
+          {isLoading && queue.length === 0 ? (
+            <div className="min-h-[300px] flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Error loading
-            </h3>
-            <p className="text-gray-500 max-w-xs mb-4">{error}</p>
-            <Button onClick={refresh} variant="outline">
-              Try again
-            </Button>
-          </div>
-        ) : !hasAnyItems ? (
-          // Empty state
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Brain className="w-10 h-10 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Empty Queue
-            </h3>
-            <p className="text-gray-500 max-w-xs">
-              There are no assessments in AI processing at the moment.
-            </p>
-          </div>
-        ) : (
-          // Lista de itens agrupados por status
-          <div className="space-y-6">
-            {/* Processing now */}
-            {showProcessing && processingItems.length > 0 && (
-              <section>
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Processing now ({processingItems.length})
-                </h2>
-                <div className="space-y-3">
-                  {processingItems.map(item => (
-                    <AIQueueItemCard 
-                      key={item.assessment_id} 
-                      item={item}
-                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
-                      getStatusIcon={getStatusIcon}
-                      getStatusBadgeClass={getStatusBadgeClass}
-                      formatTime={formatTime}
-                      getStatusLabel={getStatusLabel}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Pending */}
-            {showPending && pendingItems.length > 0 && (
-              <section>
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Waiting for processing ({pendingItems.length})
-                </h2>
-                <div className="space-y-3">
-                  {pendingItems.map(item => (
-                    <AIQueueItemCard 
-                      key={item.assessment_id} 
-                      item={item}
-                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
-                      getStatusIcon={getStatusIcon}
-                      getStatusBadgeClass={getStatusBadgeClass}
-                      formatTime={formatTime}
-                      getStatusLabel={getStatusLabel}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Completed */}
-            {showCompleted && completedItems.length > 0 && (
-              <section>
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  Completed ({completedItems.length})
-                </h2>
-                <div className="space-y-3">
-                  {completedItems.map(item => (
-                    <AIQueueItemCard 
-                      key={item.assessment_id} 
-                      item={item}
-                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
-                      getStatusIcon={getStatusIcon}
-                      getStatusBadgeClass={getStatusBadgeClass}
-                      formatTime={formatTime}
-                      getStatusLabel={getStatusLabel}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Errors */}
-            {showError && errorItems.length > 0 && (
-              <section>
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
-                  With error ({errorItems.length})
-                </h2>
-                <div className="space-y-3">
-                  {errorItems.map(item => (
-                    <AIQueueItemCard 
-                      key={item.assessment_id} 
-                      item={item}
-                      onClick={() => navigate(`/analysis/${item.assessment_id}`)}
-                      getStatusIcon={getStatusIcon}
-                      getStatusBadgeClass={getStatusBadgeClass}
-                      formatTime={formatTime}
-                      getStatusLabel={getStatusLabel}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            
-            {/* Show message if filter returns nothing */}
-            {((activeFilter === 'processing' && processingItems.length === 0) ||
-              (activeFilter === 'pending' && pendingItems.length === 0) ||
-              (activeFilter === 'completed' && completedItems.length === 0) ||
-              (activeFilter === 'error' && errorItems.length === 0)) && (
-              <div className="py-12 text-center">
-                <p className="text-gray-500">No items match the selected filter.</p>
-                <button 
-                  onClick={() => setActiveFilter('all')}
-                  className="mt-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                >
-                  Clear filter
-                </button>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                {online ? (
+                  <AlertCircle className="w-10 h-10 text-red-500" />
+                ) : (
+                  <WifiOff className="w-10 h-10 text-gray-400" />
+                )}
               </div>
-            )}
-          </div>
-        )}
-      </main>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {online ? 'Error loading' : 'You are offline'}
+              </h3>
+              <p className="text-gray-500 max-w-xs mb-4">
+                {online
+                  ? error
+                  : 'AI processing data is unavailable offline. Check the Sync Queue tab for local drafts.'}
+              </p>
+              {online ? (
+                <Button onClick={refresh} variant="outline">
+                  Try again
+                </Button>
+              ) : (
+                <Button onClick={() => setActiveTab('sync')} variant="outline">
+                  Go to Sync Queue
+                </Button>
+              )}
+            </div>
+          ) : !hasAnyItems ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Brain className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Empty Queue
+              </h3>
+              <p className="text-gray-500 max-w-xs">
+                There are no assessments in AI processing at the moment.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {showProcessing && processingItems.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Processing now ({processingItems.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {processingItems.map(item => (
+                      <AIQueueItemCard 
+                        key={item.assessment_id} 
+                        item={item}
+                        onClick={() => navigate(`/analysis/${item.assessment_id}`)}
+                        getStatusIcon={getStatusIcon}
+                        getStatusBadgeClass={getStatusBadgeClass}
+                        formatTime={formatTime}
+                        getStatusLabel={getStatusLabel}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {showPending && pendingItems.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Waiting for processing ({pendingItems.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {pendingItems.map(item => (
+                      <AIQueueItemCard 
+                        key={item.assessment_id} 
+                        item={item}
+                        onClick={() => navigate(`/analysis/${item.assessment_id}`)}
+                        getStatusIcon={getStatusIcon}
+                        getStatusBadgeClass={getStatusBadgeClass}
+                        formatTime={formatTime}
+                        getStatusLabel={getStatusLabel}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {showCompleted && completedItems.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Completed ({completedItems.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {completedItems.map(item => (
+                      <AIQueueItemCard 
+                        key={item.assessment_id} 
+                        item={item}
+                        onClick={() => navigate(`/analysis/${item.assessment_id}`)}
+                        getStatusIcon={getStatusIcon}
+                        getStatusBadgeClass={getStatusBadgeClass}
+                        formatTime={formatTime}
+                        getStatusLabel={getStatusLabel}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {showError && errorItems.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    With error ({errorItems.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {errorItems.map(item => (
+                      <AIQueueItemCard 
+                        key={item.assessment_id} 
+                        item={item}
+                        onClick={() => navigate(`/analysis/${item.assessment_id}`)}
+                        getStatusIcon={getStatusIcon}
+                        getStatusBadgeClass={getStatusBadgeClass}
+                        formatTime={formatTime}
+                        getStatusLabel={getStatusLabel}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+              
+              {((activeFilter === 'processing' && processingItems.length === 0) ||
+                (activeFilter === 'pending' && pendingItems.length === 0) ||
+                (activeFilter === 'completed' && completedItems.length === 0) ||
+                (activeFilter === 'error' && errorItems.length === 0)) && (
+                <div className="py-12 text-center">
+                  <p className="text-gray-500">No items match the selected filter.</p>
+                  <button 
+                    onClick={() => setActiveFilter('all')}
+                    className="mt-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* ── Sync Queue Tab Content ───────────────────────────────────────── */}
+      {activeTab === 'sync' && (
+        <main className="p-4 pb-32">
+          {syncQueue.isLoading ? (
+            <div className="min-h-[300px] flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+            </div>
+          ) : !hasAnySyncJobs ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                All synced!
+              </h3>
+              <p className="text-gray-500 max-w-xs">
+                There are no local drafts waiting to be uploaded.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Syncing now */}
+              {syncingJobs.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Syncing now
+                  </h2>
+                  <div className="space-y-3">
+                    {syncingJobs.map(job => (
+                      <SyncJobItem
+                        key={job.id}
+                        job={job}
+                        onRetry={syncQueue.retryJob}
+                        onCancel={syncQueue.cancelJob}
+                        isProcessing={syncQueue.isProcessing}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Pending */}
+              {pendingSyncJobs.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Waiting ({pendingSyncJobs.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {pendingSyncJobs.map(job => (
+                      <SyncJobItem
+                        key={job.id}
+                        job={job}
+                        onRetry={syncQueue.retryJob}
+                        onCancel={syncQueue.cancelJob}
+                        isProcessing={syncQueue.isProcessing}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Failed (with retry) */}
+              {failedSyncJobs.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+                      Failed attempts ({failedSyncJobs.length})
+                    </h2>
+                    {online && (
+                      <Button
+                        onClick={handleRetryAllSync}
+                        variant="outline"
+                        size="sm"
+                        className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                      >
+                        Retry all
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {failedSyncJobs.map(job => (
+                      <SyncJobItem
+                        key={job.id}
+                        job={job}
+                        onRetry={syncQueue.retryJob}
+                        onCancel={syncQueue.cancelJob}
+                        isProcessing={syncQueue.isProcessing}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Permanent errors */}
+              {errorSyncJobs.length > 0 && (
+                <section>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
+                    Permanent errors ({errorSyncJobs.length})
+                  </h2>
+                  <div className="space-y-3">
+                    {errorSyncJobs.map(job => (
+                      <SyncJobItem
+                        key={job.id}
+                        job={job}
+                        onRetry={syncQueue.retryJob}
+                        onCancel={syncQueue.cancelJob}
+                        isProcessing={syncQueue.isProcessing}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+        </main>
+      )}
     </div>
   );
 }
 
-// Component card for each item in the queue
+// Component card for each item in the AI queue
 interface AIQueueItemCardProps {
   key?: number | string;
   item: AIQueueItem;
@@ -363,7 +562,7 @@ function AIQueueItemCard({ item, onClick, getStatusIcon, getStatusBadgeClass, fo
   return (
     <div 
       onClick={onClick}
-      className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all cursor-pointer"
+      className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all"
     >
       <div className="flex gap-4">
         {/* Thumbnail */}
@@ -426,4 +625,3 @@ function AIQueueItemCard({ item, onClick, getStatusIcon, getStatusBadgeClass, fo
     </div>
   );
 }
-

@@ -32,7 +32,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
       case 'SYNCING':
         return {
           icon: <Loader2 className="w-5 h-5 animate-spin text-blue-500" />,
-          label: 'Sincronizando...',
+          label: 'Syncing...',
           color: 'text-blue-700',
           bgColor: 'bg-blue-50',
           borderColor: 'border-blue-200',
@@ -40,7 +40,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
       case 'PENDING':
         return {
           icon: <Clock className="w-5 h-5 text-amber-500" />,
-          label: 'Aguardando...',
+          label: 'Waiting...',
           color: 'text-amber-700',
           bgColor: 'bg-amber-50',
           borderColor: 'border-amber-200',
@@ -56,7 +56,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
       case 'ERROR':
         return {
           icon: <AlertCircle className="w-5 h-5 text-red-500" />,
-          label: 'Erro permanente',
+          label: 'Permanent error',
           color: 'text-red-700',
           bgColor: 'bg-red-50',
           borderColor: 'border-red-200',
@@ -64,7 +64,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
       case 'COMPLETED':
         return {
           icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />,
-          label: 'Concluído',
+          label: 'Completed',
           color: 'text-emerald-700',
           bgColor: 'bg-emerald-50',
           borderColor: 'border-emerald-200',
@@ -72,7 +72,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
       default:
         return {
           icon: <Clock className="w-5 h-5 text-gray-500" />,
-          label: 'Desconhecido',
+          label: 'Unknown',
           color: 'text-gray-700',
           bgColor: 'bg-gray-50',
           borderColor: 'border-gray-200',
@@ -87,7 +87,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
   };
 
   const handleCancel = () => {
-    if (confirm('Tem certeza que deseja remover esta inspeção?')) {
+    if (confirm('Are you sure you want to remove this inspection?')) {
       onCancel(job.id);
     }
   };
@@ -132,7 +132,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
               <Image className="w-4 h-4" />
               {job.photos.length} foto{job.photos.length !== 1 ? 's' : ''}
             </p>
-            <p>Criado em {formatDate(job.createdAt)}</p>
+            <p>Created at {formatDate(job.createdAt)}</p>
             
             {showCountdown && (
               <p className="text-orange-600 font-medium">
@@ -143,7 +143,7 @@ export function SyncJobItem({ job, onRetry, onCancel, isProcessing }: SyncJobIte
             {!online && (job.status === 'PENDING' || job.status === 'FAILED') && (
               <p className="flex items-center gap-1 text-gray-500">
                 <WifiOff className="w-3.5 h-3.5" />
-                Aguardando conexão...
+                Waiting for connection...
               </p>
             )}
 
