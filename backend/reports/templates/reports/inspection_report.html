@@ -6,7 +6,7 @@
     <style>
         @page {
             size: A4;
-            margin: 0;
+            margin: 15mm;
             @bottom-center {
                 content: "Page " counter(page) " of " counter(pages);
                 color: #64748b;
@@ -25,7 +25,7 @@
         }
 
         .report-container {
-            width: 210mm;
+            width: 100%;
             background: white;
             position: relative;
         }
@@ -155,9 +155,7 @@
             padding: 0 40px 28px;
         }
         .evidence-block {
-            margin-bottom: 28px;
-            page-break-inside: avoid;
-            break-inside: avoid;
+            margin-bottom: 30px;
         }
         .evidence-block-header {
             font-size: 10px;
@@ -175,7 +173,7 @@
         .evidence-image-cell {
             display: block;
             width: 100%;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
         .findings-cell {
             display: block;
@@ -190,13 +188,12 @@
             text-align: center;
         }
         .evidence-box img {
-            width: 100%;
+            width: auto;
             max-width: 100%;
             height: auto;
-            max-height: 480px;
+            max-height: 320px;
             object-fit: contain;
-            display: block;
-            margin: 0 auto;
+            display: inline-block;
             background-color: #f1f5f9;
         }
         .evidence-caption {
@@ -298,13 +295,11 @@
             margin-right: 4px;
         }
 
-        /* ── FOOTER ─────────────────────────────── */
         .footer {
             background-color: #2d3748;
             padding: 30px 40px;
             color: white;
-            position: relative;
-            margin-top: 20px;
+            margin-top: 40px;
             page-break-inside: avoid;
         }
         .footer-sig-label {

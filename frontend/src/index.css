@@ -185,6 +185,10 @@ img {
 
 /* ===== Print / PDF Styles for Safety Report ===== */
 @media print {
+  @page {
+    margin: 15mm;
+  }
+
   /* Hide interactive-only elements */
   .print-hidden {
     display: none !important;
@@ -228,10 +232,11 @@ img {
     border-radius: 0.75rem;
   }
 
-  /* Evidence blocks should not break across pages */
+  /* Allow evidence blocks to break across pages so page 1 isn't empty */
   .print-evidence-block {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
+    margin-bottom: 2rem;
   }
 
   /* Ensure SVG bounding boxes print with color */
