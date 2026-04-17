@@ -31,7 +31,12 @@ import {
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { submitReview } from '@/services/risk/riskService';
+import { SecureStorage } from '@/services/storage/secureStorage';
+import { AUTH_TOKEN_KEY } from '@/services/auth/authKeys';
 import type { RiskItem, RiskAssessmentDetail } from '@/types/risk';
+
+/** API base URL for backend calls */
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://200.152.38.136:8000/api/').replace(/\/$/, '');
 
 interface RiskDecision {
   riskId: string;
@@ -117,6 +122,7 @@ export function ValidatedAssessmentView({
   const [reportLbIndex, setReportLbIndex] = useState<number>(0);
   const [reportLbNatSize, setReportLbNatSize] = useState<{ w: number; h: number } | null>(null);
   const [shareToast, setShareToast] = useState(false);
+  const [pdfState, setPdfState] = useState<{ loading: boolean; message: string }>({ loading: false, message: '' });
 
   // Lock body scroll when lightbox is open
   useEffect(() => {
@@ -199,8 +205,96 @@ export function ValidatedAssessmentView({
     }
   };
 
-  const handlePdf = () => {
-    window.print();
+  const handlePdf = async () => {
+    if (pdfState.loading) return;
+    setPdfState({ loading: true, message: 'Generating PDF…' });
+
+    const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      setPdfState({ loading: false, message: '' });
+      alert('You need to be logged in to generate a PDF.');
+      return;
+    }
+
+    try {
+      // 1. Trigger backend PDF generation
+      const genRes = await fetch(
+        `${API_BASE}/admin/assessments/${assessment.id}/generate-report/`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        },
+      );
+
+      if (!genRes.ok) {
+        throw new Error(`Failed to start PDF generation (${genRes.status})`);
+      }
+
+      const genData = await genRes.json();
+      const reportId: number = genData.report_id;
+
+      // 2. Poll for completion (max ~30 s)
+      setPdfState({ loading: true, message: 'Processing report…' });
+      let fileUrl: string | null = null;
+      const maxAttempts = 30;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const statusRes = await fetch(
+          `${API_BASE}/admin/reports/${reportId}/`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+        );
+        if (!statusRes.ok) continue;
+        const statusData = await statusRes.json();
+
+        if (statusData.status === 'ready' && statusData.file_url) {
+          fileUrl = statusData.file_url;
+          break;
+        }
+        if (statusData.status === 'failed') {
+          throw new Error(statusData.error_message || 'PDF generation failed');
+        }
+      }
+
+      if (!fileUrl) {
+        throw new Error('PDF generation timed out');
+      }
+
+      // 3. Download the file
+      setPdfState({ loading: true, message: 'Downloading…' });
+      let downloadUrl: string;
+      if (fileUrl.startsWith('http')) {
+        downloadUrl = fileUrl;
+      } else if (fileUrl.startsWith('/')) {
+        downloadUrl = `${window.location.origin}${fileUrl}`;
+      } else {
+        downloadUrl = `${API_BASE}/${fileUrl}`;
+      }
+
+      const dlRes = await fetch(downloadUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!dlRes.ok) {
+        throw new Error(`Download failed (${dlRes.status})`);
+      }
+
+      const blob = await dlRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `safety-report-${assessment.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+      setPdfState({ loading: false, message: '' });
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      setPdfState({ loading: false, message: '' });
+      // Fallback: use browser print
+      window.print();
+    }
   };
 
   const handleCsv = () => {
@@ -229,9 +323,9 @@ export function ValidatedAssessmentView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col report-print-root">
       {/* Header */}
-      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
+      <header className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100 print-hidden">
         <button
           onClick={() => navigate(-1)}
           className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
@@ -247,35 +341,30 @@ export function ValidatedAssessmentView({
         </button>
       </header>
 
-      {/* FORMAT toggle */}
-      <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-center gap-3">
-        <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase flex-shrink-0">
-          Format:
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setViewMode('checklist')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'checklist'
-              ? 'bg-[#0B7A90] text-white'
-              : 'text-gray-500 hover:bg-gray-100'
-              }`}
-          >
-            Checklist
-          </button>
-          <button
-            onClick={() => setViewMode('full')}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'full'
-              ? 'bg-[#0B7A90] text-white'
-              : 'text-gray-500 hover:bg-gray-100'
-              }`}
-          >
-            Full Report
-          </button>
-        </div>
+      {/* View mode toggle */}
+      <div className="bg-white px-4 py-2.5 border-b border-gray-100 flex items-center justify-center gap-1 print-hidden">
+        <button
+          onClick={() => setViewMode('checklist')}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'checklist'
+            ? 'bg-[#0B7A90] text-white'
+            : 'text-gray-500 hover:bg-gray-100'
+            }`}
+        >
+          Checklist
+        </button>
+        <button
+          onClick={() => setViewMode('full')}
+          className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${viewMode === 'full'
+            ? 'bg-[#0B7A90] text-white'
+            : 'text-gray-500 hover:bg-gray-100'
+            }`}
+        >
+          Full Report
+        </button>
       </div>
 
       {/* Scrollable content */}
-      <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4">
+      <main className="flex-1 overflow-y-auto pb-28 px-4 pt-4 space-y-4 print-main">
 
         {/* Report info card */}
         <div className="bg-white rounded-2xl px-4 pt-4 pb-3 shadow-sm">
@@ -309,7 +398,7 @@ export function ValidatedAssessmentView({
         </div>
 
         {/* Findings section */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm print-card">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase whitespace-nowrap">
@@ -330,11 +419,6 @@ export function ValidatedAssessmentView({
                           {getRuleLabel(risk.rule_id)}
                         </span>
                       )}
-                      {risk.location && (
-                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                          {risk.location}
-                        </span>
-                      )}
                     </div>
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
@@ -343,14 +427,6 @@ export function ValidatedAssessmentView({
                   <div key={risk.id} className="rounded-xl border border-yellow-100 bg-yellow-50/40 p-3">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                      <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
-                        Warning
-                      </span>
-                      {risk.location && (
-                        <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                          {risk.location}
-                        </span>
-                      )}
                     </div>
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
@@ -389,7 +465,7 @@ export function ValidatedAssessmentView({
                     r => r.evidence?.id === evidence.id || r.evidence == null,
                   );
                   return (
-                    <div key={evidence.id} className="space-y-3">
+                    <div key={evidence.id} className="space-y-3 print-evidence-block">
                       <ReportEvidenceCard
                         evidence={evidence}
                         risks={evidenceRisks}
@@ -422,16 +498,6 @@ export function ValidatedAssessmentView({
                               {isViolation && getRuleLabel(risk.rule_id) && (
                                 <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
                                   {getRuleLabel(risk.rule_id)}
-                                </span>
-                              )}
-                              {!isViolation && (
-                                <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
-                                  Warning
-                                </span>
-                              )}
-                              {risk.location && (
-                                <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
-                                  {risk.location}
                                 </span>
                               )}
                             </div>
@@ -479,7 +545,7 @@ export function ValidatedAssessmentView({
 
       {/* Footer: Share / PDF / CSV */}
       <footer
-        className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3"
+        className="fixed bottom-0 left-0 right-0 bg-[#1C1C1E] px-6 pt-3 flex items-center justify-around gap-3 print-hidden"
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
         <button
@@ -492,10 +558,21 @@ export function ValidatedAssessmentView({
         <div className="w-px h-8 bg-white/10" />
         <button
           onClick={handlePdf}
-          className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors active:scale-95"
+          disabled={pdfState.loading}
+          className={`flex-1 flex flex-col items-center gap-1 py-1 transition-colors active:scale-95 ${
+            pdfState.loading
+              ? 'text-white/40 cursor-wait'
+              : 'text-white/80 hover:text-white'
+          }`}
         >
-          <Download className="w-5 h-5" />
-          <span className="text-[10px] font-semibold tracking-wide">PDF</span>
+          {pdfState.loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Download className="w-5 h-5" />
+          )}
+          <span className="text-[10px] font-semibold tracking-wide">
+            {pdfState.loading ? pdfState.message || 'PDF' : 'PDF'}
+          </span>
         </button>
         <div className="w-px h-8 bg-white/10" />
         <button
@@ -1031,21 +1108,47 @@ function ReportEvidenceCard({
   idx: number;
   onClick: () => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [natSize, setNatSize] = useState<{ w: number; h: number } | null>(null);
+  const [displaySize, setDisplaySize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     setNatSize(null);
+    setDisplaySize(null);
   }, [evidence.url]);
 
-  const violationCount = risks.filter(r => r.severity === 'CRITICAL' || r.severity === 'HIGH').length;
-  const warningCount = risks.filter(r => r.severity === 'MEDIUM' || r.severity === 'LOW').length;
+  // Compute the actual rendered image area inside the object-contain container
+  const computeDisplaySize = useCallback(() => {
+    if (!containerRef.current || !natSize) return;
+    const container = containerRef.current;
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
+    const imgAspect = natSize.w / natSize.h;
+    const containerAspect = containerW / containerH;
+    let renderedW: number, renderedH: number;
+    if (imgAspect > containerAspect) {
+      renderedW = containerW;
+      renderedH = containerW / imgAspect;
+    } else {
+      renderedH = containerH;
+      renderedW = containerH * imgAspect;
+    }
+    setDisplaySize({ w: renderedW, h: renderedH });
+  }, [natSize]);
+
+  useEffect(() => {
+    computeDisplaySize();
+    const observer = new ResizeObserver(computeDisplaySize);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [computeDisplaySize]);
 
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group"
+      className="relative rounded-xl overflow-hidden bg-gray-900 cursor-zoom-in group print-evidence-card"
       onClick={onClick}
     >
-      <div className="relative" style={{ height: 200 }}>
+      <div ref={containerRef} className="relative report-evidence-img-container">
         <img
           src={evidence.url}
           alt={`Evidence ${idx + 1}`}
@@ -1055,15 +1158,27 @@ function ReportEvidenceCard({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {/* Bounding boxes hidden in thumbnail — visible only in expanded lightbox */}
+        {/* Bounding boxes rendered directly on the card for PDF output */}
+        {natSize && displaySize && (
+          <svg
+            className="absolute pointer-events-none"
+            style={{
+              width: displaySize.w,
+              height: displaySize.h,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {renderAllBBoxRects(risks, natSize.w, natSize.h)}
+          </svg>
+        )}
         {/* Hover zoom hint */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none print-hidden">
           <ZoomIn className="w-7 h-7 text-white drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
-        {/* Severity chips removed from thumbnail — shown only in lightbox */}
-      </div>
-      <div className="px-3 py-2 bg-gray-800">
-        <p className="text-xs text-white/70">Evidence {idx + 1} — Tap to expand</p>
       </div>
     </div>
   );
