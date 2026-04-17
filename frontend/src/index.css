@@ -200,7 +200,6 @@ img {
     margin: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   /* Remove fixed positioning, backgrounds, shadows */
