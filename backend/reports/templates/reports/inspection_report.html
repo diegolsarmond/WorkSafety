@@ -155,7 +155,7 @@
             padding: 0 40px 28px;
         }
         .evidence-block {
-            margin-bottom: 24px;
+            margin-bottom: 28px;
             page-break-inside: avoid;
             break-inside: avoid;
         }
@@ -168,33 +168,35 @@
             margin-bottom: 8px;
         }
         .evidence-image-wrapper {
-            display: table;
+            display: block;
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
         .evidence-image-cell {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
-            padding-right: 12px;
+            display: block;
+            width: 100%;
+            margin-bottom: 12px;
         }
         .findings-cell {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
+            display: block;
+            width: 100%;
         }
 
         .evidence-box {
             border-radius: 10px;
             overflow: hidden;
-            background-color: #e2e8f0;
+            background-color: #f1f5f9;
             position: relative;
+            text-align: center;
         }
         .evidence-box img {
             width: 100%;
-            max-height: 320px;
+            max-width: 100%;
+            height: auto;
+            max-height: 480px;
             object-fit: contain;
             display: block;
+            margin: 0 auto;
             background-color: #f1f5f9;
         }
         .evidence-caption {
@@ -299,9 +301,11 @@
         /* ── FOOTER ─────────────────────────────── */
         .footer {
             background-color: #2d3748;
-            padding: 40px 40px 28px;
+            padding: 30px 40px;
             color: white;
             position: relative;
+            margin-top: 20px;
+            page-break-inside: avoid;
         }
         .footer-sig-label {
             font-size: 8px;
@@ -415,7 +419,7 @@
                                 {% if finding.is_critical %}
                                     <div class="finding-card finding-card-critical">
                                         <div class="finding-top">
-                                            <div class="finding-badge-cell"><span class="badge badge-critical">Critical</span></div>
+                                            <div class="finding-badge-cell"><span class="badge badge-critical">{% if finding.rule_name %}{{ finding.rule_name }}{% else %}Critical{% endif %}</span></div>
                                             <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
                                         </div>
                                         <div class="finding-title">{{ finding.title }}</div>
@@ -424,7 +428,7 @@
                                 {% elif finding.is_warning %}
                                     <div class="finding-card finding-card-warning">
                                         <div class="finding-top">
-                                            <div class="finding-badge-cell"><span class="badge badge-warning">Warning</span></div>
+                                            <div class="finding-badge-cell"><span class="badge badge-warning">{% if finding.rule_name %}{{ finding.rule_name }}{% else %}Warning{% endif %}</span></div>
                                             <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
                                         </div>
                                         <div class="finding-title">{{ finding.title }}</div>
@@ -433,7 +437,7 @@
                                 {% else %}
                                     <div class="finding-card finding-card-info">
                                         <div class="finding-top">
-                                            <div class="finding-badge-cell"><span class="badge badge-info">Info</span></div>
+                                            <div class="finding-badge-cell"><span class="badge badge-info">{% if finding.rule_name %}{{ finding.rule_name }}{% else %}Info{% endif %}</span></div>
                                             <div class="finding-conf-cell">{{ finding.confidence }}% Confidence</div>
                                         </div>
                                         <div class="finding-title">{{ finding.title }}</div>

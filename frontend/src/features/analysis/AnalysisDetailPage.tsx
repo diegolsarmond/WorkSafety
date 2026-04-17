@@ -31,7 +31,12 @@ import {
 } from 'lucide-react';
 import { useRiskAssessment } from '@/hooks/risk/useRiskAssessment';
 import { submitReview } from '@/services/risk/riskService';
+import { SecureStorage } from '@/services/storage/secureStorage';
+import { AUTH_TOKEN_KEY } from '@/services/auth/authKeys';
 import type { RiskItem, RiskAssessmentDetail } from '@/types/risk';
+
+/** API base URL for backend calls */
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://200.152.38.136:8000/api/').replace(/\/$/, '');
 
 interface RiskDecision {
   riskId: string;
@@ -117,6 +122,7 @@ export function ValidatedAssessmentView({
   const [reportLbIndex, setReportLbIndex] = useState<number>(0);
   const [reportLbNatSize, setReportLbNatSize] = useState<{ w: number; h: number } | null>(null);
   const [shareToast, setShareToast] = useState(false);
+  const [pdfState, setPdfState] = useState<{ loading: boolean; message: string }>({ loading: false, message: '' });
 
   // Lock body scroll when lightbox is open
   useEffect(() => {
@@ -199,8 +205,96 @@ export function ValidatedAssessmentView({
     }
   };
 
-  const handlePdf = () => {
-    window.print();
+  const handlePdf = async () => {
+    if (pdfState.loading) return;
+    setPdfState({ loading: true, message: 'Generating PDF…' });
+
+    const token = SecureStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      setPdfState({ loading: false, message: '' });
+      alert('You need to be logged in to generate a PDF.');
+      return;
+    }
+
+    try {
+      // 1. Trigger backend PDF generation
+      const genRes = await fetch(
+        `${API_BASE}/admin/assessments/${assessment.id}/generate-report/`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        },
+      );
+
+      if (!genRes.ok) {
+        throw new Error(`Failed to start PDF generation (${genRes.status})`);
+      }
+
+      const genData = await genRes.json();
+      const reportId: number = genData.report_id;
+
+      // 2. Poll for completion (max ~30 s)
+      setPdfState({ loading: true, message: 'Processing report…' });
+      let fileUrl: string | null = null;
+      const maxAttempts = 30;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const statusRes = await fetch(
+          `${API_BASE}/admin/reports/${reportId}/`,
+          { headers: { 'Authorization': `Bearer ${token}` } },
+        );
+        if (!statusRes.ok) continue;
+        const statusData = await statusRes.json();
+
+        if (statusData.status === 'ready' && statusData.file_url) {
+          fileUrl = statusData.file_url;
+          break;
+        }
+        if (statusData.status === 'failed') {
+          throw new Error(statusData.error_message || 'PDF generation failed');
+        }
+      }
+
+      if (!fileUrl) {
+        throw new Error('PDF generation timed out');
+      }
+
+      // 3. Download the file
+      setPdfState({ loading: true, message: 'Downloading…' });
+      let downloadUrl: string;
+      if (fileUrl.startsWith('http')) {
+        downloadUrl = fileUrl;
+      } else if (fileUrl.startsWith('/')) {
+        downloadUrl = `${window.location.origin}${fileUrl}`;
+      } else {
+        downloadUrl = `${API_BASE}/${fileUrl}`;
+      }
+
+      const dlRes = await fetch(downloadUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!dlRes.ok) {
+        throw new Error(`Download failed (${dlRes.status})`);
+      }
+
+      const blob = await dlRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `safety-report-${assessment.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+      setPdfState({ loading: false, message: '' });
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      setPdfState({ loading: false, message: '' });
+      // Fallback: use browser print
+      window.print();
+    }
   };
 
   const handleCsv = () => {
@@ -464,10 +558,21 @@ export function ValidatedAssessmentView({
         <div className="w-px h-8 bg-white/10" />
         <button
           onClick={handlePdf}
-          className="flex-1 flex flex-col items-center gap-1 py-1 text-white/80 hover:text-white transition-colors active:scale-95"
+          disabled={pdfState.loading}
+          className={`flex-1 flex flex-col items-center gap-1 py-1 transition-colors active:scale-95 ${
+            pdfState.loading
+              ? 'text-white/40 cursor-wait'
+              : 'text-white/80 hover:text-white'
+          }`}
         >
-          <Download className="w-5 h-5" />
-          <span className="text-[10px] font-semibold tracking-wide">PDF</span>
+          {pdfState.loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Download className="w-5 h-5" />
+          )}
+          <span className="text-[10px] font-semibold tracking-wide">
+            {pdfState.loading ? pdfState.message || 'PDF' : 'PDF'}
+          </span>
         </button>
         <div className="w-px h-8 bg-white/10" />
         <button

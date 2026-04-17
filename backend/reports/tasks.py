@@ -205,24 +205,32 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
     try:
         # Mapping from severity to badge info for the template
         SEVERITY_MAP = {
-            'rule_1_violation': {'severity': 'HIGH', 'name': 'Uso de EPI'},
-            'rule_2_violation': {'severity': 'CRITICAL', 'name': 'Trabalho em Altura'},
-            'rule_3_violation': {'severity': 'HIGH', 'name': 'Escavações'},
-            'rule_4_violation': {'severity': 'CRITICAL', 'name': 'Proximidade com Máquinas'},
-            'rule_5_violation': {'severity': 'CRITICAL', 'name': 'Espaço Confinado'},
-            'rule_6_violation': {'severity': 'HIGH', 'name': 'Proteção Elétrica'},
-            'rule_7_violation': {'severity': 'MEDIUM', 'name': 'Risco Ocupacional'},
-            'rule_8_violation': {'severity': 'MEDIUM', 'name': 'Risco Ocupacional'},
+            'rule_1_violation': {'severity': 'HIGH', 'name': 'Rule 1 - Basic PPE Usage'},
+            'rule_2_violation': {'severity': 'CRITICAL', 'name': 'Rule 2 - Road Traffic and Vehicle Operation'},
+            'rule_3_violation': {'severity': 'HIGH', 'name': 'Rule 3 - Slips, Trips, and Falls'},
+            'rule_4_violation': {'severity': 'CRITICAL', 'name': 'Rule 4 - Falls from 1 Meter or More'},
+            'rule_5_violation': {'severity': 'CRITICAL', 'name': 'Rule 5 - Forklifts and Moving Vehicles'},
+            'rule_6_violation': {'severity': 'HIGH', 'name': 'Rule 6 - Construction, Assembly'},
+            'rule_7_violation': {'severity': 'MEDIUM', 'name': 'Rule 7 - Construction Vehicles'},
+            'rule_8_violation': {'severity': 'MEDIUM', 'name': 'Rule 8 - Loading and Unloading'},
         }
 
-        # Collect evidences with file paths
+        # Collect evidences with file paths and natural dimensions
         evidences = list(assessment.evidences.all())
         evidence_items = []
         for idx, evidence in enumerate(evidences):
             evidence_image_url = None
+            img_width, img_height = 1920, 1080
             if evidence.file:
                 try:
-                    evidence_image_url = f"file://{os.path.normpath(evidence.file.path).replace(chr(92), '/')}"
+                    file_path = os.path.normpath(evidence.file.path)
+                    evidence_image_url = f"file://{file_path.replace(chr(92), '/')}"
+                    try:
+                        from PIL import Image as PILImage
+                        with PILImage.open(file_path) as pil_img:
+                            img_width, img_height = pil_img.size
+                    except Exception:
+                        pass
                 except Exception:
                     evidence_image_url = None
 
@@ -233,6 +241,8 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
             evidence_items.append({
                 'index': idx + 1,
                 'image_url': evidence_image_url,
+                'img_width': img_width,
+                'img_height': img_height,
                 'timestamp': evidence_timestamp,
                 'findings': [],  # will be populated below
             })
@@ -290,6 +300,7 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
                         'is_warning': is_warning,
                         'confidence': confidence,
                         'rule_id': rule_key,
+                        'rule_name': rule_info['name'],
                     }
 
                     # Associate with the correct evidence using evidence_index
@@ -317,13 +328,18 @@ def _generate_pdf_document(assessment: RiskAssessment, data: dict) -> io.BytesIO
                 if len(title_text) > 60:
                     short_title += '...'
 
+                rule_name = finding.title or 'Risk finding'
+                if getattr(finding, 'rule_id', None):
+                    rule_name = SEVERITY_MAP.get(finding.rule_id, {}).get('name', finding.rule_id)
+
                 finding_data = {
                     'title': short_title,
                     'description': finding.description or 'No description provided',
                     'is_critical': is_critical,
                     'is_warning': is_warning,
                     'confidence': confidence,
-                    'rule_id': '',
+                    'rule_id': getattr(finding, 'rule_id', ''),
+                    'rule_name': rule_name,
                 }
 
                 # Associate via FK relationship
