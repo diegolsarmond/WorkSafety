@@ -10,11 +10,13 @@ import {
   CheckCircle2,
   Loader2,
   ImageIcon,
+  WifiOff,
 } from "lucide-react";
 import { Button } from "@/ui/components/Button";
 import { useAnalysisStore } from "../../store/analysisStore";
+import { useSyncStore } from "../../store/syncStore";
 import { apiClient } from "@/services/api/apiClient";
-import { dataURLtoFile } from "@/utils/syncUtils";
+import { dataURLtoFile, isOnline } from "@/utils/syncUtils";
 
 const TIPS_KEY = "worksafety:camera_tips_shown";
 
@@ -169,13 +171,44 @@ export function CameraCapture() {
   const handleSubmit = async () => {
     if (photos.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
-    try {
-      const computedTitle = title.trim() || `Analysis - ${environment} - ${category}`;
 
+    const computedTitle = title.trim() || `Analysis - ${environment} - ${category}`;
+    const computedDescription = description.trim() || `Automated analysis for ${environment} concerning ${category}.`;
+
+    // ── Offline: salva como rascunho na fila de sincronização ────────────
+    if (!isOnline()) {
+      try {
+        const jobId = await useSyncStore.getState().addJob(
+          {
+            title: computedTitle,
+            description: computedDescription,
+            environment: environment || 'other',
+            category: category || 'General Safety',
+            status: 'draft',
+          },
+          photos.map((p) => ({ id: p.id, dataUrl: p.dataUrl, timestamp: p.timestamp })),
+        );
+
+        console.log('[CameraCapture] Offline – draft queued as job', jobId);
+        reset();
+        navigate("/analysis/syncing", {
+          replace: true,
+          state: { offlineDraft: true, title: computedTitle },
+        });
+      } catch (err) {
+        console.error("[CameraCapture] Failed to save offline draft:", err);
+        showToast("Failed to save draft. Please try again.");
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // ── Online: fluxo direto via API ─────────────────────────────────────
+    try {
       // Step 1: Create the assessment
       const createResponse = await apiClient.post("assessments/", {
         title: computedTitle,
-        description: description.trim() || `Automated analysis for ${environment} concerning ${category}.`,
+        description: computedDescription,
         status: "draft",
       });
       const assessmentId = createResponse.data.id;
@@ -204,6 +237,32 @@ export function CameraCapture() {
         state: { assessmentId, title: computedTitle },
       });
     } catch (error) {
+      // Se caiu offline durante o envio, tenta salvar como rascunho
+      if (!isOnline()) {
+        try {
+          const jobId = await useSyncStore.getState().addJob(
+            {
+              title: computedTitle,
+              description: computedDescription,
+              environment: environment || 'other',
+              category: category || 'General Safety',
+              status: 'draft',
+            },
+            photos.map((p) => ({ id: p.id, dataUrl: p.dataUrl, timestamp: p.timestamp })),
+          );
+
+          console.log('[CameraCapture] Went offline during submit – draft queued as job', jobId);
+          reset();
+          navigate("/analysis/syncing", {
+            replace: true,
+            state: { offlineDraft: true, title: computedTitle },
+          });
+          return;
+        } catch (draftError) {
+          console.error("[CameraCapture] Failed to save offline draft on fallback:", draftError);
+        }
+      }
+
       console.error("Error submitting analysis:", error);
       showToast("Failed to submit photos. Please try again.");
       setIsSubmitting(false);

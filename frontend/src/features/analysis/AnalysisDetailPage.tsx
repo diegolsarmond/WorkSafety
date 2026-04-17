@@ -44,6 +44,33 @@ interface ReviewState {
   customActions: Record<string, string>;
 }
 
+/** Human-readable labels for safety rules */
+const RULE_LABELS: Record<string, string> = {
+  'Rule 1': 'Rule 1 - Basic PPE Usage',
+  'Rule 2': 'Rule 2 - Road Traffic and Vehicle Operation',
+  'Rule 3': 'Rule 3 - Slips, Trips, and Falls on Level Surfaces/Stairs',
+  'Rule 4': 'Rule 4 - Falls from 1 Meter or More',
+  'Rule 5': 'Rule 5 - Forklifts and Internal Moving Vehicles',
+  'Rule 6': 'Rule 6 - Construction, Assembly, and Maintenance',
+  'Rule 7': 'Rule 7 - Construction Vehicles and Machinery',
+  'Rule 8': 'Rule 8 - Loading and Unloading',
+};
+
+/** Resolve a rule_id to its full human-readable label */
+function getRuleLabel(ruleId: string | undefined): string | null {
+  if (!ruleId) return null;
+  // Try exact match first
+  if (RULE_LABELS[ruleId]) return RULE_LABELS[ruleId];
+  // Try matching by extracting the number (e.g. "rule_1" → "Rule 1")
+  const num = ruleId.replace(/[^0-9]/g, '');
+  if (num) {
+    const key = `Rule ${num}`;
+    if (RULE_LABELS[key]) return RULE_LABELS[key];
+  }
+  // Fallback: show raw value
+  return ruleId;
+}
+
 /**
  * Normaliza coordenadas de bounding box para o espaço de pixels da imagem.
  *
@@ -296,22 +323,19 @@ export function ValidatedAssessmentView({
               <>
                 {violations.map(risk => (
                   <div key={risk.id} className="rounded-xl border border-red-100 bg-red-50/40 p-3">
-                    <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                      <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase">
-                        Violation
-                      </span>
+                      {getRuleLabel(risk.rule_id) && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
+                          {getRuleLabel(risk.rule_id)}
+                        </span>
+                      )}
                       {risk.location && (
                         <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
                           {risk.location}
                         </span>
                       )}
                     </div>
-                    {risk.rule_id && (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
-                        {risk.rule_id}
-                      </span>
-                    )}
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
                 ))}
@@ -328,11 +352,6 @@ export function ValidatedAssessmentView({
                         </span>
                       )}
                     </div>
-                    {risk.rule_id && (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
-                        {risk.rule_id}
-                      </span>
-                    )}
                     <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                   </div>
                 ))}
@@ -395,28 +414,27 @@ export function ValidatedAssessmentView({
                               : 'border-yellow-100 bg-yellow-50/40'
                               }`}
                           >
-                            <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                               <AlertTriangle
                                 className={`w-3.5 h-3.5 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'
                                   }`}
                               />
-                              <span
-                                className={`text-[10px] font-bold tracking-widest uppercase ${isViolation ? 'text-red-500' : 'text-yellow-600'
-                                  }`}
-                              >
-                                {isViolation ? 'Violation' : 'Warning'}
-                              </span>
+                              {isViolation && getRuleLabel(risk.rule_id) && (
+                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
+                                  {getRuleLabel(risk.rule_id)}
+                                </span>
+                              )}
+                              {!isViolation && (
+                                <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
+                                  Warning
+                                </span>
+                              )}
                               {risk.location && (
                                 <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full truncate max-w-[110px]">
                                   {risk.location}
                                 </span>
                               )}
                             </div>
-                            {risk.rule_id && (
-                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 mb-1.5">
-                                {risk.rule_id}
-                              </span>
-                            )}
                             <p className="text-sm text-gray-800 leading-snug">{risk.description}</p>
                           </div>
                         );
@@ -843,24 +861,7 @@ function ImageCardWithBBox({
         />
         {/* Bounding boxes shown only in lightbox, not in thumbnails */}
 
-        {/* Severity chip or all chip */}
-        {group !== 'all' ? (
-          <div className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold pointer-events-none ${group === 'violation' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
-            }`}>
-            <AlertTriangle className="w-3 h-3" />
-            {group === 'violation' ? 'Violation' : 'Warning'}
-            <span className={`ml-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${group === 'violation' ? 'bg-red-500' : 'bg-yellow-500'
-              }`}>
-              {groupCount}
-            </span>
-          </div>
-        ) : (
-          <div className="absolute top-4 left-4 pointer-events-none">
-            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full">
-
-            </div>
-          </div>
-        )}
+        {/* Severity badge removed from thumbnail — shown only in lightbox */}
 
         {/* Zoom button */}
         <button
@@ -907,17 +908,49 @@ function renderBBoxRects(
     .filter(r => Array.isArray(r.bounding_box) && r.bounding_box.length === 4)
     .map(risk => {
       const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
-      const sw = Math.max(imgW, imgH) / strokeWidthDivisor;
+      const sw = Math.max(imgW, imgH) / (strokeWidthDivisor * 2.5);
+      const dashLen = sw * 6;
+      const x = Math.min(rx1, rx2);
+      const y = Math.min(ry1, ry2);
+      const w = Math.abs(rx2 - rx1);
+      const h = Math.abs(ry2 - ry1);
+      const fontSize = Math.max(imgW, imgH) / 80;
+      const pad = sw * 2;
       return (
-        <rect
-          key={risk.id}
-          x={Math.min(rx1, rx2)} y={Math.min(ry1, ry2)}
-          width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth={sw}
-          strokeLinejoin="round"
-        />
+        <g key={risk.id}>
+          <rect
+            x={x} y={y}
+            width={w} height={h}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={sw}
+            strokeLinejoin="round"
+            strokeDasharray={`${dashLen} ${dashLen * 0.6}`}
+          />
+          {risk.rule_id && (
+            <>
+              <rect
+                x={x + pad}
+                y={y + pad}
+                width={risk.rule_id.length * fontSize * 0.62 + fontSize * 0.8}
+                height={fontSize * 1.6}
+                rx={fontSize * 0.3}
+                fill={strokeColor}
+                fillOpacity={0.85}
+              />
+              <text
+                x={x + pad + fontSize * 0.4}
+                y={y + pad + fontSize * 1.15}
+                fill="white"
+                fontSize={fontSize}
+                fontWeight="bold"
+                fontFamily="system-ui, sans-serif"
+              >
+                {risk.rule_id}
+              </text>
+            </>
+          )}
+        </g>
       );
     });
 }
@@ -930,17 +963,53 @@ function renderAllBBoxRects(risks: RiskItem[], imgW: number, imgH: number): Reac
       const [rx1, ry1, rx2, ry2] = normalizeBBox(risk.bounding_box!, imgW, imgH);
       const isViolation = risk.severity === 'CRITICAL' || risk.severity === 'HIGH';
       const strokeColor = isViolation ? '#ef4444' : '#f59e0b';
-      const sw = Math.max(imgW, imgH) / 150;
+      const sw = Math.max(imgW, imgH) / 375;
+      const dashLen = sw * 6;
+      const x = Math.min(rx1, rx2);
+      const y = Math.min(ry1, ry2);
+      const w = Math.abs(rx2 - rx1);
+      const h = Math.abs(ry2 - ry1);
+      const fontSize = Math.max(imgW, imgH) / 80;
+      const pad = sw * 2;
+      // Only violations show rule_id label; warnings always show "Warning"
+      const labelText = isViolation && risk.rule_id ? risk.rule_id : (!isViolation ? 'Warning' : null);
+      const labelW = labelText ? labelText.length * fontSize * 0.62 + fontSize * 0.8 : 0;
+      const labelH = fontSize * 1.6;
       return (
-        <rect
-          key={risk.id}
-          x={Math.min(rx1, rx2)} y={Math.min(ry1, ry2)}
-          width={Math.abs(rx2 - rx1)} height={Math.abs(ry2 - ry1)}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth={sw}
-          strokeLinejoin="round"
-        />
+        <g key={risk.id}>
+          <rect
+            x={x} y={y}
+            width={w} height={h}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={sw}
+            strokeLinejoin="round"
+            strokeDasharray={`${dashLen} ${dashLen * 0.6}`}
+          />
+          {labelText && (
+            <>
+              <rect
+                x={x + pad}
+                y={y + pad}
+                width={Math.min(labelW, w - pad * 2)}
+                height={labelH}
+                rx={fontSize * 0.3}
+                fill={strokeColor}
+                fillOpacity={0.85}
+              />
+              <text
+                x={x + pad + fontSize * 0.4}
+                y={y + pad + fontSize * 1.15}
+                fill="white"
+                fontSize={fontSize}
+                fontWeight="bold"
+                fontFamily="system-ui, sans-serif"
+              >
+                {labelText}
+              </text>
+            </>
+          )}
+        </g>
       );
     });
 }
@@ -986,32 +1055,12 @@ function ReportEvidenceCard({
             setNatSize({ w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {natSize && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 ${natSize.w} ${natSize.h}`}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {renderAllBBoxRects(risks, natSize.w, natSize.h)}
-          </svg>
-        )}
+        {/* Bounding boxes hidden in thumbnail — visible only in expanded lightbox */}
         {/* Hover zoom hint */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
           <ZoomIn className="w-7 h-7 text-white drop-shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
-        {/* Severity chips */}
-        <div className="absolute top-2 left-2 flex gap-1 pointer-events-none">
-          {violationCount > 0 && (
-            <span className="flex items-center gap-1 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              <AlertTriangle className="w-3 h-3" /> {violationCount}
-            </span>
-          )}
-          {warningCount > 0 && (
-            <span className="flex items-center gap-1 bg-yellow-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              <AlertTriangle className="w-3 h-3" /> {warningCount}
-            </span>
-          )}
-        </div>
+        {/* Severity chips removed from thumbnail — shown only in lightbox */}
       </div>
       <div className="px-3 py-2 bg-gray-800">
         <p className="text-xs text-white/70">Evidence {idx + 1} — Tap to expand</p>
@@ -1054,6 +1103,37 @@ export function AnalysisDetailPage() {
     autoFetch: true,
     refreshInterval: 5000,
   });
+
+  // ── Swipe gesture support ──────────────────────────────────────────────────
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null || !assessment) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    const SWIPE_THRESHOLD = 50;
+    // Only trigger horizontal swipe if it's more horizontal than vertical
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0 && currentImageIndex < assessment.evidences.length - 1) {
+        // Swipe left → next photo
+        setCurrentImageIndex(prev => prev + 1);
+        setLightboxNatSize(null);
+      } else if (deltaX > 0 && currentImageIndex > 0) {
+        // Swipe right → previous photo
+        setCurrentImageIndex(prev => prev - 1);
+        setLightboxNatSize(null);
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [assessment, currentImageIndex]);
 
   const savedReviewState = useMemo<ReviewState | null>(() => {
     if (!assessmentId) return null;
@@ -1281,8 +1361,20 @@ export function AnalysisDetailPage() {
       <div key={risk.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-4">
           {/* Description row */}
-          <div className={`flex items-start gap-2 ${isValidated ? '' : 'mb-3'}`}>
-            <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isViolation ? 'text-red-500' : 'text-yellow-500'}`} />
+          <div className={`${isValidated ? '' : 'mb-3'}`}>
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+              <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${isViolation ? 'text-red-500' : 'text-yellow-500'}`} />
+              {isViolation && getRuleLabel(risk.rule_id) && (
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap bg-red-100 text-red-700">
+                  {getRuleLabel(risk.rule_id)}
+                </span>
+              )}
+              {!isViolation && (
+                <span className="text-[10px] font-bold text-yellow-600 tracking-widest uppercase">
+                  Warning
+                </span>
+              )}
+            </div>
             <p className={`text-sm font-medium leading-snug ${isRejected ? 'line-through text-gray-400' : 'text-gray-900'}`}>
               {risk.description}
             </p>
@@ -1321,7 +1413,7 @@ export function AnalysisDetailPage() {
               </button>
               <button
                 onClick={() => handleRiskDecision(risk.id, 'rejected')}
-                className="flex-1 py-2 rounded-lg border-2 border-gray-300 text-gray-600 font-semibold text-sm flex items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2 rounded-lg border-2 border-red-500 text-red-600 font-semibold text-sm flex items-center justify-center gap-1.5 hover:bg-red-50 transition-colors"
               >
                 <XCircle className="w-4 h-4" /> Reject
               </button>
@@ -1542,14 +1634,16 @@ export function AnalysisDetailPage() {
                       className={`flex-1 h-0.5 ${idx <= currentImageIndex ? 'bg-[#0b6b82]' : 'bg-gray-200'}`}
                     />
                   )}
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors ${idx <= currentImageIndex
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentImageIndex(idx); setLightboxNatSize(null); }}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 text-[11px] font-bold flex-shrink-0 transition-colors cursor-pointer ${idx <= currentImageIndex
                       ? 'bg-[#0b6b82] border-[#0b6b82] text-white'
                       : 'bg-white border-gray-300 text-gray-400'
                       }`}
                   >
                     {idx + 1}
-                  </div>
+                  </button>
                 </React.Fragment>
               ))}
             </div>
@@ -1557,7 +1651,7 @@ export function AnalysisDetailPage() {
         </div>
       )}
 
-      {/* ── Date / Location row ── */}
+      {/* ── Date row ── */}
       {currentEvidence && (
         <div className="bg-white px-4 py-3 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -1567,15 +1661,6 @@ export function AnalysisDetailPage() {
                 {new Date(currentEvidence.captured_at ?? assessment.created_at).toLocaleDateString('pt-BR')}
               </p>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Location</p>
-              <p className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
-                {assessment.description || 'North Sector'}
-              </p>
-            </div>
-            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full max-w-[100px] truncate flex-shrink-0">
-              {assessment.title || ''}
-            </span>
           </div>
           {!isValidated && (
             <div className="flex items-start gap-1.5 mt-2.5">
@@ -1589,7 +1674,12 @@ export function AnalysisDetailPage() {
       )}
 
       {/* ── Scrollable content ── */}
-      <main className="flex-1 overflow-y-auto pb-28">
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto pb-28"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className="max-w-3xl mx-auto w-full space-y-0">
 
           {/* Violation section */}

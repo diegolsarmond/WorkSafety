@@ -144,11 +144,7 @@ export default function AppRouter() {
 
         <Route
           path="/sync-queue"
-          element={
-            <ProtectedRoute>
-              <SyncQueuePage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/ai-queue" replace />}
         />
 
         <Route

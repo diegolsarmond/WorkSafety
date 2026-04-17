@@ -6,6 +6,7 @@
 import { WifiOff, Wifi, X } from 'lucide-react';
 import { useNetworkStatus } from '../hooks';
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 /**
  * Badge discreto de offline no canto superior direito
@@ -14,6 +15,11 @@ export function OfflineIndicator() {
   const { isOffline } = useNetworkStatus();
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const location = useLocation();
+
+  // Pages that render their own offline indicator
+  const suppressedPaths = ['/ai-queue', '/sync-queue'];
+  const isSuppressed = suppressedPaths.some(p => location.pathname.startsWith(p));
 
   useEffect(() => {
     if (isOffline && !isDismissed) {
@@ -24,7 +30,7 @@ export function OfflineIndicator() {
     }
   }, [isOffline, isDismissed]);
 
-  if (!isVisible || !isOffline) return null;
+  if (!isVisible || !isOffline || isSuppressed) return null;
 
   return (
     <div className="hidden sm:block fixed top-4 right-4 z-50 animate-in fade-in duration-300">
